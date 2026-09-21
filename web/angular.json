@@ -76,7 +76,10 @@
           "defaultConfiguration": "development",
           "options": {
             "proxyConfig": "proxy.conf.json",
-            "port": 4300
+            "port": 4300,
+            "prebundle": {
+              "exclude": ["@uvm/compartido"]
+            }
           }
         },
         "test": {
