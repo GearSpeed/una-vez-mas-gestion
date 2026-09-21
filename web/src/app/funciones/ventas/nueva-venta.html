@@ -1,0 +1,186 @@
+<div class="pagina">
+  <uvm-encabezado
+    titulo="Nueva venta"
+    [subtitulo]="nombreUbicacion() ? 'Se descuenta de: ' + nombreUbicacion() : null"
+  >
+    <a mat-button routerLink="/ventas">Ver ventas</a>
+  </uvm-encabezado>
+
+  <div class="filtros">
+    @if (eligeUbicacion()) {
+      <mat-form-field>
+        <mat-label>Vender desde</mat-label>
+        <mat-select [value]="ubicacionId()" (valueChange)="cambiarUbicacion($event)">
+          @for (u of ubicacionesActivas(); track u.id) {
+            <mat-option [value]="u.id">{{ u.nombre }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    }
+    <mat-form-field>
+      <mat-label>Buscar producto</mat-label>
+      <mat-icon matPrefix aria-hidden="true">search</mat-icon>
+      <input
+        matInput
+        type="search"
+        autocomplete="off"
+        [value]="busqueda()"
+        (input)="busqueda.set($any($event.target).value)"
+      />
+    </mat-form-field>
+  </div>
+
+  <uvm-estado-carga
+    [cargando]="existencias.isLoading()"
+    [error]="existencias.error()"
+    (reintentar)="existencias.reload()"
+  />
+
+  <div class="distribucion">
+    <ul class="productos" aria-label="Productos que puedes vender">
+      @for (p of visibles(); track p.productoId) {
+        <li class="producto" [class.elegido]="cantidadDe(p.productoId) > 0">
+          <div class="datos">
+            <span class="nombre">{{ p.producto }}</span>
+            <span class="ayuda">{{ p.precioVenta | currency }} · quedan {{ p.cantidad }}</span>
+          </div>
+          <div class="contador" role="group" [attr.aria-label]="'Piezas de ' + p.producto">
+            <button
+              mat-icon-button
+              type="button"
+              (click)="quitar(p.productoId)"
+              [disabled]="cantidadDe(p.productoId) === 0"
+              [attr.aria-label]="'Quitar una pieza de ' + p.producto"
+            >
+              <mat-icon>remove</mat-icon>
+            </button>
+            <span class="cantidad" aria-live="polite">{{ cantidadDe(p.productoId) }}</span>
+            <button
+              mat-icon-button
+              type="button"
+              (click)="agregar(p)"
+              [disabled]="cantidadDe(p.productoId) >= p.cantidad"
+              [attr.aria-label]="'Agregar una pieza de ' + p.producto"
+            >
+              <mat-icon>add</mat-icon>
+            </button>
+          </div>
+        </li>
+      } @empty {
+        @if (!existencias.isLoading()) {
+          <li class="vacio ayuda">
+            {{
+              busqueda()
+                ? 'Ningún producto coincide con la búsqueda.'
+                : 'No hay productos con existencia y precio en esta ubicación.'
+            }}
+          </li>
+        }
+      }
+    </ul>
+
+    <section class="tarjeta resumen" aria-labelledby="titulo-resumen">
+      <h2 id="titulo-resumen">Esta venta</h2>
+
+      @if (lineas().length) {
+        <table class="lineas">
+          <caption class="visualmente-oculto">
+            Productos de esta venta
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Producto</th>
+              <th scope="col" class="numero">Piezas</th>
+              @if (puedeDescontar()) {
+                <th scope="col" class="numero">Descuento</th>
+              }
+              <th scope="col" class="numero">Importe</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (l of lineas(); track l.productoId) {
+              <tr>
+                <td>{{ l.producto }}</td>
+                <td class="numero">{{ l.cantidad }}</td>
+                @if (puedeDescontar()) {
+                  <td class="numero">
+                    <input
+                      class="descuento"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      inputmode="decimal"
+                      [value]="carrito().get(l.productoId)?.descuento ?? ''"
+                      (input)="cambiarDescuento(l.productoId, $any($event.target).value)"
+                      [attr.aria-label]="'Descuento en pesos para ' + l.producto"
+                    />
+                  </td>
+                }
+                <td class="numero">{{ l.importe | currency }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p class="ayuda">Toca + en lo que entregaste.</p>
+      }
+
+      <fieldset class="grupo">
+        <legend>Canal</legend>
+        <mat-button-toggle-group
+          [value]="canal()"
+          (change)="canal.set($event.value)"
+          aria-label="Canal de la venta"
+          [hideSingleSelectionIndicator]="true"
+        >
+          @for (c of canales; track c) {
+            <mat-button-toggle [value]="c">{{ c | etiqueta: 'canal' }}</mat-button-toggle>
+          }
+        </mat-button-toggle-group>
+      </fieldset>
+
+      <fieldset class="grupo">
+        <legend>Cómo pagó</legend>
+        <mat-button-toggle-group
+          [value]="metodoPago()"
+          (change)="metodoPago.set($event.value)"
+          aria-label="Método de pago"
+          [hideSingleSelectionIndicator]="true"
+        >
+          @for (m of metodos; track m) {
+            <mat-button-toggle [value]="m">{{ m | etiqueta: 'metodo' }}</mat-button-toggle>
+          }
+        </mat-button-toggle-group>
+      </fieldset>
+
+      <mat-form-field>
+        <mat-label>Notas (opcional)</mat-label>
+        <input
+          matInput
+          [value]="notas()"
+          (input)="notas.set($any($event.target).value)"
+          maxlength="500"
+        />
+      </mat-form-field>
+
+      <p class="total" aria-live="polite">
+        {{ piezas() }} {{ piezas() === 1 ? 'pieza' : 'piezas' }} ·
+        <strong>{{ total() | currency }}</strong>
+      </p>
+
+      @if (error()) {
+        <p class="error-texto" role="alert">{{ error() }}</p>
+      }
+
+      <button
+        mat-flat-button
+        type="button"
+        class="registrar"
+        (click)="registrar()"
+        [disabled]="lineas().length === 0 || enviando()"
+      >
+        {{ enviando() ? 'Registrando…' : 'Registrar venta' }}
+      </button>
+    </section>
+  </div>
+</div>

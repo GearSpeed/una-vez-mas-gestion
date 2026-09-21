@@ -1,0 +1,8 @@
+# Generados: no se formatean
+api/drizzle/
+web/src/estilos/_colores-marca.scss
+**/dist/
+**/.angular/
+package-lock.json
+test-results/
+playwright-report/

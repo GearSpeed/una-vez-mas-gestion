@@ -1,0 +1,84 @@
+<a class="saltar" href="#principal" (click)="$event.preventDefault(); principal.focus()"
+  >Saltar al contenido</a
+>
+
+<mat-sidenav-container class="contenedor">
+  <mat-sidenav
+    [mode]="esEscritorio() ? 'side' : 'over'"
+    [opened]="esEscritorio() || menuAbierto()"
+    (closedStart)="menuAbierto.set(false)"
+    class="lateral"
+  >
+    <div class="marca">
+      <span class="nombre">Una vez más</span>
+      <span class="ayuda">Gestión</span>
+    </div>
+    <nav aria-label="Principal">
+      <ul class="menu">
+        @for (entrada of menu(); track entrada.ruta) {
+          <li>
+            <a
+              [routerLink]="entrada.ruta"
+              routerLinkActive="activo"
+              ariaCurrentWhenActive="page"
+              [routerLinkActiveOptions]="{
+                exact:
+                  entrada.ruta === '/' ||
+                  entrada.ruta === '/ventas' ||
+                  entrada.ruta === '/inventario',
+              }"
+            >
+              <mat-icon aria-hidden="true">{{ entrada.icono }}</mat-icon>
+              <span>{{ entrada.etiqueta }}</span>
+            </a>
+          </li>
+        }
+      </ul>
+    </nav>
+  </mat-sidenav>
+
+  <mat-sidenav-content>
+    <mat-toolbar class="barra">
+      @if (!esEscritorio()) {
+        <button
+          mat-icon-button
+          type="button"
+          (click)="menuAbierto.set(true)"
+          aria-label="Abrir el menú"
+        >
+          <mat-icon>menu</mat-icon>
+        </button>
+      }
+      <span class="titulo-barra">Una vez más</span>
+      <span class="espacio"></span>
+      @if (sesion(); as s) {
+        <button mat-button type="button" [matMenuTriggerFor]="menuUsuario" class="usuario">
+          <mat-icon aria-hidden="true">account_circle</mat-icon>
+          <span class="nombre-usuario">{{ s.nombre }}</span>
+        </button>
+        <mat-menu #menuUsuario="matMenu" xPosition="before">
+          <div class="datos-usuario" mat-menu-item disabled>
+            {{ s.correo }} · {{ s.roles.length ? s.roles[0].nombre : 'Sin rol' }}
+          </div>
+          @if (s.modoDesarrollo) {
+            <div class="datos-usuario" mat-menu-item disabled>Modo desarrollo: entrar como…</div>
+            @for (usuario of usuariosPrueba; track usuario.nombre) {
+              <button mat-menu-item type="button" (click)="cambiarUsuario(usuario.correo)">
+                {{ usuario.nombre }}
+              </button>
+            }
+          } @else {
+            <button mat-menu-item type="button" (click)="sesionService.salir()">
+              <mat-icon aria-hidden="true">logout</mat-icon>
+              <span>Cerrar sesión</span>
+            </button>
+          }
+        </mat-menu>
+      }
+    </mat-toolbar>
+
+    <main id="principal" #principal tabindex="-1">
+      <router-outlet />
+    </main>
+  </mat-sidenav-content>
+</mat-sidenav-container>

@@ -1,0 +1,219 @@
+<div class="pagina">
+  <uvm-encabezado
+    titulo="Nueva compra"
+    subtitulo="Un viaje a un proveedor: la gasolina se reparte entre las piezas."
+  >
+    <a mat-button routerLink="/compras">Ver compras</a>
+  </uvm-encabezado>
+
+  <uvm-estado-carga
+    [cargando]="proveedores.isLoading() || productos.isLoading()"
+    [error]="proveedores.error() || productos.error() || vehiculos.error()"
+    (reintentar)="proveedores.reload(); productos.reload(); vehiculos.reload()"
+  />
+
+  <form [formGroup]="formulario" (ngSubmit)="registrar()" class="distribucion" novalidate>
+    <div class="columna">
+      <fieldset class="tarjeta">
+        <legend>El viaje</legend>
+        <div class="rejilla-campos">
+          <mat-form-field>
+            <mat-label>Fecha</mat-label>
+            <input matInput type="date" formControlName="fecha" [max]="hoy" />
+            @if (formulario.controls.fecha.hasError('servidor')) {
+              <mat-error>{{ formulario.controls.fecha.getError('servidor') }}</mat-error>
+            }
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Proveedor</mat-label>
+            <mat-select formControlName="proveedorId">
+              @for (p of proveedoresActivos(); track p.id) {
+                <mat-option [value]="p.id">{{ p.nombre }}</mat-option>
+              }
+            </mat-select>
+            @if (formulario.controls.proveedorId.hasError('required')) {
+              <mat-error>Elige el proveedor.</mat-error>
+            } @else if (formulario.controls.proveedorId.hasError('servidor')) {
+              <mat-error>{{ formulario.controls.proveedorId.getError('servidor') }}</mat-error>
+            }
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Vehículo</mat-label>
+            <mat-select formControlName="vehiculoId" [canSelectNullableOptions]="true">
+              <mat-option [value]="null">Sin vehículo (lo entregó el proveedor)</mat-option>
+              @for (v of vehiculosActivos(); track v.id) {
+                <mat-option [value]="v.id"
+                  >{{ v.nombre }} · {{ v.rendimientoKmL | number: '1.0-2' }} km/l</mat-option
+                >
+              }
+            </mat-select>
+          </mat-form-field>
+          @if (formulario.controls.vehiculoId.value !== null) {
+            <mat-form-field>
+              <mat-label>Gasolina ese día ($ por litro)</mat-label>
+              <input
+                matInput
+                type="number"
+                inputmode="decimal"
+                min="0"
+                step="0.01"
+                formControlName="precioGasolina"
+              />
+              @if (formulario.controls.precioGasolina.invalid) {
+                <mat-error>
+                  {{
+                    formulario.controls.precioGasolina.getError('servidor') ??
+                      'Indica el precio de la gasolina.'
+                  }}
+                </mat-error>
+              }
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Kilómetros ida y vuelta</mat-label>
+              <input
+                matInput
+                type="number"
+                inputmode="decimal"
+                min="0"
+                step="0.1"
+                formControlName="distanciaKm"
+              />
+              <mat-hint>Se propone la del proveedor; cámbiala si la ruta fue otra.</mat-hint>
+            </mat-form-field>
+          }
+          @if (almacenes().length > 1) {
+            <mat-form-field>
+              <mat-label>Entra a</mat-label>
+              <mat-select formControlName="ubicacionId" [canSelectNullableOptions]="true">
+                <mat-option [value]="null">El almacén principal</mat-option>
+                @for (u of almacenes(); track u.id) {
+                  <mat-option [value]="u.id">{{ u.nombre }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          }
+        </div>
+      </fieldset>
+
+      <fieldset class="tarjeta" formArrayName="lineas">
+        <legend>Lo que compraste</legend>
+        @for (linea of lineas.controls; track linea; let i = $index) {
+          <div
+            class="linea"
+            [formGroupName]="i"
+            role="group"
+            [attr.aria-label]="'Producto ' + (i + 1)"
+          >
+            <mat-form-field class="producto">
+              <mat-label>Producto</mat-label>
+              <mat-select formControlName="productoId">
+                @for (p of productos.value() ?? []; track p.id) {
+                  @if (p.activo) {
+                    <mat-option [value]="p.id" [disabled]="elegidoEnOtraLinea(p.id, i)">{{
+                      p.nombre
+                    }}</mat-option>
+                  }
+                }
+              </mat-select>
+              @if (linea.controls.productoId.hasError('required')) {
+                <mat-error>Elige el producto.</mat-error>
+              } @else if (linea.controls.productoId.hasError('servidor')) {
+                <mat-error>{{ linea.controls.productoId.getError('servidor') }}</mat-error>
+              }
+            </mat-form-field>
+            <mat-form-field class="corto">
+              <mat-label>Piezas</mat-label>
+              <input
+                matInput
+                type="number"
+                inputmode="numeric"
+                min="1"
+                step="1"
+                formControlName="cantidad"
+              />
+              @if (linea.controls.cantidad.invalid) {
+                <mat-error>Mínimo 1.</mat-error>
+              }
+            </mat-form-field>
+            <mat-form-field class="corto">
+              <mat-label>Precio del proveedor</mat-label>
+              <span matTextPrefix>$&nbsp;</span>
+              <input
+                matInput
+                type="number"
+                inputmode="decimal"
+                min="0"
+                step="0.01"
+                formControlName="costoProveedor"
+              />
+              @if (linea.controls.costoProveedor.invalid) {
+                <mat-error>Indica el precio por pieza.</mat-error>
+              }
+            </mat-form-field>
+            <p class="costo-linea ayuda">
+              @if (calculo().lineas[i]; as c) {
+                Entra a {{ c.costoUnitario | currency: 'MXN' : 'symbol' : '1.2-4' }} por pieza
+              }
+            </p>
+            <button
+              mat-icon-button
+              type="button"
+              (click)="quitarLinea(i)"
+              [disabled]="lineas.length === 1"
+              [attr.aria-label]="'Quitar el producto ' + (i + 1)"
+            >
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+        }
+        <button mat-stroked-button type="button" (click)="agregarLinea()">
+          <mat-icon aria-hidden="true">add</mat-icon>
+          Agregar otro producto
+        </button>
+      </fieldset>
+
+      <mat-form-field>
+        <mat-label>Notas (opcional)</mat-label>
+        <textarea matInput rows="2" formControlName="notas" maxlength="500"></textarea>
+      </mat-form-field>
+    </div>
+
+    <aside class="tarjeta resumen" aria-labelledby="titulo-calculo">
+      <h2 id="titulo-calculo">La cuenta</h2>
+      <dl>
+        @if (calculo().litros; as litros) {
+          <div>
+            <dt>Litros del viaje</dt>
+            <dd>{{ litros | number: '1.0-3' }}</dd>
+          </div>
+        }
+        <div>
+          <dt>Gasolina</dt>
+          <dd>{{ calculo().costoTraslado | currency }}</dd>
+        </div>
+        <div>
+          <dt>Piezas</dt>
+          <dd>{{ calculo().piezas }}</dd>
+        </div>
+        <div>
+          <dt>Gasolina por pieza</dt>
+          <dd>{{ calculo().trasladoPorPieza | currency: 'MXN' : 'symbol' : '1.2-4' }}</dd>
+        </div>
+        <div>
+          <dt>Mercancía</dt>
+          <dd>{{ calculo().subtotalMercancia | currency }}</dd>
+        </div>
+        <div class="total" aria-live="polite">
+          <dt>Total</dt>
+          <dd>{{ calculo().total | currency }}</dd>
+        </div>
+      </dl>
+      @if (error()) {
+        <p class="error-texto" role="alert">{{ error() }}</p>
+      }
+      <button mat-flat-button type="submit" [disabled]="enviando()">
+        {{ enviando() ? 'Registrando…' : 'Registrar compra' }}
+      </button>
+    </aside>
+  </form>
+</div>

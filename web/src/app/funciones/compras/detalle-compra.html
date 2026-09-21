@@ -1,0 +1,118 @@
+<div class="pagina">
+  <uvm-encabezado [titulo]="titulo()">
+    <a mat-button routerLink="/compras">Volver a compras</a>
+    @if (puedeCancelar()) {
+      <button mat-stroked-button type="button" (click)="cancelar()" [disabled]="cancelando()">
+        Cancelar compra
+      </button>
+    }
+  </uvm-encabezado>
+
+  <uvm-estado-carga
+    [cargando]="compra.isLoading()"
+    [error]="compra.error()"
+    (reintentar)="compra.reload()"
+  />
+
+  @if (compra.value(); as c) {
+    @if (c.cancelacion; as cancelacion) {
+      <p class="tarjeta" role="status">
+        <span class="estado alerta">Cancelada</span>
+        el {{ cancelacion.en | date: 'medium' }} por {{ cancelacion.por }}: «{{
+          cancelacion.motivo
+        }}»
+      </p>
+    }
+
+    <dl class="tarjeta rejilla-campos datos">
+      <div>
+        <dt>Fecha</dt>
+        <dd>{{ c.fecha | date: 'longDate' }}</dd>
+      </div>
+      <div>
+        <dt>Proveedor</dt>
+        <dd>{{ c.proveedor }}</dd>
+      </div>
+      <div>
+        <dt>Entró a</dt>
+        <dd>{{ c.ubicacion }}</dd>
+      </div>
+      <div>
+        <dt>Vehículo</dt>
+        <dd>{{ c.vehiculo ?? 'Sin vehículo' }}</dd>
+      </div>
+      @if (c.vehiculo) {
+        <div>
+          <dt>Viaje</dt>
+          <dd>
+            {{ c.distanciaKm | number: '1.0-2' }} km ÷ {{ c.rendimientoKmL | number: '1.0-2' }} km/l
+            = {{ c.litros | number: '1.0-3' }} l × {{ c.precioGasolina | currency }}
+          </dd>
+        </div>
+      }
+      <div>
+        <dt>Gasolina</dt>
+        <dd>
+          {{ c.costoTraslado | currency }} ({{
+            c.trasladoPorPieza | currency: 'MXN' : 'symbol' : '1.2-4'
+          }}
+          por pieza)
+        </dd>
+      </div>
+      <div>
+        <dt>Registró</dt>
+        <dd>{{ c.registradaPor }} · {{ c.registradoEn | date: 'short' }}</dd>
+      </div>
+      @if (c.notas) {
+        <div>
+          <dt>Notas</dt>
+          <dd>{{ c.notas }}</dd>
+        </div>
+      }
+    </dl>
+
+    <div uvmDesplazable="Productos de la compra">
+      <table class="tabla-simple">
+        <caption class="visualmente-oculto">
+          Productos de la compra
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Producto</th>
+            <th scope="col" class="numero">Piezas</th>
+            <th scope="col" class="numero">Proveedor</th>
+            <th scope="col" class="numero">Gasolina</th>
+            <th scope="col" class="numero">Costo por pieza</th>
+            <th scope="col" class="numero">Importe</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (l of c.lineas; track l.productoId) {
+            <tr>
+              <td>{{ l.producto }}</td>
+              <td class="numero">{{ l.cantidad }}</td>
+              <td class="numero">{{ l.costoProveedor | currency }}</td>
+              <td class="numero">
+                {{ l.costoTrasladoUnitario | currency: 'MXN' : 'symbol' : '1.2-4' }}
+              </td>
+              <td class="numero">{{ l.costoUnitario | currency: 'MXN' : 'symbol' : '1.2-4' }}</td>
+              <td class="numero">{{ l.importe | currency }}</td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr>
+            <th scope="row">Total</th>
+            <td class="numero">{{ c.piezas }}</td>
+            <td class="numero">{{ c.subtotalMercancia | currency }}</td>
+            <td class="numero">{{ c.costoTraslado | currency }}</td>
+            <td></td>
+            <td class="numero">
+              <strong>{{ c.total | currency }}</strong>
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  }
+</div>

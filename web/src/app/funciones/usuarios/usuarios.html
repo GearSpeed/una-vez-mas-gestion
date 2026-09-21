@@ -1,0 +1,119 @@
+<div class="pagina">
+  <uvm-encabezado titulo="Usuarios" subtitulo="Quién entra y qué puede hacer." />
+
+  <mat-tab-group mat-stretch-tabs="false" animationDuration="0ms">
+    <mat-tab label="Usuarios">
+      <div class="pestana acciones">
+        <button
+          mat-flat-button
+          type="button"
+          (click)="abrirUsuario(null)"
+          [disabled]="!roles.value()"
+        >
+          Nuevo usuario
+        </button>
+      </div>
+      <uvm-estado-carga
+        [cargando]="usuarios.isLoading()"
+        [error]="usuarios.error()"
+        (reintentar)="usuarios.reload()"
+      />
+      <div uvmDesplazable="Usuarios" class="pestana">
+        <table class="tabla-simple">
+          <caption class="visualmente-oculto">
+            Usuarios
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Nombre</th>
+              <th scope="col">Roles</th>
+              <th scope="col">Su mercancía</th>
+              <th scope="col">Último acceso</th>
+              <th scope="col"><span class="visualmente-oculto">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (u of usuarios.value() ?? []; track u.id) {
+              <tr>
+                <th scope="row">
+                  {{ u.nombre }}
+                  <span class="ayuda">{{ u.correo }}</span>
+                  @if (!u.activo) {
+                    <span class="estado alerta">Inactivo</span>
+                  }
+                </th>
+                <td>{{ nombresDeRoles(u.roles) }}</td>
+                <td>{{ u.ubicacion?.nombre ?? '—' }}</td>
+                <td>{{ u.ultimoAcceso ? (u.ultimoAcceso | date: 'short') : 'Nunca' }}</td>
+                <td>
+                  <button
+                    mat-button
+                    type="button"
+                    (click)="abrirUsuario(u)"
+                    [attr.aria-label]="'Editar ' + u.nombre"
+                  >
+                    Editar
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </mat-tab>
+
+    <mat-tab label="Ubicaciones">
+      <div class="pestana acciones">
+        <button mat-flat-button type="button" (click)="abrirUbicacion(null)">Nuevo almacén</button>
+        <p class="ayuda">La ubicación de cada vendedor se crea sola al darle ese rol.</p>
+      </div>
+      <uvm-estado-carga
+        [cargando]="ubicaciones.isLoading()"
+        [error]="ubicaciones.error()"
+        (reintentar)="ubicaciones.reload()"
+      />
+      <div uvmDesplazable="Ubicaciones" class="pestana">
+        <table class="tabla-simple">
+          <caption class="visualmente-oculto">
+            Ubicaciones
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Ubicación</th>
+              <th scope="col">Tipo</th>
+              <th scope="col" class="numero">Piezas</th>
+              <th scope="col"><span class="visualmente-oculto">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (u of ubicaciones.value() ?? []; track u.id) {
+              <tr>
+                <th scope="row">
+                  {{ u.nombre }}
+                  @if (!u.activa) {
+                    <span class="estado">Desactivada</span>
+                  }
+                </th>
+                <td>
+                  {{ u.tipo | etiqueta: 'ubicacion'
+                  }}{{ u.usuarioNombre ? ' · ' + u.usuarioNombre : '' }}
+                </td>
+                <td class="numero">{{ u.piezas }}</td>
+                <td>
+                  <button
+                    mat-button
+                    type="button"
+                    (click)="abrirUbicacion(u)"
+                    [attr.aria-label]="'Editar ' + u.nombre"
+                  >
+                    Editar
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</div>

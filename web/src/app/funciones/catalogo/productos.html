@@ -1,0 +1,160 @@
+<div class="pagina">
+  <uvm-encabezado titulo="Productos y precios">
+    @if (puedeEditar()) {
+      <button mat-flat-button type="button" (click)="abrir(null)" [disabled]="!categorias.value()">
+        Nuevo producto
+      </button>
+    }
+  </uvm-encabezado>
+
+  <mat-tab-group mat-stretch-tabs="false" animationDuration="0ms">
+    <mat-tab label="Productos">
+      <div class="filtros pestana">
+        <mat-form-field>
+          <mat-label>Buscar</mat-label>
+          <mat-icon matPrefix aria-hidden="true">search</mat-icon>
+          <input
+            matInput
+            type="search"
+            [value]="busqueda()"
+            (input)="busqueda.set($any($event.target).value)"
+          />
+        </mat-form-field>
+        <mat-slide-toggle
+          [checked]="incluirInactivos()"
+          (change)="incluirInactivos.set($event.checked)"
+        >
+          Mostrar los dados de baja
+        </mat-slide-toggle>
+      </div>
+
+      <uvm-estado-carga
+        [cargando]="productos.isLoading()"
+        [error]="productos.error()"
+        (reintentar)="productos.reload()"
+      />
+
+      <div uvmDesplazable="Productos">
+        <table class="tabla-simple">
+          <caption class="visualmente-oculto">
+            Productos
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Producto</th>
+              <th scope="col">Categoría</th>
+              <th scope="col" class="numero">Precio</th>
+              <th scope="col" class="numero">Existencia</th>
+              @if (conCostos()) {
+                <th scope="col" class="numero">Costo promedio</th>
+                <th scope="col" class="numero">Sugerido</th>
+                <th scope="col" class="numero">Margen sobre precio</th>
+              }
+              <th scope="col">Sitio</th>
+              @if (puedeEditar()) {
+                <th scope="col"><span class="visualmente-oculto">Acciones</span></th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of visibles(); track p.id) {
+              <tr>
+                <th scope="row">
+                  {{ p.nombre }}
+                  <span class="ayuda"
+                    >{{ p.slug }}{{ p.presentacion ? ' · ' + p.presentacion : '' }}</span
+                  >
+                  @if (!p.activo) {
+                    <span class="estado">Dado de baja</span>
+                  }
+                </th>
+                <td>{{ p.categoria }}</td>
+                <td class="numero">
+                  {{ p.precioVenta === null ? 'Sin precio' : (p.precioVenta | currency) }}
+                </td>
+                <td class="numero">{{ p.existenciaTotal }}</td>
+                @if (conCostos()) {
+                  <td class="numero">
+                    {{ p.costos?.costoPromedio | currency: 'MXN' : 'symbol' : '1.2-4' }}
+                  </td>
+                  <td class="numero">
+                    {{
+                      p.costos?.precioSugerido === null
+                        ? '—'
+                        : (p.costos?.precioSugerido | currency)
+                    }}
+                  </td>
+                  <td class="numero">
+                    {{
+                      p.costos?.margenSobrePrecio === null
+                        ? '—'
+                        : (p.costos?.margenSobrePrecio | percent: '1.0-1')
+                    }}
+                  </td>
+                }
+                <td>
+                  <span class="estado" [class.bien]="p.publicado">{{
+                    p.publicado ? 'Publicado' : 'Sin publicar'
+                  }}</span>
+                </td>
+                @if (puedeEditar()) {
+                  <td>
+                    <button
+                      mat-button
+                      type="button"
+                      (click)="abrir(p)"
+                      [attr.aria-label]="'Editar ' + p.nombre"
+                    >
+                      Editar
+                    </button>
+                  </td>
+                }
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="9">No hay productos que mostrar.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="ayuda">
+        El margen sobre precio es la parte de cada peso vendido que queda después del costo (con
+        gasolina).
+      </p>
+    </mat-tab>
+
+    <mat-tab label="Categorías">
+      <div class="pestana">
+        <ul class="categorias">
+          @for (c of categorias.value() ?? []; track c.id) {
+            <li class="tarjeta">
+              <span>{{ c.nombre }}</span>
+              @if (puedeEditar()) {
+                <mat-slide-toggle
+                  [checked]="c.activa"
+                  (change)="cambiarCategoria(c, { activa: $event.checked })"
+                >
+                  Activa
+                </mat-slide-toggle>
+              } @else {
+                <span class="estado">{{ c.activa ? 'Activa' : 'Inactiva' }}</span>
+              }
+            </li>
+          }
+        </ul>
+        @if (puedeEditar()) {
+          <form class="acciones" (ngSubmit)="agregarCategoria()">
+            <mat-form-field>
+              <mat-label>Nueva categoría</mat-label>
+              <input matInput [formControl]="nuevaCategoria" maxlength="60" />
+            </mat-form-field>
+            <button mat-stroked-button type="submit" [disabled]="nuevaCategoria.invalid">
+              Agregar
+            </button>
+          </form>
+        }
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</div>

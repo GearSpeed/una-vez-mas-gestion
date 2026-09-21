@@ -1,0 +1,135 @@
+<div class="pagina">
+  <uvm-encabezado
+    titulo="Traspasos"
+    subtitulo="Cargar mercancía a un vendedor o recibir lo que regresa."
+  />
+
+  <uvm-estado-carga
+    [cargando]="ubicaciones.isLoading()"
+    [error]="ubicaciones.error()"
+    (reintentar)="ubicaciones.reload()"
+  />
+
+  <form [formGroup]="formulario" (ngSubmit)="registrar()" class="tarjeta formulario" novalidate>
+    <div class="origen-destino">
+      <mat-form-field>
+        <mat-label>Sale de</mat-label>
+        <mat-select formControlName="origenId">
+          @for (u of activas(); track u.id) {
+            <mat-option [value]="u.id">{{ u.nombre }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      <button
+        mat-icon-button
+        type="button"
+        (click)="intercambiar()"
+        aria-label="Intercambiar origen y destino"
+      >
+        <mat-icon>swap_horiz</mat-icon>
+      </button>
+      <mat-form-field>
+        <mat-label>Entra a</mat-label>
+        <mat-select formControlName="destinoId">
+          @for (u of activas(); track u.id) {
+            <mat-option [value]="u.id">{{ u.nombre }}</mat-option>
+          }
+        </mat-select>
+        @if (formulario.controls.destinoId.hasError('servidor')) {
+          <mat-error>{{ formulario.controls.destinoId.getError('servidor') }}</mat-error>
+        }
+      </mat-form-field>
+    </div>
+
+    <fieldset formArrayName="lineas" class="lineas">
+      <legend>Productos</legend>
+      @for (linea of lineas.controls; track linea; let i = $index) {
+        <div
+          class="linea"
+          [formGroupName]="i"
+          role="group"
+          [attr.aria-label]="'Producto ' + (i + 1)"
+        >
+          <mat-form-field class="producto">
+            <mat-label>Producto</mat-label>
+            <mat-select formControlName="productoId">
+              @for (p of disponibles(); track p.productoId) {
+                <mat-option [value]="p.productoId" [disabled]="elegidoEnOtraLinea(p.productoId, i)">
+                  {{ p.producto }} (hay {{ p.cantidad }})
+                </mat-option>
+              } @empty {
+                <mat-option disabled>No hay piezas en el origen</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field class="corto">
+            <mat-label>Piezas</mat-label>
+            <input
+              matInput
+              type="number"
+              inputmode="numeric"
+              min="1"
+              [max]="disponibleDe(linea.controls.productoId.value)"
+              formControlName="cantidad"
+            />
+            @if (linea.controls.cantidad.invalid) {
+              <mat-error>Mínimo 1.</mat-error>
+            }
+          </mat-form-field>
+          <button
+            mat-icon-button
+            type="button"
+            (click)="quitarLinea(i)"
+            [disabled]="lineas.length === 1"
+            [attr.aria-label]="'Quitar el producto ' + (i + 1)"
+          >
+            <mat-icon>delete</mat-icon>
+          </button>
+        </div>
+      }
+      <button mat-stroked-button type="button" (click)="agregarLinea()">
+        <mat-icon aria-hidden="true">add</mat-icon>
+        Agregar otro producto
+      </button>
+    </fieldset>
+
+    <mat-form-field>
+      <mat-label>Notas (opcional)</mat-label>
+      <input matInput formControlName="notas" maxlength="500" />
+    </mat-form-field>
+
+    @if (error()) {
+      <p class="error-texto" role="alert">{{ error() }}</p>
+    }
+    <div class="acciones">
+      <button mat-flat-button type="submit" [disabled]="enviando()">
+        {{ enviando() ? 'Registrando…' : 'Registrar traspaso' }}
+      </button>
+    </div>
+  </form>
+
+  <section aria-labelledby="titulo-recientes">
+    <h2 id="titulo-recientes">Últimos traspasos</h2>
+    <uvm-estado-carga
+      [cargando]="recientes.isLoading()"
+      [error]="recientes.error()"
+      (reintentar)="recientes.reload()"
+    />
+    <ul class="recientes">
+      @for (t of recientes.value() ?? []; track t.id) {
+        <li class="tarjeta">
+          <strong>{{ t.folio }}</strong> · {{ t.fecha | date: 'mediumDate' }} · {{ t.origen }} →
+          {{ t.destino }}
+          <span class="ayuda">
+            ({{ t.registradoPor }})
+            @for (l of t.lineas; track l.productoId; let ultimo = $last) {
+              {{ l.cantidad }} {{ l.producto }}{{ ultimo ? '' : ', ' }}
+            }
+          </span>
+        </li>
+      } @empty {
+        <li class="ayuda">Todavía no hay traspasos.</li>
+      }
+    </ul>
+  </section>
+</div>

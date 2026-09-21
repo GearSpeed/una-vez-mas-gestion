@@ -1,0 +1,128 @@
+.distribucion {
+  display: grid;
+  gap: 1.25rem;
+  align-items: start;
+
+  @media (min-width: 60rem) {
+    grid-template-columns: 1fr 22rem;
+  }
+}
+
+.productos {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.producto {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.5rem 0.5rem 1rem;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 1rem;
+  background: var(--mat-sys-surface-container-lowest);
+
+  &.elegido {
+    border-color: var(--mat-sys-primary);
+    background: var(--mat-sys-primary-container);
+    color: var(--mat-sys-on-primary-container);
+
+    .ayuda {
+      color: inherit;
+    }
+  }
+}
+
+.datos {
+  display: grid;
+}
+
+.nombre {
+  font: var(--mat-sys-title-small);
+}
+
+.contador {
+  display: flex;
+  align-items: center;
+}
+
+.cantidad {
+  min-width: 2ch;
+  text-align: center;
+  font: var(--mat-sys-title-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+.vacio {
+  padding: 1rem;
+}
+
+.resumen {
+  display: grid;
+  gap: 0.75rem;
+
+  // En el celular el resumen queda a la mano, pegado abajo.
+  @media (max-width: 59.99rem) {
+    position: sticky;
+    bottom: 0;
+    max-height: 70dvh;
+    overflow-y: auto;
+    box-shadow: 0 -2px 8px rgb(0 0 0 / 12%);
+  }
+}
+
+.lineas {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--mat-sys-body-medium);
+
+  th {
+    text-align: start;
+    font: var(--mat-sys-label-medium);
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  td,
+  th {
+    padding: 0.25rem;
+  }
+}
+
+.descuento {
+  width: 5rem;
+  font: inherit;
+  text-align: end;
+  padding: 0.25rem;
+  border: 1px solid var(--mat-sys-outline);
+  border-radius: 0.5rem;
+}
+
+.grupo {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+
+  legend {
+    font: var(--mat-sys-label-large);
+    padding: 0 0 0.25rem;
+  }
+
+  mat-button-toggle-group {
+    flex-wrap: wrap;
+  }
+}
+
+.total {
+  margin: 0;
+  font: var(--mat-sys-title-large);
+}
+
+.registrar {
+  min-height: 3rem;
+}

@@ -1,0 +1,103 @@
+:host {
+  display: block;
+  height: 100dvh;
+}
+
+.contenedor {
+  height: 100%;
+}
+
+.lateral {
+  width: 16rem;
+  border-right: 1px solid var(--mat-sys-outline-variant);
+}
+
+.marca {
+  display: grid;
+  padding: 1.25rem 1.25rem 0.75rem;
+
+  .nombre {
+    font: var(--mat-sys-title-large);
+    font-family: 'Outfit', sans-serif;
+    color: var(--mat-sys-primary);
+  }
+}
+
+.menu {
+  display: grid;
+  gap: 0.125rem;
+  margin: 0;
+  padding: 0.5rem 0.75rem 1rem;
+  list-style: none;
+
+  a {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 3rem;
+    padding: 0 1rem;
+    border-radius: 999px;
+    color: var(--mat-sys-on-surface-variant);
+    font: var(--mat-sys-label-large);
+    text-decoration: none;
+
+    &:hover {
+      background: var(--mat-sys-surface-container-high);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--mat-sys-primary);
+      outline-offset: -2px;
+    }
+
+    &.activo {
+      background: var(--mat-sys-secondary-container);
+      color: var(--mat-sys-on-secondary-container);
+    }
+  }
+}
+
+.barra {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--mat-sys-surface-container);
+  gap: 0.25rem;
+}
+
+.titulo-barra {
+  font-family: 'Outfit', sans-serif;
+}
+
+.espacio {
+  flex: 1;
+}
+
+.nombre-usuario {
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.datos-usuario {
+  font: var(--mat-sys-body-small);
+}
+
+main:focus {
+  outline: none;
+}
+
+.saltar {
+  position: absolute;
+  left: 0.5rem;
+  top: -3rem;
+  z-index: 10;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  background: var(--mat-sys-primary);
+  color: var(--mat-sys-on-primary);
+
+  &:focus {
+    top: 0.5rem;
+  }
+}

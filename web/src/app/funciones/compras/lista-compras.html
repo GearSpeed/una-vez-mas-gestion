@@ -1,0 +1,127 @@
+<div class="pagina">
+  <uvm-encabezado titulo="Compras">
+    @if (puedeRegistrar()) {
+      <a mat-flat-button routerLink="/compras/nueva">Nueva compra</a>
+    }
+  </uvm-encabezado>
+
+  <div class="filtros" role="search" aria-label="Filtrar compras">
+    <mat-form-field>
+      <mat-label>Desde</mat-label>
+      <input
+        matInput
+        type="date"
+        [value]="desde()"
+        (change)="filtrar(() => desde.set($any($event.target).value))"
+      />
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Hasta</mat-label>
+      <input
+        matInput
+        type="date"
+        [value]="hasta()"
+        (change)="filtrar(() => hasta.set($any($event.target).value))"
+      />
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Proveedor</mat-label>
+      <mat-select
+        [canSelectNullableOptions]="true"
+        [value]="proveedorId()"
+        (valueChange)="filtrar(() => proveedorId.set($event))"
+      >
+        <mat-option [value]="null">Todos</mat-option>
+        @for (p of proveedores.value() ?? []; track p.id) {
+          <mat-option [value]="p.id">{{ p.nombre }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Estado</mat-label>
+      <mat-select
+        [canSelectNullableOptions]="true"
+        [value]="estado()"
+        (valueChange)="filtrar(() => estado.set($event))"
+      >
+        <mat-option [value]="null">Todas</mat-option>
+        <mat-option value="vigente">Vigentes</mat-option>
+        <mat-option value="cancelado">Canceladas</mat-option>
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <uvm-estado-carga
+    [cargando]="compras.isLoading()"
+    [error]="compras.error()"
+    (reintentar)="compras.reload()"
+  />
+
+  @if (compras.value(); as lista) {
+    <div uvmDesplazable="Compras">
+      <table mat-table [dataSource]="lista.filas" aria-label="Compras">
+        <ng-container matColumnDef="folio">
+          <th mat-header-cell *matHeaderCellDef>Folio</th>
+          <td mat-cell *matCellDef="let c">
+            <a [routerLink]="['/compras', c.id]">{{ c.folio }}</a>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="fecha">
+          <th mat-header-cell *matHeaderCellDef>Fecha</th>
+          <td mat-cell *matCellDef="let c">{{ c.fecha | date: 'mediumDate' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="proveedor">
+          <th mat-header-cell *matHeaderCellDef>Proveedor</th>
+          <td mat-cell *matCellDef="let c">{{ c.proveedor }}</td>
+        </ng-container>
+        <ng-container matColumnDef="vehiculo">
+          <th mat-header-cell *matHeaderCellDef>Vehículo</th>
+          <td mat-cell *matCellDef="let c">{{ c.vehiculo ?? 'Sin vehículo' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="piezas">
+          <th mat-header-cell *matHeaderCellDef class="numero">Piezas</th>
+          <td mat-cell *matCellDef="let c" class="numero">{{ c.piezas }}</td>
+        </ng-container>
+        <ng-container matColumnDef="costoTraslado">
+          <th mat-header-cell *matHeaderCellDef class="numero">Gasolina</th>
+          <td mat-cell *matCellDef="let c" class="numero">{{ c.costoTraslado | currency }}</td>
+        </ng-container>
+        <ng-container matColumnDef="total">
+          <th mat-header-cell *matHeaderCellDef class="numero">Total</th>
+          <td mat-cell *matCellDef="let c" class="numero">{{ c.total | currency }}</td>
+        </ng-container>
+        <ng-container matColumnDef="estado">
+          <th mat-header-cell *matHeaderCellDef>Estado</th>
+          <td mat-cell *matCellDef="let c">
+            <span class="estado" [class.alerta]="c.estado === 'cancelado'">{{
+              c.estado | etiqueta: 'estado'
+            }}</span>
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="columnas"></tr>
+        <tr
+          mat-row
+          *matRowDef="let fila; columns: columnas"
+          class="fila-enlace"
+          (click)="abrir(fila.id)"
+        ></tr>
+        <tr class="mat-row" *matNoDataRow>
+          <td class="mat-cell" [attr.colspan]="columnas.length">No hay compras en este periodo.</td>
+        </tr>
+      </table>
+    </div>
+    <p class="ayuda">
+      {{ lista.total }} compras · vigentes en esta página: {{ totalPagina() | currency }}
+    </p>
+    @if (lista.total > lista.porPagina) {
+      <mat-paginator
+        [length]="lista.total"
+        [pageSize]="lista.porPagina"
+        [pageIndex]="lista.pagina - 1"
+        [hidePageSize]="true"
+        (page)="cambiarPagina($event)"
+        aria-label="Páginas de compras"
+      />
+    }
+  }
+</div>

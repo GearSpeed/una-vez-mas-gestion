@@ -1,0 +1,30 @@
+# Dependencias y compilados
+node_modules/
+dist/
+.angular/
+coverage/
+*.tsbuildinfo
+
+# Secretos: el .env real nunca se sube (el ejemplo sí)
+.env
+.env.*
+!.env.example
+
+# Información sensible del negocio: costos, márgenes y proveedores
+*.xlsx
+*.xls
+respaldos/
+*.dump
+*.sql.gz
+
+# Pruebas e2e
+test-results/
+playwright-report/
+blob-report/
+
+# Sistema y editores
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

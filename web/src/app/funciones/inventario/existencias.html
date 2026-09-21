@@ -1,0 +1,135 @@
+<div class="pagina">
+  <uvm-encabezado
+    [titulo]="titulo()"
+    [subtitulo]="
+      existencias.value()?.ubicacion
+        ? 'En ' + existencias.value()?.ubicacion?.nombre
+        : 'Todas las ubicaciones'
+    "
+  />
+
+  <div class="filtros" role="search" aria-label="Filtrar existencias">
+    @if (verTodo()) {
+      <mat-form-field>
+        <mat-label>Ubicación</mat-label>
+        <mat-select
+          [value]="ubicacionId()"
+          (valueChange)="ubicacionId.set($event)"
+          [canSelectNullableOptions]="true"
+        >
+          <mat-option [value]="null">Todas (suma)</mat-option>
+          @for (u of ubicaciones.value() ?? []; track u.id) {
+            <mat-option [value]="u.id"
+              >{{ u.nombre }}{{ u.activa ? '' : ' (desactivada)' }}</mat-option
+            >
+          }
+        </mat-select>
+      </mat-form-field>
+    }
+    <mat-form-field>
+      <mat-label>Buscar producto</mat-label>
+      <mat-icon matPrefix aria-hidden="true">search</mat-icon>
+      <input
+        matInput
+        type="search"
+        [value]="busqueda()"
+        (input)="busqueda.set($any($event.target).value)"
+      />
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Mostrar</mat-label>
+      <mat-select [value]="soloConPiezas()" (valueChange)="soloConPiezas.set($event)">
+        <mat-option [value]="false">Todos los productos</mat-option>
+        <mat-option [value]="true">Solo los que tienen piezas</mat-option>
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <uvm-estado-carga
+    [cargando]="existencias.isLoading()"
+    [error]="existencias.error()"
+    (reintentar)="existencias.reload()"
+  />
+
+  @if (existencias.value(); as datos) {
+    <div uvmDesplazable="Existencia por producto">
+      <table class="tabla-simple">
+        <caption class="visualmente-oculto">
+          Existencia por producto
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Producto</th>
+            <th scope="col">Categoría</th>
+            <th scope="col" class="numero">Piezas</th>
+            <th scope="col" class="numero">Precio</th>
+            @if (datos.costos) {
+              <th scope="col" class="numero">Costo promedio</th>
+              <th scope="col" class="numero">Valor a costo</th>
+            }
+            @if (verTodo()) {
+              <th scope="col"><span class="visualmente-oculto">Historial</span></th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (f of filas(); track f.productoId) {
+            <tr>
+              <th scope="row">
+                {{ f.producto }}
+                @if (!f.activo) {
+                  <span class="estado">Dado de baja</span>
+                }
+                @if (vistaTotal() && f.stockMinimo > 0 && f.cantidad <= f.stockMinimo) {
+                  <span class="estado alerta"
+                    ><span aria-hidden="true">⚠</span> Bajo el mínimo ({{ f.stockMinimo }})</span
+                  >
+                }
+              </th>
+              <td>{{ f.categoria }}</td>
+              <td class="numero">{{ f.cantidad }}</td>
+              <td class="numero">
+                {{ f.precioVenta === null ? 'Sin precio' : (f.precioVenta | currency) }}
+              </td>
+              @if (f.costos; as c) {
+                <td class="numero">{{ c.costoPromedio | currency: 'MXN' : 'symbol' : '1.2-4' }}</td>
+                <td class="numero">{{ c.valor | currency }}</td>
+              }
+              @if (verTodo()) {
+                <td>
+                  <a
+                    mat-button
+                    routerLink="/inventario/kardex"
+                    [queryParams]="{ productoId: f.productoId, ubicacionId: datos.ubicacion?.id }"
+                    [attr.aria-label]="'Historial de ' + f.producto"
+                    >Historial</a
+                  >
+                </td>
+              }
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="7">No hay productos que mostrar.</td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr>
+            <th scope="row" colspan="2">Total</th>
+            <td class="numero">{{ totalPiezas() }}</td>
+            <td></td>
+            @if (datos.costos; as c) {
+              <td></td>
+              <td class="numero">
+                <strong>{{ c.valorTotal | currency }}</strong>
+              </td>
+            }
+            @if (verTodo()) {
+              <td></td>
+            }
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  }
+</div>

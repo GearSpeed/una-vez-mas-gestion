@@ -1,0 +1,229 @@
+<div class="pagina">
+  <uvm-encabezado titulo="Reportes" />
+
+  <div class="filtros" role="search" aria-label="Periodo de los reportes">
+    <mat-form-field>
+      <mat-label>Desde</mat-label>
+      <input
+        matInput
+        type="date"
+        [value]="desde()"
+        (change)="desde.set($any($event.target).value)"
+      />
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Hasta</mat-label>
+      <input
+        matInput
+        type="date"
+        [value]="hasta()"
+        (change)="hasta.set($any($event.target).value)"
+      />
+    </mat-form-field>
+  </div>
+
+  <mat-tab-group mat-stretch-tabs="false" animationDuration="0ms">
+    <mat-tab label="Ventas">
+      <div class="pestana filtros">
+        <mat-form-field>
+          <mat-label>Agrupar por</mat-label>
+          <mat-select [value]="agrupar()" (valueChange)="agrupar.set($event)">
+            @for (a of agrupaciones; track a.valor) {
+              <mat-option [value]="a.valor">{{ a.etiqueta }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <button mat-stroked-button type="button" (click)="exportar('ventas')">
+          <mat-icon aria-hidden="true">download</mat-icon>
+          Exportar a CSV
+        </button>
+      </div>
+      <uvm-estado-carga
+        [cargando]="ventas.isLoading()"
+        [error]="ventas.error()"
+        (reintentar)="ventas.reload()"
+      />
+      <div uvmDesplazable="Ventas del periodo">
+        <table class="tabla-simple">
+          <caption class="visualmente-oculto">
+            Ventas del periodo
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">{{ agrupar() === 'dia' ? 'Día' : 'Grupo' }}</th>
+              <th scope="col" class="numero">Ventas</th>
+              <th scope="col" class="numero">Piezas</th>
+              <th scope="col" class="numero">Importe</th>
+              @if (verCostos()) {
+                <th scope="col" class="numero">Costo</th>
+                <th scope="col" class="numero">Utilidad</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (f of ventas.value() ?? []; track f.clave) {
+              <tr>
+                <th scope="row">
+                  {{ agrupar() === 'dia' ? (f.etiqueta | date: 'EEE d MMM') : f.etiqueta }}
+                </th>
+                <td class="numero">{{ f.ventas }}</td>
+                <td class="numero">{{ f.piezas }}</td>
+                <td class="numero">{{ f.importe | currency }}</td>
+                @if (f.costos; as c) {
+                  <td class="numero">{{ c.costo | currency }}</td>
+                  <td class="numero">{{ c.utilidad | currency }}</td>
+                }
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="6">No hubo ventas en este periodo.</td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr>
+              <th scope="row">Total</th>
+              <td></td>
+              <td></td>
+              <td class="numero">
+                <strong>{{ totalVentas() | currency }}</strong>
+              </td>
+              @if (verCostos()) {
+                <td></td>
+                <td></td>
+              }
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </mat-tab>
+
+    @if (verCostos()) {
+      <mat-tab label="Utilidad por producto">
+        <div class="pestana acciones">
+          <button mat-stroked-button type="button" (click)="exportar('utilidad')">
+            <mat-icon aria-hidden="true">download</mat-icon>
+            Exportar a CSV
+          </button>
+        </div>
+        <uvm-estado-carga
+          [cargando]="utilidad.isLoading()"
+          [error]="utilidad.error()"
+          (reintentar)="utilidad.reload()"
+        />
+        <div uvmDesplazable="Utilidad por producto" class="pestana">
+          <table class="tabla-simple">
+            <caption class="visualmente-oculto">
+              Utilidad bruta por producto
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Producto</th>
+                <th scope="col" class="numero">Piezas</th>
+                <th scope="col" class="numero">Ingreso</th>
+                <th scope="col" class="numero">Costo</th>
+                <th scope="col" class="numero">Utilidad</th>
+                <th scope="col" class="numero">Margen sobre precio</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (f of utilidad.value() ?? []; track f.productoId) {
+                <tr>
+                  <th scope="row">{{ f.producto }}</th>
+                  <td class="numero">{{ f.piezas }}</td>
+                  <td class="numero">{{ f.ingreso | currency }}</td>
+                  <td class="numero">{{ f.costo | currency }}</td>
+                  <td class="numero">{{ f.utilidad | currency }}</td>
+                  <td class="numero">
+                    {{ f.margen === null ? '—' : (f.margen | percent: '1.0-1') }}
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="6">No hubo ventas en este periodo.</td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr>
+                <th scope="row">Total</th>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td class="numero">
+                  <strong>{{ totalUtilidad() | currency }}</strong>
+                </td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </mat-tab>
+    }
+
+    <mat-tab label="Corte por vendedor">
+      <div class="pestana">
+        <uvm-corte [incrustado]="true" />
+      </div>
+    </mat-tab>
+
+    <mat-tab label="Compras y gasolina">
+      <div class="pestana acciones">
+        <button mat-stroked-button type="button" (click)="exportar('compras')">
+          <mat-icon aria-hidden="true">download</mat-icon>
+          Exportar a CSV
+        </button>
+      </div>
+      <uvm-estado-carga
+        [cargando]="compras.isLoading()"
+        [error]="compras.error()"
+        (reintentar)="compras.reload()"
+      />
+      <div uvmDesplazable="Compras del periodo" class="pestana">
+        <table class="tabla-simple">
+          <caption class="visualmente-oculto">
+            Compras del periodo
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Folio</th>
+              <th scope="col">Fecha</th>
+              <th scope="col">Proveedor</th>
+              <th scope="col" class="numero">Piezas</th>
+              <th scope="col" class="numero">Mercancía</th>
+              <th scope="col" class="numero">Gasolina</th>
+              <th scope="col" class="numero">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (f of compras.value() ?? []; track f.id) {
+              <tr>
+                <th scope="row">{{ f.folio }}</th>
+                <td>{{ f.fecha | date: 'mediumDate' }}</td>
+                <td>{{ f.proveedor }}</td>
+                <td class="numero">{{ f.piezas }}</td>
+                <td class="numero">{{ f.mercancia | currency }}</td>
+                <td class="numero">{{ f.gasolina | currency }}</td>
+                <td class="numero">{{ f.total | currency }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="7">No hubo compras en este periodo.</td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr>
+              <th scope="row" colspan="4">Total</th>
+              <td class="numero">{{ totalCompras().mercancia | currency }}</td>
+              <td class="numero">{{ totalCompras().gasolina | currency }}</td>
+              <td class="numero">
+                <strong>{{ totalCompras().total | currency }}</strong>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</div>

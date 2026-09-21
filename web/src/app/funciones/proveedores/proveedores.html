@@ -1,0 +1,117 @@
+<div class="pagina">
+  <uvm-encabezado titulo="Proveedores y vehículos" />
+
+  <mat-tab-group mat-stretch-tabs="false" animationDuration="0ms">
+    <mat-tab label="Proveedores">
+      <div class="pestana acciones">
+        <button mat-flat-button type="button" (click)="abrirProveedor(null)">
+          Nuevo proveedor
+        </button>
+      </div>
+      <uvm-estado-carga
+        [cargando]="proveedores.isLoading()"
+        [error]="proveedores.error()"
+        (reintentar)="proveedores.reload()"
+      />
+      <div uvmDesplazable="Proveedores" class="pestana">
+        <table class="tabla-simple">
+          <caption class="visualmente-oculto">
+            Proveedores
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Proveedor</th>
+              <th scope="col" class="numero">Km ida y vuelta</th>
+              <th scope="col">Contacto</th>
+              <th scope="col">Qué surte</th>
+              <th scope="col"><span class="visualmente-oculto">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of proveedores.value() ?? []; track p.id) {
+              <tr>
+                <th scope="row">
+                  {{ p.nombre }}
+                  @if (!p.activo) {
+                    <span class="estado">Inactivo</span>
+                  }
+                </th>
+                <td class="numero">{{ p.distanciaKm | number: '1.0-2' }}</td>
+                <td>{{ p.contacto }} {{ p.telefono }}</td>
+                <td>{{ p.categoriasQueSurte }}</td>
+                <td>
+                  <button
+                    mat-button
+                    type="button"
+                    (click)="abrirProveedor(p)"
+                    [attr.aria-label]="'Editar ' + p.nombre"
+                  >
+                    Editar
+                  </button>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="5">Todavía no hay proveedores.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </mat-tab>
+
+    <mat-tab label="Vehículos">
+      <div class="pestana acciones">
+        <button mat-flat-button type="button" (click)="abrirVehiculo(null)">Nuevo vehículo</button>
+      </div>
+      <uvm-estado-carga
+        [cargando]="vehiculos.isLoading()"
+        [error]="vehiculos.error()"
+        (reintentar)="vehiculos.reload()"
+      />
+      <div uvmDesplazable="Vehículos" class="pestana">
+        <table class="tabla-simple">
+          <caption class="visualmente-oculto">
+            Vehículos
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Vehículo</th>
+              <th scope="col" class="numero">Rendimiento (km/l)</th>
+              <th scope="col">Notas</th>
+              <th scope="col"><span class="visualmente-oculto">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (v of vehiculos.value() ?? []; track v.id) {
+              <tr>
+                <th scope="row">
+                  {{ v.nombre }}
+                  @if (!v.activo) {
+                    <span class="estado">Inactivo</span>
+                  }
+                </th>
+                <td class="numero">{{ v.rendimientoKmL | number: '1.0-2' }}</td>
+                <td>{{ v.notas }}</td>
+                <td>
+                  <button
+                    mat-button
+                    type="button"
+                    (click)="abrirVehiculo(v)"
+                    [attr.aria-label]="'Editar ' + v.nombre"
+                  >
+                    Editar
+                  </button>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="4">Todavía no hay vehículos.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</div>

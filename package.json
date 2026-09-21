@@ -1,0 +1,34 @@
+{
+  "name": "una-vez-mas-gestion",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Aplicativo de inventario y ventas de Una vez m\u00e1s",
+  "packageManager": "npm@11.19.0",
+  "engines": {
+    "node": ">=24.15.0"
+  },
+  "workspaces": [
+    "compartido",
+    "api",
+    "web"
+  ],
+  "scripts": {
+    "dev": "npm run build -w compartido && concurrently -k -n compartido,api,web -c gray,blue,magenta \"npm run watch -w compartido\" \"npm run dev -w api\" \"npm start -w web\"",
+    "build": "npm run build -w compartido && npm run build -w api && npm run build -w web",
+    "test": "npm test -w compartido && npm test -w api && npm test -w web",
+    "test:integracion": "npm run test:integracion -w api",
+    "e2e": "npm run build && npm run e2e -w web",
+    "migrar": "npm run migrar -w api",
+    "semilla": "npm run semilla -w api --",
+    "lint": "oxlint --type-aware compartido/src api/src api/test web/src web/e2e",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5",
+    "oxlint": "^1.85.0",
+    "oxlint-tsgolint": "^7.0.2001",
+    "prettier": "^3.9.8",
+    "typescript": "~6.0.3"
+  }
+}

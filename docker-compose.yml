@@ -1,0 +1,28 @@
+# Solo para desarrollo: PostgreSQL local. La producción usa compose.prod.yml.
+# Las contraseñas salen del .env de la raíz (copia .env.example).
+name: una-vez-mas-gestion
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en .env}
+      GESTION_OWNER_PASSWORD: ${GESTION_OWNER_PASSWORD:?Define GESTION_OWNER_PASSWORD en .env}
+      GESTION_APP_PASSWORD: ${GESTION_APP_PASSWORD:?Define GESTION_APP_PASSWORD en .env}
+      SITIO_LECTURA_PASSWORD: ${SITIO_LECTURA_PASSWORD:?Define SITIO_LECTURA_PASSWORD en .env}
+      TZ: America/Mexico_City
+    ports:
+      - '127.0.0.1:5433:5432'
+    volumes:
+      # Postgres 18 guarda los datos en /var/lib/postgresql/18/docker: se monta el padre.
+      - datos:/var/lib/postgresql
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d gestion']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  datos:

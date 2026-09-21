@@ -1,0 +1,261 @@
+/* =============================================================================
+   Una vez más · Gestión — estilos globales
+   Tema Material 3 con los colores del sitio (primario #800f35, terciario
+   #e8ad52) y sus mismas fuentes: Outfit para títulos y Plus Jakarta Sans para
+   el texto. La paleta está en estilos/_colores-marca.scss.
+   ============================================================================= */
+@use '@angular/material' as mat;
+@use './estilos/colores-marca' as marca;
+
+html {
+  color-scheme: light;
+  @include mat.theme(
+    (
+      color: (
+        primary: marca.$primary-palette,
+        tertiary: marca.$tertiary-palette,
+        theme-type: light,
+      ),
+      typography: (
+        plain-family: 'Plus Jakarta Sans',
+        brand-family: 'Outfit',
+      ),
+      density: 0,
+    )
+  );
+
+  // Quien pide más contraste en su sistema lo recibe.
+  @media (prefers-contrast: more) {
+    @include marca.high-contrast-overrides(light);
+  }
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-large);
+}
+
+h1,
+h2,
+h3 {
+  font-family: 'Outfit', sans-serif;
+  margin: 0;
+}
+
+h1 {
+  font: var(--mat-sys-headline-medium);
+  font-family: 'Outfit', sans-serif;
+}
+
+h2 {
+  font: var(--mat-sys-title-large);
+  font-family: 'Outfit', sans-serif;
+}
+
+/* ---- utilidades compartidas por las pantallas ---- */
+
+/** Solo para lectores de pantalla. */
+.visualmente-oculto {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.pagina {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 1rem;
+  max-width: 72rem;
+  margin-inline: auto;
+  @media (min-width: 48rem) {
+    padding: 1.5rem 2rem;
+  }
+}
+
+.tarjeta {
+  background: var(--mat-sys-surface-container-lowest);
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 1rem;
+  padding: 1rem;
+}
+
+/** Una tabla ancha se desplaza dentro de su caja, nunca la página completa. */
+.tabla-contenedor {
+  overflow-x: auto;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 1rem;
+  background: var(--mat-sys-surface-container-lowest);
+
+  table {
+    width: 100%;
+  }
+}
+
+.numero {
+  font-variant-numeric: tabular-nums;
+  text-align: end !important;
+  white-space: nowrap;
+}
+
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: flex-start;
+
+  mat-form-field {
+    flex: 1 1 12rem;
+  }
+}
+
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.rejilla-campos {
+  display: grid;
+  gap: 0.75rem 1rem;
+  align-items: start;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+}
+
+.error-texto {
+  color: var(--mat-sys-error);
+  font: var(--mat-sys-body-medium);
+  margin: 0;
+}
+
+.ayuda {
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+  margin: 0;
+}
+
+/** Estado con texto e ícono, nunca solo color. */
+.estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.625rem;
+  border-radius: 999px;
+  font: var(--mat-sys-label-medium);
+  white-space: nowrap;
+  background: var(--mat-sys-surface-container-high);
+  color: var(--mat-sys-on-surface);
+
+  &.alerta {
+    background: var(--mat-sys-error-container);
+    color: var(--mat-sys-on-error-container);
+  }
+
+  &.bien {
+    background: var(--mat-sys-tertiary-container);
+    color: var(--mat-sys-on-tertiary-container);
+  }
+
+  mat-icon {
+    font-size: 1rem;
+    width: 1rem;
+    height: 1rem;
+  }
+}
+
+tr.fila-enlace {
+  cursor: pointer;
+
+  &:hover {
+    background: var(--mat-sys-surface-container);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---- tablas simples (detalle de documentos) y listas de datos ---- */
+
+.tabla-simple {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--mat-sys-body-medium);
+
+  th,
+  td {
+    padding: 0.75rem 1rem;
+    text-align: start;
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+  }
+
+  thead th {
+    font: var(--mat-sys-title-small);
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  tfoot th,
+  tfoot td {
+    border-bottom: 0;
+  }
+}
+
+dl.datos {
+  margin: 0;
+
+  dt {
+    font: var(--mat-sys-label-large);
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  dd {
+    margin: 0.125rem 0 0.75rem;
+  }
+}
+
+.pestana {
+  margin-top: 1rem;
+}
+
+.tabla-simple th[scope='row'] {
+  font-weight: 600;
+  min-width: 10rem;
+
+  .ayuda,
+  .estado {
+    display: block;
+    width: fit-content;
+    font-weight: 400;
+    margin-top: 0.125rem;
+  }
+}
+
+.categorias {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+  }
+}

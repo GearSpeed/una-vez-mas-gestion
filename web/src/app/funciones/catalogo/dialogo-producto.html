@@ -1,0 +1,141 @@
+<h2 mat-dialog-title>{{ titulo }}</h2>
+<form [formGroup]="formulario" (ngSubmit)="guardar()" novalidate>
+  <mat-dialog-content class="contenido">
+    <div class="rejilla-campos">
+      <mat-form-field>
+        <mat-label>Nombre</mat-label>
+        <input matInput formControlName="nombre" (input)="alCambiarNombre()" cdkFocusInitial />
+        @if (formulario.controls.nombre.hasError('required')) {
+          <mat-error>Escribe el nombre.</mat-error>
+        }
+      </mat-form-field>
+      <mat-form-field>
+        <mat-label>Slug (URL en el sitio)</mat-label>
+        <input
+          matInput
+          formControlName="slug"
+          (input)="alEditarSlug()"
+          autocapitalize="off"
+          spellcheck="false"
+        />
+        <mat-hint
+          >Igual al de products.json del sitio: /catalogo/{{
+            formulario.controls.slug.value || 'slug'
+          }}</mat-hint
+        >
+        @if (formulario.controls.slug.hasError('pattern')) {
+          <mat-error>Solo minúsculas, números y guiones; sin acentos ni ñ.</mat-error>
+        } @else if (formulario.controls.slug.hasError('servidor')) {
+          <mat-error>{{ formulario.controls.slug.getError('servidor') }}</mat-error>
+        } @else if (formulario.controls.slug.hasError('required')) {
+          <mat-error>Escribe el slug.</mat-error>
+        }
+      </mat-form-field>
+      <mat-form-field>
+        <mat-label>Categoría</mat-label>
+        <mat-select formControlName="categoriaId">
+          @for (c of datos.categorias; track c.id) {
+            <mat-option [value]="c.id">{{ c.nombre }}</mat-option>
+          }
+        </mat-select>
+        @if (formulario.controls.categoriaId.hasError('required')) {
+          <mat-error>Elige la categoría.</mat-error>
+        }
+      </mat-form-field>
+      <mat-form-field>
+        <mat-label>Variedad</mat-label>
+        <input matInput formControlName="variedad" />
+      </mat-form-field>
+      <mat-form-field>
+        <mat-label>Presentación</mat-label>
+        <input matInput formControlName="presentacion" placeholder="6 pzas" />
+      </mat-form-field>
+      <mat-form-field>
+        <mat-label>Stock mínimo (aviso)</mat-label>
+        <input matInput type="number" inputmode="numeric" min="0" formControlName="stockMinimo" />
+      </mat-form-field>
+    </div>
+
+    <fieldset class="precio">
+      <legend>Precio</legend>
+      <div class="rejilla-campos">
+        <mat-form-field>
+          <mat-label>Precio de venta</mat-label>
+          <span matTextPrefix>$&nbsp;</span>
+          <input
+            matInput
+            type="number"
+            inputmode="decimal"
+            min="0"
+            step="0.01"
+            formControlName="precioVenta"
+          />
+          <mat-hint>Vacío: el sitio dice «Consulta precio» y no se puede vender.</mat-hint>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Ganancia objetivo sobre el costo</mat-label>
+          <input
+            matInput
+            type="number"
+            inputmode="decimal"
+            min="0"
+            step="1"
+            formControlName="gananciaPorcentaje"
+          />
+          <span matTextSuffix>&nbsp;%</span>
+        </mat-form-field>
+      </div>
+      @if (costo && indicadores(); as ind) {
+        <dl class="indicadores" aria-live="polite">
+          <div>
+            <dt>Costo promedio</dt>
+            <dd>{{ costo | currency: 'MXN' : 'symbol' : '1.2-4' }}</dd>
+          </div>
+          <div>
+            <dt>Precio sugerido</dt>
+            <dd>{{ ind.precioSugerido === null ? '—' : (ind.precioSugerido | currency) }}</dd>
+          </div>
+          <div>
+            <dt>Ganancia por pieza</dt>
+            <dd>{{ ind.gananciaPorPieza === null ? '—' : (ind.gananciaPorPieza | currency) }}</dd>
+          </div>
+          <div>
+            <dt>Ganancia sobre costo</dt>
+            <dd>
+              {{
+                ind.gananciaSobreCosto === null ? '—' : (ind.gananciaSobreCosto | percent: '1.0-2')
+              }}
+            </dd>
+          </div>
+          <div>
+            <dt>Margen sobre precio</dt>
+            <dd>
+              {{
+                ind.margenSobrePrecio === null ? '—' : (ind.margenSobrePrecio | percent: '1.0-2')
+              }}
+            </dd>
+          </div>
+        </dl>
+      } @else {
+        <p class="ayuda">
+          Los márgenes aparecen cuando el producto tenga costo (después de su primera compra).
+        </p>
+      }
+    </fieldset>
+
+    <div class="casillas">
+      <mat-checkbox formControlName="activo">Activo (se puede comprar y vender)</mat-checkbox>
+      <mat-checkbox formControlName="publicado">Publicado en el sitio</mat-checkbox>
+    </div>
+
+    @if (error()) {
+      <p class="error-texto" role="alert">{{ error() }}</p>
+    }
+  </mat-dialog-content>
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" mat-dialog-close>Cancelar</button>
+    <button mat-flat-button type="submit" [disabled]="guardando()">
+      {{ guardando() ? 'Guardando…' : 'Guardar' }}
+    </button>
+  </mat-dialog-actions>
+</form>

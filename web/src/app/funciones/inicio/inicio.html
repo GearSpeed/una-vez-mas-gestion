@@ -1,0 +1,105 @@
+<div class="pagina">
+  <uvm-encabezado [titulo]="saludo()" subtitulo="¿Qué vamos a registrar?" />
+
+  @if (accesos().length) {
+    <nav class="accesos" aria-label="Accesos rápidos">
+      @for (acceso of accesos(); track acceso.ruta) {
+        <a mat-stroked-button [routerLink]="acceso.ruta" class="acceso">
+          <mat-icon aria-hidden="true">{{ acceso.icono }}</mat-icon>
+          {{ acceso.etiqueta }}
+        </a>
+      }
+    </nav>
+  }
+
+  @if (esVendedor()) {
+    <section class="tarjeta" aria-labelledby="titulo-hoy">
+      <h2 id="titulo-hoy">Tu día</h2>
+      <uvm-estado-carga
+        [cargando]="corte.isLoading()"
+        [error]="corte.error()"
+        (reintentar)="corte.reload()"
+      />
+      @if (corte.value(); as c) {
+        <dl class="cifras">
+          <div>
+            <dt>Vendido hoy</dt>
+            <dd>{{ c.totalVendido | currency }}</dd>
+          </div>
+          <div>
+            <dt>En efectivo</dt>
+            <dd>{{ c.cobros.efectivo | currency }}</dd>
+          </div>
+          <div>
+            <dt>Piezas que traes</dt>
+            <dd>{{ piezasQueTrae() }}</dd>
+          </div>
+        </dl>
+        <a mat-button routerLink="/corte">Ver mi corte completo</a>
+      }
+    </section>
+  }
+
+  @if (verTablero()) {
+    <uvm-estado-carga
+      [cargando]="tablero.isLoading()"
+      [error]="tablero.error()"
+      (reintentar)="tablero.reload()"
+    />
+    @if (tablero.value(); as t) {
+      <section aria-labelledby="titulo-ventas">
+        <h2 id="titulo-ventas">Ventas</h2>
+        <dl class="cifras">
+          <div class="tarjeta">
+            <dt>Hoy · {{ t.hoy | date: 'longDate' }}</dt>
+            <dd>{{ t.ventas.hoy.importe | currency }}</dd>
+            <dd class="ayuda">{{ t.ventas.hoy.ventas }} ventas</dd>
+          </div>
+          <div class="tarjeta">
+            <dt>Esta semana</dt>
+            <dd>{{ t.ventas.semana.importe | currency }}</dd>
+            <dd class="ayuda">{{ t.ventas.semana.ventas }} ventas</dd>
+          </div>
+          <div class="tarjeta">
+            <dt>Este mes</dt>
+            <dd>{{ t.ventas.mes.importe | currency }}</dd>
+            <dd class="ayuda">{{ t.ventas.mes.ventas }} ventas</dd>
+          </div>
+          @if (t.costos; as costos) {
+            <div class="tarjeta">
+              <dt>Utilidad bruta del mes</dt>
+              <dd>{{ costos.utilidadMes | currency }}</dd>
+            </div>
+            <div class="tarjeta">
+              <dt>Inventario a costo</dt>
+              <dd>{{ costos.valorInventario | currency }}</dd>
+            </div>
+          }
+        </dl>
+      </section>
+
+      <div class="dos-columnas">
+        <section class="tarjeta" aria-labelledby="titulo-minimo">
+          <h2 id="titulo-minimo">Por agotarse</h2>
+          @for (p of t.bajoMinimo; track p.productoId) {
+            <p class="fila">
+              <span class="estado alerta"><span aria-hidden="true">⚠</span> {{ p.producto }}</span>
+              <span>quedan {{ p.existencia }} (mínimo {{ p.stockMinimo }})</span>
+            </p>
+          } @empty {
+            <p class="ayuda">Ningún producto está por debajo de su mínimo.</p>
+          }
+        </section>
+        <section class="tarjeta" aria-labelledby="titulo-ubicaciones">
+          <h2 id="titulo-ubicaciones">Piezas por ubicación</h2>
+          @for (u of t.porUbicacion; track u.ubicacion) {
+            <p class="fila">
+              <span>{{ u.ubicacion }}</span>
+              <span class="numero">{{ u.piezas }}</span>
+            </p>
+          }
+        </section>
+      </div>
+    }
+  }
+</div>

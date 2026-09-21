@@ -1,0 +1,29 @@
+{
+  "name": "@uvm/compartido",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Permisos, esquemas de validación y cálculos que comparten la API y el front",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "watch": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "big.js": "^7.0.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/big.js": "^7.0.0",
+    "vitest": "~4.1.11"
+  }
+}

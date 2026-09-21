@@ -1,0 +1,109 @@
+<div class="pagina">
+  <uvm-encabezado [titulo]="titulo()">
+    <a mat-button routerLink="/ventas">Volver a ventas</a>
+    @if (puedeCancelar()) {
+      <button mat-stroked-button type="button" (click)="cancelar()" [disabled]="cancelando()">
+        Cancelar venta
+      </button>
+    }
+  </uvm-encabezado>
+
+  <uvm-estado-carga
+    [cargando]="venta.isLoading()"
+    [error]="venta.error()"
+    (reintentar)="venta.reload()"
+  />
+
+  @if (venta.value(); as v) {
+    @if (v.cancelacion; as c) {
+      <p class="tarjeta" role="status">
+        <span class="estado alerta">Cancelada</span>
+        el {{ c.en | date: 'medium' }} por {{ c.por }}: «{{ c.motivo }}»
+      </p>
+    }
+
+    <dl class="tarjeta rejilla-campos datos">
+      <div>
+        <dt>Fecha</dt>
+        <dd>{{ v.fecha | date: 'longDate' }}</dd>
+      </div>
+      <div>
+        <dt>Vendedor</dt>
+        <dd>{{ v.vendedor }}</dd>
+      </div>
+      <div>
+        <dt>Salió de</dt>
+        <dd>{{ v.ubicacion }}</dd>
+      </div>
+      <div>
+        <dt>Canal</dt>
+        <dd>{{ v.canal | etiqueta: 'canal' }}</dd>
+      </div>
+      <div>
+        <dt>Pago</dt>
+        <dd>{{ v.metodoPago | etiqueta: 'metodo' }}</dd>
+      </div>
+      @if (v.notas) {
+        <div>
+          <dt>Notas</dt>
+          <dd>{{ v.notas }}</dd>
+        </div>
+      }
+    </dl>
+
+    <div uvmDesplazable="Productos vendidos">
+      <table class="tabla-simple">
+        <caption class="visualmente-oculto">
+          Productos vendidos
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Producto</th>
+            <th scope="col" class="numero">Piezas</th>
+            <th scope="col" class="numero">Precio</th>
+            <th scope="col" class="numero">Descuento</th>
+            <th scope="col" class="numero">Importe</th>
+            @if (v.costos) {
+              <th scope="col" class="numero">Costo unitario</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (l of v.lineas; track l.productoId) {
+            <tr>
+              <td>{{ l.producto }}</td>
+              <td class="numero">{{ l.cantidad }}</td>
+              <td class="numero">{{ l.precioUnitario | currency }}</td>
+              <td class="numero">{{ l.descuento | currency }}</td>
+              <td class="numero">{{ l.importe | currency }}</td>
+              @if (l.costos; as c) {
+                <td class="numero">{{ c.costoUnitario | currency: 'MXN' : 'symbol' : '1.2-4' }}</td>
+              }
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr>
+            <th scope="row">Total</th>
+            <td class="numero">{{ v.piezas }}</td>
+            <td></td>
+            <td></td>
+            <td class="numero">
+              <strong>{{ v.total | currency }}</strong>
+            </td>
+            @if (v.costos) {
+              <td></td>
+            }
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    @if (v.costos; as c) {
+      <p class="ayuda">
+        Costo de lo vendido: {{ c.costoTotal | currency }} · Utilidad bruta:
+        {{ c.utilidad | currency }}
+      </p>
+    }
+  }
+</div>

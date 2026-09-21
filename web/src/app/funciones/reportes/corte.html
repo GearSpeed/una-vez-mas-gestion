@@ -1,0 +1,93 @@
+<div [class.pagina]="!incrustado()">
+  @if (!incrustado()) {
+    <uvm-encabezado titulo="Corte" subtitulo="Lo que cargaste, vendiste y cobraste." />
+  }
+
+  <div class="filtros" role="search" aria-label="Periodo del corte">
+    @if (eligeUbicacion()) {
+      <mat-form-field>
+        <mat-label>Ubicación</mat-label>
+        <mat-select [value]="ubicacionId()" (valueChange)="ubicacionId.set($event)">
+          @for (u of ubicaciones.value() ?? []; track u.id) {
+            <mat-option [value]="u.id">{{ u.nombre }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    }
+    <mat-form-field>
+      <mat-label>Desde</mat-label>
+      <input
+        matInput
+        type="date"
+        [value]="desde()"
+        (change)="desde.set($any($event.target).value)"
+      />
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Hasta</mat-label>
+      <input
+        matInput
+        type="date"
+        [value]="hasta()"
+        (change)="hasta.set($any($event.target).value)"
+      />
+    </mat-form-field>
+  </div>
+
+  <uvm-estado-carga
+    [cargando]="corte.isLoading()"
+    [error]="corte.error()"
+    (reintentar)="corte.reload()"
+  />
+
+  @if (corte.value(); as c) {
+    <section class="tarjeta" aria-labelledby="titulo-cobros">
+      <h2 id="titulo-cobros">
+        {{ c.ubicacion.nombre }}: {{ c.desde | date: 'mediumDate'
+        }}{{ c.desde !== c.hasta ? ' al ' + (c.hasta | date: 'mediumDate') : '' }}
+      </h2>
+      <p>
+        Vendido: <strong>{{ c.totalVendido | currency }}</strong>
+      </p>
+      <p class="ayuda">
+        @for (m of metodos; track m; let ultimo = $last) {
+          {{ m | etiqueta: 'metodo' }}: {{ c.cobros[m] | currency }}{{ ultimo ? '' : ' · ' }}
+        }
+      </p>
+    </section>
+
+    <div uvmDesplazable="Mercancía del corte">
+      <table class="tabla-simple">
+        <caption class="visualmente-oculto">
+          Movimiento de mercancía del periodo
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Producto</th>
+            <th scope="col" class="numero">Cargó</th>
+            <th scope="col" class="numero">Vendió</th>
+            <th scope="col" class="numero">Devolvió</th>
+            <th scope="col" class="numero">Ajustes</th>
+            <th scope="col" class="numero">Trae ahora</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of c.productos; track p.productoId) {
+            <tr>
+              <th scope="row">{{ p.producto }}</th>
+              <td class="numero">{{ p.cargo }}</td>
+              <td class="numero">{{ p.vendio }}</td>
+              <td class="numero">{{ p.devolvio }}</td>
+              <td class="numero">{{ p.ajustes }}</td>
+              <td class="numero">{{ p.trae }}</td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="6">Sin movimientos en este periodo.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

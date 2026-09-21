@@ -1,0 +1,115 @@
+<div class="pagina">
+  <uvm-encabezado
+    titulo="Kardex"
+    [subtitulo]="nombreProducto() || 'Elige un producto para ver su historial'"
+  />
+
+  <div class="filtros" role="search" aria-label="Filtrar movimientos">
+    <mat-form-field>
+      <mat-label>Producto</mat-label>
+      <mat-select [value]="productoId()" (valueChange)="filtrar(() => productoId.set($event))">
+        @for (p of productos.value() ?? []; track p.id) {
+          <mat-option [value]="p.id">{{ p.nombre }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Ubicación</mat-label>
+      <mat-select
+        [canSelectNullableOptions]="true"
+        [value]="ubicacionId()"
+        (valueChange)="filtrar(() => ubicacionId.set($event))"
+      >
+        <mat-option [value]="null">Todas</mat-option>
+        @for (u of ubicaciones.value() ?? []; track u.id) {
+          <mat-option [value]="u.id">{{ u.nombre }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Desde</mat-label>
+      <input
+        matInput
+        type="date"
+        [value]="desde()"
+        (change)="filtrar(() => desde.set($any($event.target).value))"
+      />
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Hasta</mat-label>
+      <input
+        matInput
+        type="date"
+        [value]="hasta()"
+        (change)="filtrar(() => hasta.set($any($event.target).value))"
+      />
+    </mat-form-field>
+  </div>
+
+  <uvm-estado-carga
+    [cargando]="movimientos.isLoading()"
+    [error]="movimientos.error()"
+    (reintentar)="movimientos.reload()"
+  />
+
+  @if (movimientos.value(); as lista) {
+    <div uvmDesplazable="Movimientos del producto">
+      <table class="tabla-simple">
+        <caption class="visualmente-oculto">
+          Movimientos de
+          {{
+            nombreProducto()
+          }}, del más reciente al más antiguo
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Fecha</th>
+            <th scope="col">Movimiento</th>
+            <th scope="col">Documento</th>
+            <th scope="col">Ubicación</th>
+            <th scope="col" class="numero">Piezas</th>
+            <th scope="col" class="numero">Quedaron</th>
+            @if (lista.filas[0]?.costos) {
+              <th scope="col" class="numero">Costo</th>
+              <th scope="col" class="numero">Promedio después</th>
+            }
+            <th scope="col">Registró</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (m of lista.filas; track m.id) {
+            <tr>
+              <td>{{ m.fecha | date: 'mediumDate' }}</td>
+              <td>{{ m.tipo | etiqueta: 'movimiento' }}</td>
+              <td>{{ m.documento }}</td>
+              <td>{{ m.ubicacion }}</td>
+              <td class="numero">{{ m.cantidad > 0 ? '+' : '' }}{{ m.cantidad }}</td>
+              <td class="numero">{{ m.existenciaResultante }}</td>
+              @if (m.costos; as c) {
+                <td class="numero">{{ c.costoUnitario | currency: 'MXN' : 'symbol' : '1.2-4' }}</td>
+                <td class="numero">
+                  {{ c.costoPromedioResultante | currency: 'MXN' : 'symbol' : '1.2-4' }}
+                </td>
+              }
+              <td>{{ m.usuario }}</td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="9">Sin movimientos con estos filtros.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (lista.total > lista.porPagina) {
+      <mat-paginator
+        [length]="lista.total"
+        [pageSize]="lista.porPagina"
+        [pageIndex]="lista.pagina - 1"
+        [hidePageSize]="true"
+        (page)="cambiarPagina($event)"
+        aria-label="Páginas de movimientos"
+      />
+    }
+  }
+</div>

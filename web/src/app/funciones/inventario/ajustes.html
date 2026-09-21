@@ -1,0 +1,238 @@
+<div class="pagina">
+  <uvm-encabezado
+    titulo="Ajustes y conteo"
+    subtitulo="Mermas, piezas dañadas, muestras, y el conteo físico."
+  />
+
+  <uvm-estado-carga
+    [cargando]="ubicaciones.isLoading()"
+    [error]="ubicaciones.error()"
+    (reintentar)="ubicaciones.reload()"
+  />
+
+  <mat-tab-group mat-stretch-tabs="false" animationDuration="0ms">
+    <mat-tab label="Ajuste">
+      <form
+        [formGroup]="formulario"
+        (ngSubmit)="registrar()"
+        class="tarjeta formulario pestana"
+        novalidate
+      >
+        <div class="rejilla-campos">
+          <mat-form-field>
+            <mat-label>Ubicación</mat-label>
+            <mat-select formControlName="ubicacionId">
+              @for (u of activas(); track u.id) {
+                <mat-option [value]="u.id">{{ u.nombre }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Motivo</mat-label>
+            <mat-select formControlName="motivo">
+              @for (m of motivos; track m) {
+                <mat-option [value]="m">{{ m | etiqueta: 'motivo' }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <fieldset formArrayName="lineas" class="lineas">
+          <legend>Productos</legend>
+          @for (linea of lineas.controls; track linea; let i = $index) {
+            <div
+              class="linea"
+              [formGroupName]="i"
+              role="group"
+              [attr.aria-label]="'Producto ' + (i + 1)"
+            >
+              <mat-form-field class="producto">
+                <mat-label>Producto</mat-label>
+                <mat-select formControlName="productoId">
+                  @for (p of productos.value() ?? []; track p.id) {
+                    <mat-option [value]="p.id">{{ p.nombre }}</mat-option>
+                  }
+                </mat-select>
+                @if (linea.controls.productoId.hasError('servidor')) {
+                  <mat-error>{{ linea.controls.productoId.getError('servidor') }}</mat-error>
+                }
+              </mat-form-field>
+              <mat-button-toggle-group
+                formControlName="sentido"
+                [attr.aria-label]="'Sentido del producto ' + (i + 1)"
+                [hideSingleSelectionIndicator]="true"
+              >
+                <mat-button-toggle value="sale">Sale</mat-button-toggle>
+                <mat-button-toggle value="entra">Entra</mat-button-toggle>
+              </mat-button-toggle-group>
+              <mat-form-field class="corto">
+                <mat-label>Piezas</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  inputmode="numeric"
+                  min="1"
+                  formControlName="cantidad"
+                />
+                @if (linea.controls.cantidad.invalid) {
+                  <mat-error>{{
+                    linea.controls.cantidad.getError('servidor') ?? 'Mínimo 1.'
+                  }}</mat-error>
+                }
+              </mat-form-field>
+              @if (linea.controls.sentido.value === 'entra') {
+                <mat-form-field class="corto">
+                  <mat-label>Costo por pieza</mat-label>
+                  <span matTextPrefix>$&nbsp;</span>
+                  <input
+                    matInput
+                    type="number"
+                    inputmode="decimal"
+                    min="0"
+                    step="0.01"
+                    formControlName="costoUnitario"
+                  />
+                  <mat-hint>Vacío: el costo promedio.</mat-hint>
+                  @if (linea.controls.costoUnitario.hasError('servidor')) {
+                    <mat-error>{{ linea.controls.costoUnitario.getError('servidor') }}</mat-error>
+                  }
+                </mat-form-field>
+              }
+              <button
+                mat-icon-button
+                type="button"
+                (click)="quitarLinea(i)"
+                [disabled]="lineas.length === 1"
+                [attr.aria-label]="'Quitar el producto ' + (i + 1)"
+              >
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
+          }
+          <button mat-stroked-button type="button" (click)="agregarLinea()">
+            <mat-icon aria-hidden="true">add</mat-icon>
+            Agregar otro producto
+          </button>
+        </fieldset>
+
+        <mat-form-field>
+          <mat-label>Notas (opcional)</mat-label>
+          <input matInput formControlName="notas" maxlength="500" />
+        </mat-form-field>
+        @if (error()) {
+          <p class="error-texto" role="alert">{{ error() }}</p>
+        }
+        <div class="acciones">
+          <button mat-flat-button type="submit" [disabled]="enviando()">
+            {{ enviando() ? 'Registrando…' : 'Registrar ajuste' }}
+          </button>
+        </div>
+      </form>
+    </mat-tab>
+
+    <mat-tab label="Conteo físico">
+      <div class="tarjeta formulario pestana">
+        <p class="ayuda">
+          Escribe cuántas piezas hay de verdad. Lo que no cambies se queda como dice el sistema; al
+          registrar, las diferencias se ajustan solas.
+        </p>
+        <mat-form-field>
+          <mat-label>Ubicación a contar</mat-label>
+          <mat-select [value]="ubicacionConteo()" (valueChange)="cambiarUbicacionConteo($event)">
+            @for (u of activas(); track u.id) {
+              <mat-option [value]="u.id">{{ u.nombre }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <uvm-estado-carga
+          [cargando]="enUbicacion.isLoading()"
+          [error]="enUbicacion.error()"
+          (reintentar)="enUbicacion.reload()"
+        />
+        @if (enUbicacion.value(); as datos) {
+          <div uvmDesplazable="Conteo físico">
+            <table class="tabla-simple">
+              <caption class="visualmente-oculto">
+                Conteo de
+                {{
+                  datos.ubicacion?.nombre
+                }}
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Producto</th>
+                  <th scope="col" class="numero">Según el sistema</th>
+                  <th scope="col" class="numero">Contado</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (f of datos.filas; track f.productoId) {
+                  <tr>
+                    <th scope="row">{{ f.producto }}</th>
+                    <td class="numero">{{ f.cantidad }}</td>
+                    <td class="numero">
+                      <input
+                        class="conteo"
+                        type="number"
+                        min="0"
+                        step="1"
+                        inputmode="numeric"
+                        [value]="contado().get(f.productoId) ?? f.cantidad"
+                        (input)="capturar(f.productoId, $any($event.target).value)"
+                        [attr.aria-label]="'Piezas contadas de ' + f.producto"
+                      />
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <div class="acciones">
+            <span class="ayuda" aria-live="polite"
+              >{{ diferencias() }} diferencias por ajustar</span
+            >
+            <button
+              mat-flat-button
+              type="button"
+              (click)="registrarConteo()"
+              [disabled]="contando()"
+            >
+              {{ contando() ? 'Registrando…' : 'Registrar conteo' }}
+            </button>
+          </div>
+        }
+        @if (resultadoConteo(); as r) {
+          <p role="status">
+            {{
+              r.ajuste
+                ? 'Se ajustaron ' + r.diferencias + ' productos (' + r.ajuste.folio + ').'
+                : 'Todo coincidió: no hubo ajuste.'
+            }}
+          </p>
+        }
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+
+  <section aria-labelledby="titulo-recientes">
+    <h2 id="titulo-recientes">Últimos ajustes</h2>
+    <ul class="recientes">
+      @for (a of recientes.value() ?? []; track a.id) {
+        <li class="tarjeta">
+          <strong>{{ a.folio }}</strong> · {{ a.fecha | date: 'mediumDate' }} ·
+          {{ a.motivo | etiqueta: 'motivo' }} ·
+          {{ a.ubicacion }}
+          <span class="ayuda">
+            ({{ a.registradoPor }})
+            @for (l of a.lineas; track l.productoId; let ultimo = $last) {
+              {{ l.cantidad > 0 ? '+' : '' }}{{ l.cantidad }} {{ l.producto
+              }}{{ ultimo ? '' : ', ' }}
+            }
+          </span>
+        </li>
+      } @empty {
+        <li class="ayuda">Todavía no hay ajustes.</li>
+      }
+    </ul>
+  </section>
+</div>

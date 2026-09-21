@@ -1,0 +1,68 @@
+# Producción: un VPS con Docker (Hetzner). Nada queda abierto a internet:
+# cloudflared abre un túnel de salida hacia Cloudflare y Cloudflare Access
+# decide quién entra. Las variables salen del .env del servidor; la guía está
+# en docs/despliegue.md.
+name: una-vez-mas-gestion
+
+x-imagen: &imagen
+  image: ${IMAGEN:-ghcr.io/gearspeed/una-vez-mas-gestion:latest}
+  build: .
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD}
+      GESTION_OWNER_PASSWORD: ${GESTION_OWNER_PASSWORD:?Falta GESTION_OWNER_PASSWORD}
+      GESTION_APP_PASSWORD: ${GESTION_APP_PASSWORD:?Falta GESTION_APP_PASSWORD}
+      SITIO_LECTURA_PASSWORD: ${SITIO_LECTURA_PASSWORD:?Falta SITIO_LECTURA_PASSWORD}
+      TZ: America/Mexico_City
+    volumes:
+      - datos:/var/lib/postgresql
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d gestion']
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    # Sin `ports`: solo la ven los servicios de esta red.
+
+  # Corre una vez en cada despliegue, como gestion_owner, y termina.
+  migraciones:
+    <<: *imagen
+    command: ['node', 'api/dist/cli/migrar.js']
+    environment:
+      DATABASE_URL_MIGRACIONES: postgres://gestion_owner:${GESTION_OWNER_PASSWORD}@db:5432/gestion
+      ADMIN_INICIAL_CORREO: ${ADMIN_INICIAL_CORREO:-}
+      ADMIN_INICIAL_NOMBRE: ${ADMIN_INICIAL_NOMBRE:-Administrador}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: 'no'
+
+  app:
+    <<: *imagen
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://gestion_app:${GESTION_APP_PASSWORD}@db:5432/gestion
+      AUTH_MODO: access
+      CF_ACCESS_TEAM: ${CF_ACCESS_TEAM:?Falta CF_ACCESS_TEAM}
+      CF_ACCESS_AUD: ${CF_ACCESS_AUD:?Falta CF_ACCESS_AUD}
+      LOG_NIVEL: ${LOG_NIVEL:-info}
+    depends_on:
+      migraciones:
+        condition: service_completed_successfully
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?Falta CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - app
+
+volumes:
+  datos:
