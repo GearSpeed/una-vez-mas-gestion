@@ -74,14 +74,15 @@ probar lo que ve cada rol. Ese modo se niega a arrancar si `NODE_ENV=production`
   precio es 40.30 % y la ganancia sobre costo 67.51 %.
 - **API unitarias**: el JWT de Access (válido, otra app, otro emisor, otra llave, vencido,
   alterado) y el CSV.
-- **API integración** (60, PostgreSQL 18 real): los mismos números del Excel de punta a
+- **API integración** (78, PostgreSQL 18 real): los mismos números del Excel de punta a
   punta, dos ventas simultáneas de la última pieza (una pasa, la otra recibe 409),
-  cancelaciones, traspasos, conteo, permisos por rol, que un vendedor nunca reciba llaves
+  cancelaciones, devoluciones, comisión de tarjeta, traspasos, conteo, permisos por rol, que un vendedor nunca reciba llaves
   `costo*`, y que la propia BD no deje borrar, reescribir el kardex ni dejar existencias
   negativas, y que el rol del sitio no vea tablas.
-- **web** (14): menú por permisos, errores de la API, sesión y la pantalla de venta.
-- **e2e** (42, Playwright): axe (WCAG 2.1 A/AA) en todas las pantallas y diálogos, en
-  escritorio y en celular, y el recorrido completo: precio → compra → carga → venta.
+- **web** (15): menú por permisos, errores de la API, sesión y la pantalla de venta.
+- **e2e** (46, Playwright): axe (WCAG 2.1 A/AA) en todas las pantallas y diálogos, en
+  escritorio y en celular, y el recorrido completo: precio → compra → carga → venta →
+  devolución.
 
 ## Reglas del negocio
 
@@ -94,7 +95,17 @@ probar lo que ve cada rol. Ese modo se niega a arrancar si `NODE_ENV=production`
   costo y escribe el kardex. `existencias.cantidad >= 0` lo cuida también la BD.
 - **Cancelar una venta** (admin, con motivo) regresa las piezas a su ubicación con el costo
   guardado. **Cancelar una compra** solo si no ha salido ninguna pieza de esos productos
-  desde entonces; si ya salieron, se corrige con un ajuste.
+  desde entonces; si ya salieron, se corrige con un ajuste. Una venta con devoluciones ya
+  no se cancela.
+- **Devoluciones** (el vendedor, de sus ventas; folio `D-`): por pieza y parciales. Se
+  reembolsa la parte proporcional de cada línea, con el descuento aplicado y el mismo
+  método con que pagó; los centavos se reparten para que al devolver todo cuadre con lo
+  cobrado. Por cada producto se elige si **vuelve a la venta** (entra a la ubicación de la
+  venta con el costo que se guardó) o **llegó dañado** (no entra y su costo es pérdida).
+- **Comisión de tarjeta** (Mercado Pago): tasa + IVA sobre la tasa, hoy 3.50 % + 16 % =
+  4.06 %. La absorbe el negocio: el cliente paga el precio normal y la venta guarda lo que
+  se retiene; la utilidad ya la descuenta. El admin cambia la tasa en Productos → «Cobro
+  con tarjeta» y aplica solo a ventas nuevas. Una devolución no regresa la comisión.
 - **Ajustes**: si restan, al costo promedio; si suman, al costo que se indique. El
   **conteo físico** registra lo que hay y ajusta solo las diferencias.
 - **Precio**: sin precio no se vende (y el sitio dice «Consulta precio»). La ganancia
@@ -119,6 +130,7 @@ crea) y un usuario puede tener varios.
 | `inventario.ver_todo` (todas las ubicaciones)                       |   ✓   |    ✓    |          |    ✓     |
 | `traspasos.registrar` / `ajustes.registrar`                         |   ✓   |    ✓    |          |          |
 | `ventas.registrar` (desde su ubicación)                             |   ✓   |         |    ✓     |          |
+| `ventas.devolver` (el vendedor, solo de sus ventas)                 |   ✓   |         |    ✓     |          |
 | `ventas.cualquier_ubicacion`, `ventas.descontar`, `ventas.cancelar` |   ✓   |         |          |          |
 | `ventas.ver_todas` / `reportes.ver`                                 |   ✓   |         |          |    ✓     |
 | `usuarios.gestionar`                                                |   ✓   |         |          |          |
@@ -150,6 +162,10 @@ migraciones SQL, en `api/drizzle/`:
 - `0000_esquema_inicial.sql` es la generada por drizzle-kit.
 - `0001_permisos_y_catalogo_publico.sql` está escrita a mano: permisos de los roles de
   Postgres y la vista para el sitio.
+- `0002_devoluciones_y_comisiones.sql` la generó drizzle-kit.
+- `0003_lineas_netas_y_tasa_tarjeta.sql` está escrita a mano: la vista
+  `venta_lineas_netas` (cada línea ya sin lo devuelto, para reportes) y la tasa inicial
+  de la tarjeta.
 
 Una migración ya aplicada **no se edita**: cualquier cambio va en una nueva
 (`npm run generar-migracion -w api`, o `--custom` para SQL a mano).

@@ -14,6 +14,7 @@ export const TIPOS_MOVIMIENTO = [
   'ajuste',
   'cancelacion_compra',
   'cancelacion_venta',
+  'devolucion',
 ] as const;
 export type TipoMovimiento = (typeof TIPOS_MOVIMIENTO)[number];
 
@@ -49,6 +50,7 @@ export const ETIQUETAS_MOVIMIENTO: Readonly<Record<TipoMovimiento, string>> = {
   ajuste: 'Ajuste',
   cancelacion_compra: 'Compra cancelada',
   cancelacion_venta: 'Venta cancelada',
+  devolucion: 'Devolución de cliente',
 };
 
 export const ETIQUETAS_MOTIVO: Readonly<Record<MotivoAjuste, string>> = {

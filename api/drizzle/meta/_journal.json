@@ -15,6 +15,20 @@
       "when": 1790012482593,
       "tag": "0001_permisos_y_catalogo_publico",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790032903334,
+      "tag": "0002_devoluciones_y_comisiones",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790032920247,
+      "tag": "0003_lineas_netas_y_tasa_tarjeta",
+      "breakpoints": true
     }
   ]
 }

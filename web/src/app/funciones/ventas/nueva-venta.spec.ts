@@ -5,7 +5,7 @@ import localeEsMx from '@angular/common/locales/es-MX';
 import { DEFAULT_CURRENCY_CODE, LOCALE_ID, signal } from '@angular/core';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import type { ExistenciasRespuesta, Permiso, Sesion } from '@uvm/compartido';
+import type { ComisionPago, ExistenciasRespuesta, Permiso, Sesion } from '@uvm/compartido';
 import { SesionService } from '../../core/sesion';
 import { NuevaVenta } from './nueva-venta';
 
@@ -60,6 +60,10 @@ const EXISTENCIAS: ExistenciasRespuesta = {
   ],
 };
 
+const TARIFAS: ComisionPago[] = [
+  { metodoPago: 'tarjeta', tasa: '0.0350', iva: '0.1600', tasaEfectiva: '0.0406' },
+];
+
 /** Deja correr las promesas pendientes y los efectos (la recarga de existencias). */
 async function asentar(): Promise<void> {
   await new Promise((listo) => setTimeout(listo, 0));
@@ -97,6 +101,7 @@ describe('NuevaVenta', () => {
     fixture.detectChanges();
     TestBed.tick();
     http.expectOne('/api/inventario/existencias').flush(EXISTENCIAS);
+    http.expectOne('/api/comisiones').flush(TARIFAS);
     await fixture.whenStable();
   });
 
@@ -120,6 +125,25 @@ describe('NuevaVenta', () => {
     }
     expect(agregar?.disabled).toBe(true);
     expect(pantalla.querySelector('.total')?.textContent).toContain('$90.00');
+  });
+
+  it('con tarjeta avisa cuánto retiene Mercado Pago', async () => {
+    const agregar = boton('Agregar una pieza de Galletas de Mermelada de Tejocote');
+    agregar?.click();
+    agregar?.click();
+    await fixture.whenStable();
+    expect(pantalla.querySelector('.comision')).toBeNull();
+
+    const tarjeta = [
+      ...pantalla.querySelectorAll<HTMLButtonElement>('mat-button-toggle button'),
+    ].find((b) => b.textContent?.trim() === 'Tarjeta');
+    tarjeta?.click();
+    await fixture.whenStable();
+    // $60 × 3.50 % = $2.10, más 16 % de IVA ($0.34): retiene $2.44 y llegan $57.56.
+    const aviso = pantalla.querySelector('.comision')?.textContent ?? '';
+    expect(aviso).toContain('$2.44');
+    expect(aviso).toContain('4.06');
+    expect(aviso).toContain('$57.56');
   });
 
   it('registra la venta con lo elegido y limpia el carrito', async () => {

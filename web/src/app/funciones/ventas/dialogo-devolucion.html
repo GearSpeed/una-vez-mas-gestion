@@ -1,0 +1,64 @@
+<h2 mat-dialog-title>Devolución de la venta {{ venta.folio }}</h2>
+<form [formGroup]="formulario" (ngSubmit)="guardar()" novalidate>
+  <mat-dialog-content class="contenido">
+    <p class="ayuda">
+      Se le regresa al cliente la parte proporcional de cada producto ({{
+        venta.metodoPago | etiqueta: 'metodo'
+      }}, como pagó).
+    </p>
+
+    <fieldset formArrayName="lineas" class="lineas">
+      <legend>¿Qué regresa?</legend>
+      @for (linea of pendientes; track linea.productoId; let i = $index) {
+        <div class="linea" [formGroupName]="i" role="group" [attr.aria-label]="linea.producto">
+          <div class="producto">
+            <span class="nombre">{{ linea.producto }}</span>
+            <span class="ayuda">Quedan {{ linea.quedan }} de {{ linea.cantidad }}</span>
+          </div>
+          <mat-form-field class="cantidad">
+            <mat-label>Piezas</mat-label>
+            <input
+              matInput
+              type="number"
+              inputmode="numeric"
+              min="0"
+              [max]="linea.quedan"
+              formControlName="cantidad"
+            />
+            @if (lineas.at(i).controls.cantidad.hasError('max')) {
+              <mat-error>Máximo {{ linea.quedan }}.</mat-error>
+            } @else if (lineas.at(i).controls.cantidad.hasError('servidor')) {
+              <mat-error>{{ lineas.at(i).controls.cantidad.getError('servidor') }}</mat-error>
+            }
+          </mat-form-field>
+          <mat-checkbox formControlName="regresaAInventario">
+            Vuelve a la venta
+            <span class="ayuda">(sin marcar: llegó dañado y no regresa al inventario)</span>
+          </mat-checkbox>
+        </div>
+      }
+    </fieldset>
+
+    <mat-form-field>
+      <mat-label>Motivo</mat-label>
+      <textarea matInput rows="2" formControlName="motivo" maxlength="300"></textarea>
+      @if (formulario.controls.motivo.invalid) {
+        <mat-error>Escribe el motivo (al menos 3 letras).</mat-error>
+      }
+    </mat-form-field>
+
+    <p class="total" aria-live="polite">
+      {{ piezas() }} {{ piezas() === 1 ? 'pieza' : 'piezas' }} · Se reembolsan
+      <strong>{{ reembolso() | currency }}</strong>
+    </p>
+    @if (error()) {
+      <p class="error-texto" role="alert">{{ error() }}</p>
+    }
+  </mat-dialog-content>
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" mat-dialog-close>Cancelar</button>
+    <button mat-flat-button type="submit" [disabled]="guardando()">
+      {{ guardando() ? 'Registrando…' : 'Registrar devolución' }}
+    </button>
+  </mat-dialog-actions>
+</form>

@@ -47,3 +47,13 @@ for (const { ruta, boton } of DIALOGOS) {
     await sinViolaciones(page);
   });
 }
+
+test('la pestaña «Cobro con tarjeta» pasa axe', async ({ page }) => {
+  await entrarComo(page, 'admin');
+  await page.goto('/productos');
+  await esperarCarga(page);
+  await page.getByRole('tab', { name: 'Cobro con tarjeta' }).click();
+  await expect(page.getByLabel('Comisión (%)', { exact: true })).toHaveValue('3.50');
+  await expect(page.getByLabel('IVA sobre la comisión (%)')).toHaveValue('16.00');
+  await sinViolaciones(page);
+});

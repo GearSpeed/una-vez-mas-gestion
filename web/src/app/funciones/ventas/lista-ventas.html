@@ -72,6 +72,12 @@
           }}{{ ultimo ? '' : ' · ' }}
         }
       </p>
+      @if (lista.resumen.reembolsos !== '0.00' || lista.resumen.comisiones !== '0.00') {
+        <p class="ayuda">
+          Reembolsos: {{ lista.resumen.reembolsos | currency }} · Retiene Mercado Pago:
+          {{ lista.resumen.comisiones | currency }}
+        </p>
+      }
     </section>
 
     <div uvmDesplazable="Ventas">
@@ -104,7 +110,12 @@
         </ng-container>
         <ng-container matColumnDef="total">
           <th mat-header-cell *matHeaderCellDef class="numero">Total</th>
-          <td mat-cell *matCellDef="let v" class="numero">{{ v.total | currency }}</td>
+          <td mat-cell *matCellDef="let v" class="numero">
+            {{ v.total | currency }}
+            @if (v.reembolsado !== '0.00') {
+              <span class="ayuda bloque">−{{ v.reembolsado | currency }} devuelto</span>
+            }
+          </td>
         </ng-container>
         <ng-container matColumnDef="estado">
           <th mat-header-cell *matHeaderCellDef>Estado</th>

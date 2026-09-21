@@ -149,6 +149,34 @@ export const esquemaNuevaCompra = z
     sinProductosRepetidos(compra.lineas, 'lineas', ctx);
   });
 
+/**
+ * Devolución de piezas de una venta. Por cada producto se dice si vuelve a la
+ * venta (regresa al inventario) o si llegó dañado (no suma existencia).
+ */
+export const esquemaDevolucion = z
+  .object({
+    claveIdempotencia: clave,
+    fecha: esquemaFecha.optional(),
+    motivo: z.string().trim().min(3, 'Escribe el motivo').max(300),
+    lineas: z
+      .array(
+        z.object({
+          productoId: esquemaId,
+          cantidad: z.number().int().positive().max(10_000),
+          regresaAInventario: z.boolean().default(true),
+        }),
+      )
+      .min(1, 'Elige al menos un producto')
+      .max(100),
+  })
+  .superRefine((devolucion, ctx) => sinProductosRepetidos(devolucion.lineas, 'lineas', ctx));
+
+/** Tasas de lo que retiene la entidad del cobro, como proporción (0.035 = 3.5 %). */
+export const esquemaComision = z.object({
+  tasa: decimal(4).refine((valor) => Number(valor) < 1, 'Debe ser menor a 100 %'),
+  iva: decimal(4).refine((valor) => Number(valor) < 1, 'Debe ser menor a 100 %'),
+});
+
 export const esquemaCancelacion = z.object({
   motivo: z.string().trim().min(3, 'Escribe el motivo').max(300),
 });
@@ -322,6 +350,9 @@ export type NuevoTraspaso = z.output<typeof esquemaNuevoTraspaso>;
 export type NuevoAjuste = z.output<typeof esquemaNuevoAjuste>;
 export type NuevoConteo = z.output<typeof esquemaConteo>;
 export type NuevaVenta = z.output<typeof esquemaNuevaVenta>;
+export type NuevaDevolucion = z.output<typeof esquemaDevolucion>;
+export type DatosComision = z.output<typeof esquemaComision>;
+export type EntradaDevolucion = z.input<typeof esquemaDevolucion>;
 export type DatosCancelacion = z.output<typeof esquemaCancelacion>;
 export type DatosUsuario = z.output<typeof esquemaUsuario>;
 export type DatosUbicacion = z.output<typeof esquemaUbicacion>;

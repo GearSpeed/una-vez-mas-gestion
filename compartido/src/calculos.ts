@@ -225,6 +225,73 @@ export function totalVenta(lineas: readonly LineaVenta[]): Decimal {
 }
 
 /* -----------------------------------------------------------------------------
+   Comisión del cobro con tarjeta (Mercado Pago) y devoluciones
+   -------------------------------------------------------------------------- */
+
+export interface TasaComision {
+  /** Comisión sobre el cobro, como proporción: 0.0350 = 3.50 %. */
+  readonly tasa: Decimal;
+  /** IVA sobre la comisión (no sobre la venta): 0.16. */
+  readonly iva: Decimal;
+}
+
+export interface Comision {
+  readonly base: Decimal;
+  readonly iva: Decimal;
+  /** Lo que retiene la entidad. */
+  readonly total: Decimal;
+  /** Lo que llega a la cuenta. */
+  readonly neto: Decimal;
+}
+
+/**
+ * Lo que retiene Mercado Pago de un cobro con tarjeta. El IVA se calcula sobre la
+ * comisión: con 3.50 % + 16 %, de $1,000 retiene $35.00 + $5.60 = $40.60 y llegan
+ * $959.40. La absorbe el negocio: el cliente paga el precio normal.
+ */
+export function comisionDeCobro(importe: Decimal, { tasa, iva }: TasaComision): Comision {
+  const base = big(fijar(big(importe).times(tasa), DECIMALES_DINERO));
+  const impuesto = big(fijar(base.times(iva), DECIMALES_DINERO));
+  const total = base.plus(impuesto);
+  return {
+    base: fijar(base, DECIMALES_DINERO),
+    iva: fijar(impuesto, DECIMALES_DINERO),
+    total: fijar(total, DECIMALES_DINERO),
+    neto: fijar(big(importe).minus(total), DECIMALES_DINERO),
+  };
+}
+
+/** La tasa que de verdad se descuenta: 3.50 % × 1.16 = 4.06 %. */
+export function tasaEfectiva({ tasa, iva }: TasaComision): Decimal {
+  return fijar(big(tasa).times(big(1).plus(iva)), DECIMALES_PROPORCION);
+}
+
+export interface DevolucionDeLinea {
+  /** Importe de la línea vendida (ya con su descuento). */
+  readonly importe: Decimal;
+  readonly cantidadVendida: number;
+  /** Piezas y dinero que ya se devolvieron de esta línea antes. */
+  readonly devueltasAntes: number;
+  readonly reembolsadoAntes: Decimal;
+  readonly cantidad: number;
+}
+
+/**
+ * Cuánto se le regresa al cliente por `cantidad` piezas: la parte proporcional de
+ * la línea, descuento incluido. Se calcula sobre el acumulado, así que varias
+ * devoluciones parciales suman exacto el importe de la línea, sin centavos de más.
+ */
+export function reembolsoDeLinea(linea: DevolucionDeLinea): Decimal {
+  const acumulado = big(linea.importe)
+    .times(linea.devueltasAntes + linea.cantidad)
+    .div(linea.cantidadVendida);
+  return fijar(
+    big(fijar(acumulado, DECIMALES_DINERO)).minus(linea.reembolsadoAntes),
+    DECIMALES_DINERO,
+  );
+}
+
+/* -----------------------------------------------------------------------------
    Utilidades
    -------------------------------------------------------------------------- */
 

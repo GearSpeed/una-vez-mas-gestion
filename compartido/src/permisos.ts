@@ -21,6 +21,7 @@ export const PERMISOS = [
   'ventas.descontar',
   'ventas.ver_todas',
   'ventas.cancelar',
+  'ventas.devolver',
   'reportes.ver',
   'usuarios.gestionar',
 ] as const;
@@ -43,6 +44,7 @@ export const DESCRIPCION_PERMISOS: Readonly<Record<Permiso, string>> = {
   'ventas.descontar': 'Dar descuentos en una venta',
   'ventas.ver_todas': 'Ver las ventas de todos',
   'ventas.cancelar': 'Cancelar ventas',
+  'ventas.devolver': 'Registrar devoluciones de sus ventas (o de todas, con ventas.ver_todas)',
   'reportes.ver': 'Ver el tablero y los reportes',
   'usuarios.gestionar': 'Administrar usuarios, roles y ubicaciones',
 };
@@ -76,7 +78,7 @@ export const ROLES_BASE = {
   vendedor: {
     nombre: 'Vendedor',
     descripcion: 'Vende la mercancía que trae y ve sus propias ventas.',
-    permisos: ['catalogo.ver', 'ventas.registrar'],
+    permisos: ['catalogo.ver', 'ventas.registrar', 'ventas.devolver'],
   },
   consulta: {
     nombre: 'Consulta',

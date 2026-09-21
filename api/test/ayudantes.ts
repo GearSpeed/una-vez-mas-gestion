@@ -53,13 +53,18 @@ export async function reiniciarBd(): Promise<void> {
   const owner = conexion('owner');
   try {
     await owner.execute(sql`truncate
-      gestion.movimientos, gestion.bitacora, gestion.venta_detalle, gestion.ventas,
+      gestion.movimientos, gestion.bitacora, gestion.devolucion_detalle, gestion.devoluciones,
+      gestion.venta_detalle, gestion.ventas,
       gestion.compra_detalle, gestion.compras, gestion.traspaso_detalle, gestion.traspasos,
       gestion.ajuste_detalle, gestion.ajustes, gestion.existencias, gestion.productos,
       gestion.categorias, gestion.proveedores, gestion.vehiculos, gestion.usuario_roles,
       gestion.ubicaciones, gestion.usuarios, gestion.rol_permisos, gestion.roles
       restart identity cascade`);
     await sembrar(owner, { admin: { correo: ADMIN, nombre: 'Admin' }, demo: true });
+    // La tarifa de Mercado Pago es configuración: se regresa a la de fábrica.
+    await owner.execute(
+      sql`update gestion.comisiones_pago set tasa = 0.0350, iva = 0.1600 where metodo_pago = 'tarjeta'`,
+    );
   } finally {
     await owner.$client.end();
   }

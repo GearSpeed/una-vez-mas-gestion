@@ -34,7 +34,7 @@ describe('acceso y permisos', () => {
     const respuesta = await como(app, ANA).get('/yo');
     expect(respuesta.body).toMatchObject({
       correo: ANA,
-      permisos: ['catalogo.ver', 'ventas.registrar'],
+      permisos: ['catalogo.ver', 'ventas.devolver', 'ventas.registrar'],
       ubicacion: { id: IDS.ana, nombre: 'Ana', tipo: 'vendedor' },
       modoDesarrollo: true,
     });

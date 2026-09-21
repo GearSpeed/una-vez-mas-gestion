@@ -168,6 +168,13 @@
         <strong>{{ total() | currency }}</strong>
       </p>
 
+      @if (comision(); as c) {
+        <p class="ayuda comision" aria-live="polite">
+          Mercado Pago retiene {{ c.total | currency }} ({{ c.tasaEfectiva | percent: '1.2-2' }});
+          te llegan {{ c.neto | currency }}.
+        </p>
+      }
+
       @if (error()) {
         <p class="error-texto" role="alert">{{ error() }}</p>
       }

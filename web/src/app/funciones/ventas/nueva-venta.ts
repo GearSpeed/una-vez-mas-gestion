@@ -1,4 +1,4 @@
-import { CurrencyPipe } from '@angular/common';
+import { CurrencyPipe, PercentPipe } from '@angular/common';
 import { httpResource } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
@@ -18,6 +18,8 @@ import { RouterLink } from '@angular/router';
 import {
   CANALES_VENTA,
   type CanalVenta,
+  type ComisionPago,
+  comisionDeCobro,
   type Existencia,
   type ExistenciasRespuesta,
   importeLinea,
@@ -54,6 +56,7 @@ interface LineaCarrito {
     EstadoCarga,
     EtiquetaPipe,
     CurrencyPipe,
+    PercentPipe,
     RouterLink,
     MatButtonModule,
     MatButtonToggleModule,
@@ -138,6 +141,14 @@ export class NuevaVenta {
 
   protected readonly canal = signal<CanalVenta>('whatsapp');
   protected readonly metodoPago = signal<MetodoPago>('efectivo');
+
+  /** Lo que retiene Mercado Pago si se cobra con tarjeta (lo absorbe el negocio). */
+  private readonly tarifas = httpResource<ComisionPago[]>(() => '/api/comisiones');
+  protected readonly comision = computed(() => {
+    const tarifa = this.tarifas.value()?.find((t) => t.metodoPago === this.metodoPago());
+    if (!tarifa || this.lineas().length === 0) return null;
+    return { ...comisionDeCobro(this.total(), tarifa), tasaEfectiva: tarifa.tasaEfectiva };
+  });
   protected readonly notas = signal('');
   protected readonly enviando = signal(false);
   protected readonly error = signal<string | null>(null);

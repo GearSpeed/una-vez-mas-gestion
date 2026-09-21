@@ -1,7 +1,10 @@
 <div class="pagina">
   <uvm-encabezado [titulo]="titulo()">
     <a mat-button routerLink="/ventas">Volver a ventas</a>
-    @if (puedeCancelar()) {
+    @if (puedeDevolver()) {
+      <button mat-stroked-button type="button" (click)="devolver()">Registrar devolución</button>
+    }
+    @if (puedeCancelarSinDevoluciones()) {
       <button mat-stroked-button type="button" (click)="cancelar()" [disabled]="cancelando()">
         Cancelar venta
       </button>
@@ -63,6 +66,9 @@
             <th scope="col" class="numero">Precio</th>
             <th scope="col" class="numero">Descuento</th>
             <th scope="col" class="numero">Importe</th>
+            @if (conDevoluciones()) {
+              <th scope="col" class="numero">Devueltas</th>
+            }
             @if (v.costos) {
               <th scope="col" class="numero">Costo unitario</th>
             }
@@ -76,6 +82,9 @@
               <td class="numero">{{ l.precioUnitario | currency }}</td>
               <td class="numero">{{ l.descuento | currency }}</td>
               <td class="numero">{{ l.importe | currency }}</td>
+              @if (conDevoluciones()) {
+                <td class="numero">{{ l.devueltas }}</td>
+              }
               @if (l.costos; as c) {
                 <td class="numero">{{ c.costoUnitario | currency: 'MXN' : 'symbol' : '1.2-4' }}</td>
               }
@@ -91,6 +100,9 @@
             <td class="numero">
               <strong>{{ v.total | currency }}</strong>
             </td>
+            @if (conDevoluciones()) {
+              <td></td>
+            }
             @if (v.costos) {
               <td></td>
             }
@@ -98,6 +110,52 @@
         </tfoot>
       </table>
     </div>
+
+    <dl class="tarjeta rejilla-campos datos">
+      <div>
+        <dt>Cobrado</dt>
+        <dd>{{ v.total | currency }}</dd>
+      </div>
+      @if (v.reembolsado !== '0.00') {
+        <div>
+          <dt>Reembolsado al cliente</dt>
+          <dd>{{ v.reembolsado | currency }}</dd>
+        </div>
+      }
+      @if (v.comision !== '0.00') {
+        <div>
+          <dt>Retiene Mercado Pago</dt>
+          <dd>{{ v.comision | currency }}</dd>
+        </div>
+      }
+      <div>
+        <dt>Le queda al negocio</dt>
+        <dd>
+          <strong>{{ neto() | currency }}</strong>
+        </dd>
+      </div>
+    </dl>
+
+    @if (v.devoluciones.length) {
+      <section aria-labelledby="titulo-devoluciones">
+        <h2 id="titulo-devoluciones">Devoluciones</h2>
+        <ul class="lista-devoluciones">
+          @for (d of v.devoluciones; track d.id) {
+            <li class="tarjeta">
+              <strong>{{ d.folio }}</strong> · {{ d.fecha | date: 'mediumDate' }} · se reembolsaron
+              {{ d.reembolso | currency }} ({{ d.registradoPor }}): «{{ d.motivo }}»
+              <span class="ayuda">
+                @for (l of d.lineas; track l.productoId; let ultimo = $last) {
+                  {{ l.cantidad }} {{ l.producto }}
+                  {{ l.regresaAInventario ? '(volvió a la venta)' : '(dañado)'
+                  }}{{ ultimo ? '' : ', ' }}
+                }
+              </span>
+            </li>
+          }
+        </ul>
+      </section>
+    }
 
     @if (v.costos; as c) {
       <p class="ayuda">

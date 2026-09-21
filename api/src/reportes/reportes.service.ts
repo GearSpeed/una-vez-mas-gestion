@@ -32,15 +32,17 @@ import { alias } from 'drizzle-orm/pg-core';
 import type { UsuarioSesion } from '../acceso/usuario-sesion.js';
 import { conCostos } from '../comun/costos.js';
 import { type BaseDatos, DB } from '../db/conexion.js';
+import { reembolsadoDeVenta } from '../db/consultas.js';
 import {
   compras,
+  devoluciones,
   existencias,
   movimientos,
   productos,
   proveedores,
   ubicaciones,
   usuarios,
-  ventaDetalle,
+  ventaLineasNetas,
   ventas,
 } from '../db/esquema.js';
 
@@ -79,10 +81,17 @@ export class ReportesService {
     const hoy = fechaDeHoy();
     const ventasDesde = async (desde: string) => {
       const [fila] = await this.db
-        .select({ importe: sum(ventas.total), ventas: count() })
+        .select({
+          cobrado: sql<string>`coalesce(sum(${ventas.total}), 0)`,
+          reembolsado: sql<string>`coalesce(sum(${reembolsadoDeVenta}), 0)`,
+          ventas: count(),
+        })
         .from(ventas)
         .where(and(eq(ventas.estado, 'vigente'), gte(ventas.fecha, desde), lte(ventas.fecha, hoy)));
-      return { importe: redondear(fila?.importe ?? '0'), ventas: fila?.ventas ?? 0 };
+      return {
+        importe: restar(fila?.cobrado ?? '0', fila?.reembolsado ?? '0'),
+        ventas: fila?.ventas ?? 0,
+      };
     };
 
     const existenciaTotal = sql<number>`coalesce(sum(${existencias.cantidad}), 0)::int`;
@@ -123,11 +132,12 @@ export class ReportesService {
     const [[utilidad], [inventario]] = await Promise.all([
       this.db
         .select({
-          importe: sql<string>`coalesce(sum(${ventaDetalle.importe}), 0)`,
-          costo: sql<string>`coalesce(sum(${ventaDetalle.cantidad} * ${ventaDetalle.costoUnitario}), 0)`,
+          importe: sql<string>`coalesce(sum(${ventaLineasNetas.importeNeto}), 0)`,
+          costo: sql<string>`coalesce(sum(${ventaLineasNetas.costoNeto}), 0)`,
+          comision: sql<string>`coalesce(sum(${ventaLineasNetas.comision}), 0)`,
         })
-        .from(ventaDetalle)
-        .innerJoin(ventas, eq(ventas.id, ventaDetalle.ventaId))
+        .from(ventaLineasNetas)
+        .innerJoin(ventas, eq(ventas.id, ventaLineasNetas.ventaId))
         .where(
           and(
             eq(ventas.estado, 'vigente'),
@@ -143,7 +153,10 @@ export class ReportesService {
         .innerJoin(productos, eq(productos.id, existencias.productoId)),
     ]);
     return conCostos(usuario, base, () => ({
-      utilidadMes: restar(utilidad?.importe ?? '0', utilidad?.costo ?? '0'),
+      utilidadMes: restar(
+        restar(utilidad?.importe ?? '0', utilidad?.costo ?? '0'),
+        utilidad?.comision ?? '0',
+      ),
       valorInventario: redondear(inventario?.valor ?? '0'),
     }));
   }
@@ -182,19 +195,20 @@ export class ReportesService {
     if (filtro.vendedorId) condiciones.push(eq(ventas.vendedorId, filtro.vendedorId));
     if (filtro.ubicacionId) condiciones.push(eq(ventas.ubicacionId, filtro.ubicacionId));
 
-    const importe = sql<string>`sum(${ventaDetalle.importe})`;
+    const importe = sql<string>`sum(${ventaLineasNetas.importeNeto})`;
     const filas = await this.db
       .select({
         clave: grupo.clave,
         etiqueta: grupo.etiqueta,
         ventas: sql<number>`count(distinct ${ventas.id})::int`,
-        piezas: sql<number>`sum(${ventaDetalle.cantidad})::int`,
+        piezas: sql<number>`sum(${ventaLineasNetas.piezasNetas})::int`,
         importe,
-        costo: sql<string>`sum(${ventaDetalle.cantidad} * ${ventaDetalle.costoUnitario})`,
+        costo: sql<string>`sum(${ventaLineasNetas.costoNeto})`,
+        comision: sql<string>`sum(${ventaLineasNetas.comision})`,
       })
-      .from(ventaDetalle)
-      .innerJoin(ventas, eq(ventas.id, ventaDetalle.ventaId))
-      .innerJoin(productos, eq(productos.id, ventaDetalle.productoId))
+      .from(ventaLineasNetas)
+      .innerJoin(ventas, eq(ventas.id, ventaLineasNetas.ventaId))
+      .innerJoin(productos, eq(productos.id, ventaLineasNetas.productoId))
       .innerJoin(vendedor, eq(vendedor.id, ventas.vendedorId))
       .where(and(...condiciones))
       .groupBy(grupo.clave, grupo.etiqueta)
@@ -210,39 +224,50 @@ export class ReportesService {
           piezas: fila.piezas,
           importe: redondear(fila.importe),
         },
-        () => ({ costo: redondear(fila.costo), utilidad: restar(fila.importe, fila.costo) }),
+        () => ({
+          costo: redondear(fila.costo),
+          comision: redondear(fila.comision),
+          utilidad: restar(restar(fila.importe, fila.costo), fila.comision),
+        }),
       ),
     );
   }
 
-  /** Utilidad bruta por producto: lo que se cobró menos el costo guardado en cada venta. */
+  /**
+   * Utilidad bruta por producto: lo cobrado menos lo reembolsado, menos el costo
+   * guardado en cada venta (lo que regresó al inventario recupera su costo) y
+   * menos la parte de la comisión de tarjeta que le toca.
+   */
   async utilidad(filtro: Periodo): Promise<FilaUtilidad[]> {
     const { desde, hasta } = periodo(filtro);
-    const ingreso = sql<string>`sum(${ventaDetalle.importe})`;
-    const costo = sql<string>`sum(${ventaDetalle.cantidad} * ${ventaDetalle.costoUnitario})`;
+    const ingreso = sql<string>`sum(${ventaLineasNetas.importeNeto})`;
+    const costo = sql<string>`sum(${ventaLineasNetas.costoNeto})`;
+    const comision = sql<string>`sum(${ventaLineasNetas.comision})`;
     const filas = await this.db
       .select({
         productoId: productos.id,
         producto: productos.nombre,
-        piezas: sql<number>`sum(${ventaDetalle.cantidad})::int`,
+        piezas: sql<number>`sum(${ventaLineasNetas.piezasNetas})::int`,
         ingreso,
         costo,
+        comision,
       })
-      .from(ventaDetalle)
-      .innerJoin(ventas, eq(ventas.id, ventaDetalle.ventaId))
-      .innerJoin(productos, eq(productos.id, ventaDetalle.productoId))
+      .from(ventaLineasNetas)
+      .innerJoin(ventas, eq(ventas.id, ventaLineasNetas.ventaId))
+      .innerJoin(productos, eq(productos.id, ventaLineasNetas.productoId))
       .where(and(eq(ventas.estado, 'vigente'), gte(ventas.fecha, desde), lte(ventas.fecha, hasta)))
       .groupBy(productos.id)
-      .orderBy(desc(sql`${ingreso} - ${costo}`));
+      .orderBy(desc(sql`${ingreso} - ${costo} - ${comision}`));
 
     return filas.map((fila) => {
-      const utilidad = restar(fila.ingreso, fila.costo);
+      const utilidad = restar(restar(fila.ingreso, fila.costo), fila.comision);
       return {
         productoId: fila.productoId,
         producto: fila.producto,
         piezas: fila.piezas,
         ingreso: redondear(fila.ingreso),
         costo: redondear(fila.costo),
+        comision: redondear(fila.comision),
         utilidad,
         margen: dividir(utilidad, fila.ingreso),
       };
@@ -258,12 +283,12 @@ export class ReportesService {
     const { desde, hasta } = periodo(filtro, 'hoy');
     const ubicacion = await this.ubicacionDelCorte(usuario, filtro.ubicacionId);
 
-    const [movidos, actuales, cobros] = await Promise.all([
+    const [movidos, actuales, cobros, reembolsos] = await Promise.all([
       this.db
         .select({
           productoId: movimientos.productoId,
           cargo: suma(['traspaso_entrada', 'compra', 'cancelacion_compra']),
-          vendio: suma(['venta', 'cancelacion_venta']),
+          vendio: suma(['venta', 'cancelacion_venta', 'devolucion']),
           devolvio: suma(['traspaso_salida']),
           ajustes: suma(['ajuste']),
         })
@@ -281,7 +306,11 @@ export class ReportesService {
         .from(existencias)
         .where(eq(existencias.ubicacionId, ubicacion.id)),
       this.db
-        .select({ metodo: ventas.metodoPago, importe: sum(ventas.total) })
+        .select({
+          metodo: ventas.metodoPago,
+          importe: sum(ventas.total),
+          comision: sum(ventas.comision),
+        })
         .from(ventas)
         .where(
           and(
@@ -289,6 +318,19 @@ export class ReportesService {
             eq(ventas.estado, 'vigente'),
             gte(ventas.fecha, desde),
             lte(ventas.fecha, hasta),
+          ),
+        )
+        .groupBy(ventas.metodoPago),
+      // El dinero regresado a clientes cuenta el día de la devolución.
+      this.db
+        .select({ metodo: ventas.metodoPago, importe: sum(devoluciones.reembolso) })
+        .from(devoluciones)
+        .innerJoin(ventas, eq(ventas.id, devoluciones.ventaId))
+        .where(
+          and(
+            eq(ventas.ubicacionId, ubicacion.id),
+            gte(devoluciones.fecha, desde),
+            lte(devoluciones.fecha, hasta),
           ),
         )
         .groupBy(ventas.metodoPago),
@@ -315,6 +357,11 @@ export class ReportesService {
       string
     >;
     for (const fila of cobros) importes[fila.metodo] = redondear(fila.importe ?? '0');
+    const regresado = Object.fromEntries(METODOS_PAGO.map((m) => [m, '0.00'])) as Record<
+      MetodoPago,
+      string
+    >;
+    for (const fila of reembolsos) regresado[fila.metodo] = redondear(fila.importe ?? '0');
 
     return {
       ubicacion,
@@ -335,7 +382,9 @@ export class ReportesService {
         })
         .toSorted((a, b) => a.producto.localeCompare(b.producto, 'es')),
       cobros: importes,
-      totalVendido: sumar(Object.values(importes)),
+      reembolsos: regresado,
+      comisiones: sumar(cobros.map((fila) => fila.comision ?? '0')),
+      totalVendido: restar(sumar(Object.values(importes)), sumar(Object.values(regresado))),
     };
   }
 

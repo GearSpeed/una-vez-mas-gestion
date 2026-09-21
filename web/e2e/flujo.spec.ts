@@ -1,5 +1,5 @@
 import { expect, type APIRequestContext, test } from '@playwright/test';
-import { entrarComo, esperarCarga, USUARIOS } from './ayudantes';
+import { entrarComo, esperarCarga, sinViolaciones, USUARIOS } from './ayudantes';
 
 /**
  * El recorrido de todos los días, por la interfaz: el admin pone precio, el
@@ -69,9 +69,15 @@ test('precio, compra, carga y venta de punta a punta', async ({ page, request })
   await mas.click();
   await mas.click();
   await expect(page.getByText('2 piezas ·')).toBeVisible();
+  // Con tarjeta avisa lo que retiene Mercado Pago: $56 × 3.50 % = $1.96 + IVA $0.31.
+  await page.locator('mat-button-toggle', { hasText: 'Tarjeta' }).click();
+  await expect(page.getByText(/retiene \$2\.27 .*te llegan \$53\.73/)).toBeVisible();
   await page.locator('mat-button-toggle', { hasText: 'Transferencia' }).click();
+  await expect(page.getByText(/retiene/)).toHaveCount(0);
   await page.getByRole('button', { name: 'Registrar venta' }).click();
-  await expect(page.getByText(/Venta V-\d{6} registrada por \$56\.00/)).toBeVisible();
+  const aviso = page.getByText(/Venta V-\d{6} registrada por \$56\.00/);
+  await expect(aviso).toBeVisible();
+  const folio = /V-\d{6}/.exec((await aviso.textContent()) ?? '')?.[0] ?? '';
 
   expect(await piezasDeAna(request, producto)).toBe(antes + 3);
 
@@ -80,6 +86,21 @@ test('precio, compra, carga y venta de punta a punta', async ({ page, request })
   await esperarCarga(page);
   await expect(page.getByRole('heading', { level: 1, name: 'Mis ventas' })).toBeVisible();
   await expect(page.getByText(/Transferencia: \$\d/)).toBeVisible();
+
+  // 6. El cliente regresa una pieza en buen estado: vuelve a su inventario.
+  await page.getByRole('link', { name: folio }).click();
+  await esperarCarga(page);
+  await page.getByRole('button', { name: 'Registrar devolución' }).click();
+  const dialogo = page.getByRole('dialog');
+  await expect(dialogo).toBeVisible();
+  await sinViolaciones(page);
+  await dialogo.getByLabel('Piezas').fill('1');
+  await dialogo.getByLabel('Motivo').fill('No era el sabor que pidió');
+  await expect(dialogo.getByText('Se reembolsan $28.00')).toBeVisible();
+  await dialogo.getByRole('button', { name: 'Registrar devolución' }).click();
+  await expect(dialogo).toHaveCount(0);
+  await expect(page.getByText(/Devolución D-\d{6}: se reembolsan \$28\.00/)).toBeVisible();
+  expect(await piezasDeAna(request, producto)).toBe(antes + 4);
 });
 
 test('un vendedor no ve pantallas de otros roles', async ({ page }) => {

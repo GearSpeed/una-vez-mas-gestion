@@ -179,7 +179,12 @@ export interface VentaResumen {
   readonly canal: CanalVenta;
   readonly metodoPago: MetodoPago;
   readonly piezas: number;
+  /** Lo que pagó el cliente. */
   readonly total: Decimal;
+  /** Lo que retuvo la entidad del cobro con tarjeta (la absorbe el negocio). */
+  readonly comision: Decimal;
+  /** Lo que se le ha regresado al cliente en devoluciones. */
+  readonly reembolsado: Decimal;
   readonly estado: EstadoDocumento;
 }
 
@@ -190,7 +195,25 @@ export interface LineaVentaDetalle {
   readonly precioUnitario: Decimal;
   readonly descuento: Decimal;
   readonly importe: Decimal;
+  /** Piezas ya devueltas de esta línea. */
+  readonly devueltas: number;
+  readonly reembolsado: Decimal;
   readonly costos?: { readonly costoUnitario: Decimal };
+}
+
+export interface DevolucionResumen {
+  readonly id: number;
+  readonly folio: string;
+  readonly fecha: string;
+  readonly motivo: string;
+  readonly registradoPor: string;
+  readonly reembolso: Decimal;
+  readonly lineas: readonly {
+    readonly productoId: number;
+    readonly producto: string;
+    readonly cantidad: number;
+    readonly regresaAInventario: boolean;
+  }[];
 }
 
 export interface VentaDetalle extends VentaResumen {
@@ -200,15 +223,30 @@ export interface VentaDetalle extends VentaResumen {
   readonly registradoEn: string;
   readonly cancelacion: Cancelacion | null;
   readonly lineas: readonly LineaVentaDetalle[];
+  readonly devoluciones: readonly DevolucionResumen[];
+  /** Costo de lo que se quedó el cliente y utilidad: cobrado − reembolsos − comisión − costo. */
   readonly costos?: { readonly costoTotal: Decimal; readonly utilidad: Decimal };
+}
+
+/** Lo que retiene la entidad por cobrar con un método de pago (hoy: tarjeta, Mercado Pago). */
+export interface ComisionPago {
+  readonly metodoPago: MetodoPago;
+  readonly tasa: Decimal;
+  readonly iva: Decimal;
+  /** tasa × (1 + iva): 0.0406. */
+  readonly tasaEfectiva: Decimal;
 }
 
 export interface ListaVentas extends Paginado<VentaResumen> {
   /** Totales de las ventas vigentes del filtro (no solo de la página). */
   readonly resumen: {
+    /** Cobrado menos reembolsado. */
     readonly importe: Decimal;
     readonly ventas: number;
+    /** Por método de pago, ya sin reembolsos. */
     readonly porMetodo: Readonly<Record<MetodoPago, Decimal>>;
+    readonly reembolsos: Decimal;
+    readonly comisiones: Decimal;
   };
 }
 
@@ -314,16 +352,24 @@ export interface FilaReporteVentas {
   readonly etiqueta: string;
   readonly ventas: number;
   readonly piezas: number;
+  /** Cobrado menos reembolsado. */
   readonly importe: Decimal;
-  readonly costos?: { readonly costo: Decimal; readonly utilidad: Decimal };
+  readonly costos?: {
+    readonly costo: Decimal;
+    readonly comision: Decimal;
+    readonly utilidad: Decimal;
+  };
 }
 
 export interface FilaUtilidad {
   readonly productoId: number;
   readonly producto: string;
   readonly piezas: number;
+  /** Cobrado menos reembolsado. */
   readonly ingreso: Decimal;
   readonly costo: Decimal;
+  /** Parte de la comisión de tarjeta que le toca a este producto. */
+  readonly comision: Decimal;
   readonly utilidad: Decimal;
   /** Margen sobre precio del periodo, como proporción. */
   readonly margen: Decimal | null;
@@ -342,7 +388,13 @@ export interface Corte {
     readonly ajustes: number;
     readonly trae: number;
   }[];
+  /** Lo cobrado por las ventas del periodo, por método. */
   readonly cobros: Readonly<Record<MetodoPago, Decimal>>;
+  /** Lo regresado a clientes en devoluciones del periodo, por el método con que pagaron. */
+  readonly reembolsos: Readonly<Record<MetodoPago, Decimal>>;
+  /** Lo que retuvo Mercado Pago de los cobros con tarjeta del periodo. */
+  readonly comisiones: Decimal;
+  /** Cobros menos reembolsos. */
   readonly totalVendido: Decimal;
 }
 

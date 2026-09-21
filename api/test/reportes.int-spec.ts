@@ -100,7 +100,7 @@ describe('reportes', () => {
         ventas: 1,
         piezas: 3,
         importe: '90.00',
-        costos: { costo: '53.73', utilidad: '36.27' },
+        costos: { costo: '53.73', comision: '0.00', utilidad: '36.27' },
       },
       {
         clave: 'transferencia',
@@ -108,7 +108,7 @@ describe('reportes', () => {
         ventas: 1,
         piezas: 1,
         importe: '30.00',
-        costos: { costo: '17.91', utilidad: '12.09' },
+        costos: { costo: '17.91', comision: '0.00', utilidad: '12.09' },
       },
     ]);
   });
@@ -122,6 +122,7 @@ describe('reportes', () => {
         piezas: 4,
         ingreso: '120.00',
         costo: '71.64',
+        comision: '0.00',
         utilidad: '48.36',
         margen: '0.4030',
       },

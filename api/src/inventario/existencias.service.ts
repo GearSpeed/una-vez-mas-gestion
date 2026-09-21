@@ -16,6 +16,7 @@ import {
   ajustes,
   categorias,
   compras,
+  devoluciones,
   existencias,
   movimientos,
   productos,
@@ -117,7 +118,7 @@ export class ExistenciasService {
           costoPromedioResultante: movimientos.costoPromedioResultante,
           ubicacion: ubicaciones.nombre,
           usuario: usuarios.nombre,
-          documento: sql<string>`coalesce(${compras.folio}, ${ventas.folio}, ${traspasos.folio}, ${ajustes.folio})`,
+          documento: sql<string>`coalesce(${compras.folio}, ${ventas.folio}, ${traspasos.folio}, ${ajustes.folio}, ${devoluciones.folio})`,
         })
         .from(movimientos)
         .innerJoin(ubicaciones, eq(ubicaciones.id, movimientos.ubicacionId))
@@ -126,6 +127,7 @@ export class ExistenciasService {
         .leftJoin(ventas, eq(ventas.id, movimientos.ventaId))
         .leftJoin(traspasos, eq(traspasos.id, movimientos.traspasoId))
         .leftJoin(ajustes, eq(ajustes.id, movimientos.ajusteId))
+        .leftJoin(devoluciones, eq(devoluciones.id, movimientos.devolucionId))
         .where(donde)
         .orderBy(desc(movimientos.id))
         .limit(POR_PAGINA)

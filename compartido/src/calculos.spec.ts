@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   calcularCompra,
+  comisionDeCobro,
   costoTraslado,
   descuentoValido,
   importeLinea,
@@ -8,6 +9,8 @@ import {
   litrosDelViaje,
   promedioTrasEntrada,
   promedioTrasRetiro,
+  reembolsoDeLinea,
+  tasaEfectiva,
   totalVenta,
   trasladoPorPieza,
 } from './calculos.js';
@@ -121,5 +124,67 @@ describe('ventas', () => {
     expect(descuentoValido({ cantidad: 1, precioUnitario: '30', descuento: '30' })).toBe(true);
     expect(descuentoValido({ cantidad: 1, precioUnitario: '30', descuento: '30.01' })).toBe(false);
     expect(descuentoValido({ cantidad: 1, precioUnitario: '30', descuento: '-1' })).toBe(false);
+  });
+});
+
+describe('comisión de Mercado Pago', () => {
+  const MERCADO_PAGO = { tasa: '0.0350', iva: '0.16' };
+
+  it('da el ejemplo de Mercado Pago: de $1,000 retiene $40.60', () => {
+    expect(comisionDeCobro('1000.00', MERCADO_PAGO)).toEqual({
+      base: '35.00',
+      iva: '5.60',
+      total: '40.60',
+      neto: '959.40',
+    });
+  });
+
+  it('la tasa efectiva es 4.06 %', () => {
+    expect(tasaEfectiva(MERCADO_PAGO)).toBe('0.0406');
+  });
+
+  it('redondea la comisión y su IVA por separado', () => {
+    // 3.50 % de $85.00 = $2.975 → $2.98; IVA 16 % = $0.4768 → $0.48
+    expect(comisionDeCobro('85.00', MERCADO_PAGO)).toMatchObject({ total: '3.46', neto: '81.54' });
+  });
+});
+
+describe('reembolso de una devolución', () => {
+  it('regresa la parte proporcional, con el descuento prorrateado', () => {
+    // 3 piezas a $30 con $5 de descuento = $85; se devuelve 1 → $28.33
+    expect(
+      reembolsoDeLinea({
+        importe: '85.00',
+        cantidadVendida: 3,
+        devueltasAntes: 0,
+        reembolsadoAntes: '0',
+        cantidad: 1,
+      }),
+    ).toBe('28.33');
+  });
+
+  it('varias devoluciones parciales suman exacto la línea', () => {
+    const primera = reembolsoDeLinea({
+      importe: '85.00',
+      cantidadVendida: 3,
+      devueltasAntes: 0,
+      reembolsadoAntes: '0',
+      cantidad: 1,
+    });
+    const segunda = reembolsoDeLinea({
+      importe: '85.00',
+      cantidadVendida: 3,
+      devueltasAntes: 1,
+      reembolsadoAntes: primera,
+      cantidad: 1,
+    });
+    const tercera = reembolsoDeLinea({
+      importe: '85.00',
+      cantidadVendida: 3,
+      devueltasAntes: 2,
+      reembolsadoAntes: (Number(primera) + Number(segunda)).toFixed(2),
+      cantidad: 1,
+    });
+    expect([primera, segunda, tercera]).toEqual(['28.33', '28.34', '28.33']);
   });
 });

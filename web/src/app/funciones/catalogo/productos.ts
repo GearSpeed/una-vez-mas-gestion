@@ -17,11 +17,13 @@ import { SesionService } from '../../core/sesion';
 import { Desplazable } from '../../ui/desplazable';
 import { Encabezado } from '../../ui/encabezado';
 import { EstadoCarga } from '../../ui/estado-carga';
+import { CobroTarjeta } from './cobro-tarjeta';
 import { type DatosDialogoProducto, DialogoProducto } from './dialogo-producto';
 
 @Component({
   selector: 'uvm-productos',
   imports: [
+    CobroTarjeta,
     Desplazable,
     Encabezado,
     EstadoCarga,

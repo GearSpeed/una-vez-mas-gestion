@@ -69,4 +69,8 @@ export class CorteVendedor {
       hasta: this.hasta(),
     });
   });
+  protected readonly hayReembolsos = computed(() => {
+    const reembolsos = this.corte.value()?.reembolsos;
+    return !!reembolsos && Object.values(reembolsos).some((importe) => importe !== '0.00');
+  });
 }

@@ -417,7 +417,10 @@ export const ventas = gestion.table(
     canal: canalVenta().notNull(),
     metodoPago: metodoPago().notNull(),
     piezas: integer().notNull(),
+    /** Lo que pagó el cliente. */
     total: dinero().notNull(),
+    /** Lo que retuvo la entidad del cobro con tarjeta. La absorbe el negocio. */
+    comision: dinero().notNull().default('0'),
     notas: text().notNull().default(''),
     claveIdempotencia: claveIdempotencia('ventas'),
     registradoEn: ahora(),
@@ -425,6 +428,7 @@ export const ventas = gestion.table(
   },
   (t) => [
     check('ventas_total', sql`total >= 0`),
+    check('ventas_comision', sql`comision >= 0 and comision <= total`),
     check('ventas_cancelacion', sql`(estado = 'cancelado') = (cancelado_en is not null)`),
     index('ventas_fecha').on(t.fecha),
     index('ventas_vendedor_fecha').on(t.vendedorId, t.fecha),
@@ -465,6 +469,82 @@ export const ventaDetalle = gestion.table(
 );
 
 /* -----------------------------------------------------------------------------
+   Devoluciones de clientes: piezas de una venta que regresan, con su reembolso
+   -------------------------------------------------------------------------- */
+
+export const devoluciones = gestion.table(
+  'devoluciones',
+  {
+    id: id(),
+    folio: folio('D'),
+    fecha: fecha().notNull(),
+    ventaId: integer()
+      .notNull()
+      .references(() => ventas.id),
+    motivo: text().notNull(),
+    /** Lo que se le regresó al cliente, por el mismo método con que pagó. */
+    reembolso: dinero().notNull(),
+    usuarioId: integer()
+      .notNull()
+      .references(() => usuarios.id),
+    claveIdempotencia: claveIdempotencia('devoluciones'),
+    registradoEn: ahora(),
+  },
+  (t) => [
+    check('devoluciones_reembolso', sql`reembolso >= 0`),
+    index('devoluciones_venta').on(t.ventaId),
+    index('devoluciones_fecha').on(t.fecha),
+  ],
+);
+
+export const devolucionDetalle = gestion.table(
+  'devolucion_detalle',
+  {
+    id: id(),
+    devolucionId: integer()
+      .notNull()
+      .references(() => devoluciones.id),
+    /** La línea de la venta de la que salen estas piezas. */
+    ventaDetalleId: integer()
+      .notNull()
+      .references(() => ventaDetalle.id),
+    productoId: integer()
+      .notNull()
+      .references(() => productos.id),
+    cantidad: integer().notNull(),
+    /** true: vuelve a la venta. false: llegó dañado y no suma existencia. */
+    regresaAInventario: boolean().notNull(),
+    reembolso: dinero().notNull(),
+  },
+  (t) => [
+    unique('devolucion_detalle_linea_unica').on(t.devolucionId, t.ventaDetalleId),
+    check('devolucion_detalle_cantidad', sql`cantidad > 0`),
+    check('devolucion_detalle_reembolso', sql`reembolso >= 0`),
+    index('devolucion_detalle_linea').on(t.ventaDetalleId),
+  ],
+);
+
+/* -----------------------------------------------------------------------------
+   Comisiones de cobro: lo que retiene la entidad por método de pago
+   -------------------------------------------------------------------------- */
+
+export const comisionesPago = gestion.table(
+  'comisiones_pago',
+  {
+    metodoPago: metodoPago().primaryKey(),
+    /** Proporción sobre el cobro: 0.0350 = 3.50 %. */
+    tasa: numeric({ precision: 6, scale: 4 }).notNull(),
+    /** IVA sobre la comisión: 0.1600. */
+    iva: numeric({ precision: 6, scale: 4 }).notNull(),
+    actualizadoEn: ahora(),
+  },
+  () => [
+    check('comisiones_pago_tasa', sql`tasa >= 0 and tasa < 1`),
+    check('comisiones_pago_iva', sql`iva >= 0 and iva < 1`),
+  ],
+);
+
+/* -----------------------------------------------------------------------------
    Movimientos (kardex): el historial de cada pieza. Solo se agregan filas.
    -------------------------------------------------------------------------- */
 
@@ -494,12 +574,13 @@ export const movimientos = gestion.table(
     ventaId: integer().references(() => ventas.id),
     traspasoId: integer().references(() => traspasos.id),
     ajusteId: integer().references(() => ajustes.id),
+    devolucionId: integer().references(() => devoluciones.id),
   },
   (t) => [
     check('movimientos_cantidad', sql`cantidad <> 0`),
     check(
       'movimientos_un_documento',
-      sql`num_nonnulls(compra_id, venta_id, traspaso_id, ajuste_id) = 1`,
+      sql`num_nonnulls(compra_id, venta_id, traspaso_id, ajuste_id, devolucion_id) = 1`,
     ),
     index('movimientos_producto').on(t.productoId, t.id),
     index('movimientos_ubicacion_producto').on(t.ubicacionId, t.productoId, t.id),
@@ -528,3 +609,26 @@ export const bitacora = gestion.table(
   },
   (t) => [index('bitacora_entidad').on(t.entidad, t.entidadId)],
 );
+
+/* -----------------------------------------------------------------------------
+   Vista: cada línea de venta ya neta de devoluciones y con su parte de comisión.
+   La crea a mano la migración 0003; Drizzle solo la consulta.
+   -------------------------------------------------------------------------- */
+
+export const ventaLineasNetas = gestion
+  .view('venta_lineas_netas', {
+    id: integer().notNull(),
+    ventaId: integer().notNull(),
+    productoId: integer().notNull(),
+    cantidad: integer().notNull(),
+    importe: dinero().notNull(),
+    costoUnitario: costo().notNull(),
+    devueltas: integer().notNull(),
+    regresadas: integer().notNull(),
+    reembolsado: dinero().notNull(),
+    piezasNetas: integer().notNull(),
+    importeNeto: dinero().notNull(),
+    costoNeto: costo().notNull(),
+    comision: dinero().notNull(),
+  })
+  .existing();

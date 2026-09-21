@@ -24,6 +24,6 @@ export function slugDe(nombre: string): string {
 }
 
 /** Folio legible de un documento: `V-000042`. Sale del id, nunca de la fila. */
-export function folio(prefijo: 'C' | 'V' | 'T' | 'A', id: number): string {
+export function folio(prefijo: 'C' | 'V' | 'T' | 'A' | 'D', id: number): string {
   return `${prefijo}-${String(id).padStart(6, '0')}`;
 }

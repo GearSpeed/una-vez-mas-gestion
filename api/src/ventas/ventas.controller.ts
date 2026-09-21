@@ -2,10 +2,12 @@ import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import {
   type DatosCancelacion,
   esquemaCancelacion,
+  esquemaDevolucion,
   esquemaFiltroVentas,
   esquemaNuevaVenta,
   type FiltroVentas,
   type ListaVentas,
+  type NuevaDevolucion,
   type NuevaVenta,
   type VentaDetalle,
 } from '@uvm/compartido';
@@ -54,5 +56,16 @@ export class VentasController {
     @Body(new Validar(esquemaCancelacion)) datos: DatosCancelacion,
   ): Promise<VentaDetalle> {
     return this.ventas.cancelar(usuario, id, datos.motivo);
+  }
+
+  /** El vendedor, de sus ventas; con `ventas.ver_todas`, de cualquiera. */
+  @Post(':id/devoluciones')
+  @RequierePermiso('ventas.devolver')
+  devolver(
+    @UsuarioActual() usuario: UsuarioSesion,
+    @Param('id', ParseId) id: number,
+    @Body(new Validar(esquemaDevolucion)) datos: NuevaDevolucion,
+  ): Promise<VentaDetalle> {
+    return this.ventas.devolver(usuario, id, datos);
   }
 }

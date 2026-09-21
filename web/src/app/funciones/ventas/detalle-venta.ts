@@ -4,7 +4,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, input, signal } f
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { RouterLink } from '@angular/router';
-import type { VentaDetalle } from '@uvm/compartido';
+import { restar, type VentaDetalle } from '@uvm/compartido';
 import { ApiService } from '../../core/api';
 import { AvisosService } from '../../core/avisos';
 import { mensajeDeError } from '../../core/errores';
@@ -14,6 +14,7 @@ import { Desplazable } from '../../ui/desplazable';
 import { Encabezado } from '../../ui/encabezado';
 import { EstadoCarga } from '../../ui/estado-carga';
 import { EtiquetaPipe } from '../../ui/etiqueta.pipe';
+import { DialogoDevolucion } from './dialogo-devolucion';
 
 @Component({
   selector: 'uvm-detalle-venta',
@@ -47,6 +48,47 @@ export class DetalleVenta {
     () => this.sesion.puede('ventas.cancelar') && this.venta.value()?.estado === 'vigente',
   );
   protected readonly cancelando = signal(false);
+
+  /** Una venta con devoluciones ya no se cancela: lo que falta se devuelve. */
+  protected readonly puedeCancelarSinDevoluciones = computed(
+    () => this.puedeCancelar() && (this.venta.value()?.devoluciones.length ?? 0) === 0,
+  );
+  protected readonly puedeDevolver = computed(() => {
+    const venta = this.venta.value();
+    return (
+      this.sesion.puede('ventas.devolver') &&
+      venta?.estado === 'vigente' &&
+      venta.lineas.some((l) => l.devueltas < l.cantidad)
+    );
+  });
+  protected readonly conDevoluciones = computed(
+    () => (this.venta.value()?.devoluciones.length ?? 0) > 0,
+  );
+  /** Lo que de verdad le quedó al negocio: cobrado − reembolsos − comisión. */
+  protected readonly neto = computed(() => {
+    const venta = this.venta.value();
+    return venta ? restar(restar(venta.total, venta.reembolsado), venta.comision) : '0.00';
+  });
+
+  protected devolver(): void {
+    const venta = this.venta.value();
+    if (!venta) return;
+    this.dialogo
+      .open<DialogoDevolucion, VentaDetalle, VentaDetalle>(DialogoDevolucion, {
+        data: venta,
+        width: '40rem',
+        maxWidth: '95vw',
+      })
+      .afterClosed()
+      .subscribe((actualizada) => {
+        if (!actualizada) return;
+        this.venta.set(actualizada);
+        const ultima = actualizada.devoluciones.at(-1);
+        if (ultima) {
+          this.avisos.exito(`Devolución ${ultima.folio}: se reembolsan $${ultima.reembolso}.`);
+        }
+      });
+  }
 
   protected cancelar(): void {
     const venta = this.venta.value();

@@ -54,6 +54,17 @@
           {{ m | etiqueta: 'metodo' }}: {{ c.cobros[m] | currency }}{{ ultimo ? '' : ' · ' }}
         }
       </p>
+      @if (hayReembolsos()) {
+        <p class="ayuda">
+          Reembolsos:
+          @for (m of metodos; track m; let ultimo = $last) {
+            {{ m | etiqueta: 'metodo' }}: {{ c.reembolsos[m] | currency }}{{ ultimo ? '' : ' · ' }}
+          }
+        </p>
+      }
+      @if (c.comisiones !== '0.00') {
+        <p class="ayuda">Retiene Mercado Pago: {{ c.comisiones | currency }}</p>
+      }
     </section>
 
     <div uvmDesplazable="Mercancía del corte">

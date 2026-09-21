@@ -29,6 +29,7 @@ export interface Referencia {
   readonly ventaId?: number;
   readonly traspasoId?: number;
   readonly ajusteId?: number;
+  readonly devolucionId?: number;
 }
 
 export interface ContextoMovimiento {
@@ -65,6 +66,7 @@ const SIGNO: Readonly<Record<TipoMovimiento, 1 | -1 | 0>> = {
   ajuste: 0,
   cancelacion_compra: -1,
   cancelacion_venta: 1,
+  devolucion: 1,
 };
 
 /** Entradas que mueven el costo promedio. El traspaso no: la pieza solo cambia de lugar. */
@@ -72,6 +74,7 @@ const ENTRADAS_CON_COSTO: ReadonlySet<TipoMovimiento> = new Set([
   'compra',
   'ajuste',
   'cancelacion_venta',
+  'devolucion',
 ]);
 
 const clave = (productoId: number, ubicacionId: number) => `${productoId}:${ubicacionId}`;
