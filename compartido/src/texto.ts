@@ -10,6 +10,19 @@ export function normalizar(texto: string): string {
     .trim();
 }
 
+/**
+ * Slug de un producto a partir de su nombre: es la llave con el sitio
+ * (`/catalogo/:slug`). "Galletas de Mermelada de Piña" → "galletas-de-mermelada-de-pina".
+ * Se genera una sola vez, al crear el producto; después no cambia.
+ */
+export function slugDe(nombre: string): string {
+  return normalizar(nombre)
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80)
+    .replace(/-+$/, '');
+}
+
 /** Folio legible de un documento: `V-000042`. Sale del id, nunca de la fila. */
 export function folio(prefijo: 'C' | 'V' | 'T' | 'A', id: number): string {
   return `${prefijo}-${String(id).padStart(6, '0')}`;

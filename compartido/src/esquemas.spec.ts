@@ -9,18 +9,17 @@ import {
 const CLAVE = '6f1c1c3e-2b1a-4c8e-9a51-1d2f3a4b5c6d';
 
 describe('esquemaProducto', () => {
-  it('rechaza slugs con ñ o acentos', () => {
-    const resultado = esquemaProducto.safeParse({
-      slug: 'galletas-mermelada-piña',
+  it('descarta el slug si alguien lo manda: lo genera la API', () => {
+    const producto = esquemaProducto.parse({
+      slug: 'otro-slug',
       nombre: 'Galletas de Mermelada de Piña',
       categoriaId: 1,
     });
-    expect(resultado.success).toBe(false);
+    expect(producto).not.toHaveProperty('slug');
   });
 
   it('convierte los campos vacíos del formulario en null', () => {
     const producto = esquemaProducto.parse({
-      slug: 'galletas-mermelada-pina',
       nombre: 'Galletas de Mermelada de Piña',
       categoriaId: 1,
       precioVenta: '',
@@ -32,7 +31,6 @@ describe('esquemaProducto', () => {
 
   it('acepta el precio como número y lo guarda como texto', () => {
     const producto = esquemaProducto.parse({
-      slug: 'a',
       nombre: 'A',
       categoriaId: 1,
       precioVenta: 30,
@@ -42,7 +40,6 @@ describe('esquemaProducto', () => {
 
   it('no acepta más de dos decimales en el precio', () => {
     const resultado = esquemaProducto.safeParse({
-      slug: 'a',
       nombre: 'A',
       categoriaId: 1,
       precioVenta: '30.001',

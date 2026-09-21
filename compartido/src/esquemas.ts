@@ -3,13 +3,7 @@
  * petición y el front infiere de aquí los tipos de lo que manda.
  */
 import { z } from 'zod';
-import {
-  CANALES_VENTA,
-  ESTADOS_DOCUMENTO,
-  METODOS_PAGO,
-  MOTIVOS_AJUSTE,
-  PATRON_SLUG,
-} from './dominio.js';
+import { CANALES_VENTA, ESTADOS_DOCUMENTO, METODOS_PAGO, MOTIVOS_AJUSTE } from './dominio.js';
 
 /** Mensajes de Zod en español. La API y el front lo llaman al arrancar. */
 export function configurarZodEnEspanol(): void {
@@ -80,12 +74,8 @@ export const esquemaCategoria = z.object({
   activa: z.boolean().default(true),
 });
 
+/** El slug no viene aquí: la API lo genera del nombre al crear y ya no cambia. */
 export const esquemaProducto = z.object({
-  slug: z
-    .string()
-    .trim()
-    .max(80)
-    .regex(PATRON_SLUG, 'Solo minúsculas, números y guiones; sin acentos ni ñ'),
   nombre: requerido(120),
   categoriaId: esquemaId,
   variedad: texto(80).default(''),

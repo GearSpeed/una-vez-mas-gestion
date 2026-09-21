@@ -8,13 +8,7 @@ import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/materia
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import {
-  type Categoria,
-  indicadoresPrecio,
-  normalizar,
-  PATRON_SLUG,
-  type Producto,
-} from '@uvm/compartido';
+import { type Categoria, indicadoresPrecio, type Producto, slugDe } from '@uvm/compartido';
 import { startWith } from 'rxjs';
 import { ApiService } from '../../core/api';
 import { marcarErroresDelServidor, mensajeDeError } from '../../core/errores';
@@ -23,14 +17,6 @@ import { numeroONulo } from '../../ui/claves';
 export interface DatosDialogoProducto {
   readonly producto: Producto | null;
   readonly categorias: readonly Categoria[];
-}
-
-/** "Galletas de Mermelada de Piña" → "galletas-de-mermelada-de-pina". */
-function slugDe(nombre: string): string {
-  return normalizar(nombre)
-    .replace(/ñ/g, 'n')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
 }
 
 /**
@@ -65,10 +51,6 @@ export class DialogoProducto {
 
   protected readonly formulario = this.fb.group({
     nombre: [this.producto?.nombre ?? '', [Validators.required, Validators.maxLength(120)]],
-    slug: [
-      this.producto?.slug ?? '',
-      [Validators.required, Validators.pattern(PATRON_SLUG), Validators.maxLength(80)],
-    ],
     categoriaId: this.fb.control<number | null>(
       this.producto?.categoriaId ?? null,
       Validators.required,
@@ -110,18 +92,16 @@ export class DialogoProducto {
     );
   });
 
+  /**
+   * El slug no se captura: al crear sale del nombre (lo genera la API con la misma
+   * función) y al editar se queda como estaba, para no romper la URL del sitio.
+   */
+  protected readonly slug = computed(
+    () => this.producto?.slug ?? slugDe(this.valor().nombre ?? ''),
+  );
+
   protected readonly guardando = signal(false);
   protected readonly error = signal<string | null>(null);
-  private slugEditado = this.producto !== null;
-
-  protected alCambiarNombre(): void {
-    if (!this.slugEditado)
-      this.formulario.controls.slug.setValue(slugDe(this.formulario.controls.nombre.value));
-  }
-
-  protected alEditarSlug(): void {
-    this.slugEditado = true;
-  }
 
   protected async guardar(): Promise<void> {
     this.formulario.markAllAsTouched();

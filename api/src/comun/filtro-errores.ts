@@ -11,7 +11,7 @@ import { errorDePostgres } from './errores-postgres.js';
 
 const MENSAJES_UNICOS: Readonly<Record<string, string>> = {
   usuarios_correo_unique: 'Ya hay un usuario con ese correo.',
-  productos_slug_unique: 'Ya hay un producto con ese slug.',
+  productos_slug_unique: 'Ya hay un producto con ese nombre.',
   proveedores_nombre_unique: 'Ya hay un proveedor con ese nombre.',
   vehiculos_nombre_unique: 'Ya hay un vehículo con ese nombre.',
   categorias_nombre_unique: 'Ya hay una categoría con ese nombre.',

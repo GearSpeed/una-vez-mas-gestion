@@ -10,6 +10,7 @@ import {
   type DatosProducto,
   indicadoresPrecio,
   type Producto,
+  slugDe,
 } from '@uvm/compartido';
 import { asc, eq, sql } from 'drizzle-orm';
 import type { UsuarioSesion } from '../acceso/usuario-sesion.js';
@@ -38,31 +39,44 @@ export class ProductosService {
     return this.aProducto(usuario, fila);
   }
 
+  /** El slug sale del nombre y queda fijo: es la URL del producto en el sitio. */
   async crear(usuario: UsuarioSesion, datos: DatosProducto): Promise<Producto> {
+    const slug = slugDe(datos.nombre);
+    if (!slug) {
+      throw new UnprocessableEntityException({
+        mensaje: 'El nombre necesita al menos una letra o un número.',
+        campos: { nombre: 'Escribe un nombre con letras o números' },
+      });
+    }
     const id = await this.db.transaction(async (tx) => {
       await this.validarCategoria(tx, datos.categoriaId);
-      const [creado] = await tx.insert(productos).values(datos).returning({ id: productos.id });
+      const [creado] = await tx
+        .insert(productos)
+        .values({ ...datos, slug })
+        .returning({ id: productos.id });
       if (!creado) throw new Error('No se creó el producto');
       await registrarEnBitacora(tx, {
         usuarioId: usuario.id,
         accion: 'crear',
         entidad: 'producto',
         entidadId: creado.id,
-        datos: { slug: datos.slug, precioVenta: datos.precioVenta },
+        datos: { slug, precioVenta: datos.precioVenta },
       });
       return creado.id;
     });
     return this.obtener(usuario, id);
   }
 
-  /** Cambio de precio y de publicación quedan en la bitácora: quién, cuándo, de cuánto a cuánto. */
+  /**
+   * El slug no se toca aunque cambie el nombre, para no romper la URL del sitio.
+   * Cambio de precio y de publicación quedan en la bitácora: quién, cuándo, de cuánto a cuánto.
+   */
   async actualizar(usuario: UsuarioSesion, id: number, datos: DatosProducto): Promise<Producto> {
     await this.db.transaction(async (tx) => {
       const [actual] = await tx
         .select({
           precioVenta: productos.precioVenta,
           publicado: productos.publicado,
-          slug: productos.slug,
         })
         .from(productos)
         .where(eq(productos.id, id))
@@ -86,16 +100,13 @@ export class ProductosService {
           datos: { antes: actual.precioVenta, despues: datos.precioVenta },
         });
       }
-      if (actual.publicado !== datos.publicado || actual.slug !== datos.slug) {
+      if (actual.publicado !== datos.publicado) {
         await registrarEnBitacora(tx, {
           usuarioId: usuario.id,
           accion: 'cambiar_publicacion',
           entidad: 'producto',
           entidadId: id,
-          datos: {
-            antes: { publicado: actual.publicado, slug: actual.slug },
-            despues: { publicado: datos.publicado, slug: datos.slug },
-          },
+          datos: { antes: actual.publicado, despues: datos.publicado },
         });
       }
     });

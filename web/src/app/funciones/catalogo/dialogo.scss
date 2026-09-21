@@ -40,3 +40,11 @@ fieldset {
   flex-wrap: wrap;
   gap: 0 1.5rem;
 }
+
+.slug {
+  display: grid;
+  gap: 0.125rem;
+  margin: 0;
+  padding: 0.5rem 0;
+  overflow-wrap: anywhere;
+}

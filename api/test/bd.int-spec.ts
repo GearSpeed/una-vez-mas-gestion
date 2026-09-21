@@ -36,7 +36,7 @@ describe('la base de datos', () => {
     it('lee precio y existencia de los productos publicados', async () => {
       await como(app, ADMIN).put(
         `/productos/${IDS.avena}`,
-        productoConPrecio('galletas-avena', 'Galletas de Avena', 30),
+        productoConPrecio('Galletas de Avena', 30),
       );
       const { rows } = await sitio.execute(
         sql`select * from catalogo where slug = 'galletas-avena'`,
@@ -91,11 +91,7 @@ describe('la base de datos', () => {
     });
   });
 
-  it('los slugs no admiten ñ ni acentos', async () => {
-    const respuesta = await como(app, ADMIN).post('/productos', {
-      ...productoConPrecio('galletas-piña', 'Galletas de Piña', null),
-    });
-    expect(respuesta.status).toBe(422);
+  it('los slugs no admiten ñ ni acentos, ni siquiera escritos directo en la BD', async () => {
     const directo = api.execute(
       sql`update gestion.productos set slug = 'galletas-piña' where id = 1`,
     );

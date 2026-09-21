@@ -43,7 +43,7 @@ describe('compras', () => {
     // Con precio de $30 y 80 % de ganancia objetivo, los mismos indicadores del Excel.
     const producto = await como(app, ADMIN).put(
       `/productos/${IDS.tejocote}`,
-      productoConPrecio('galletas-mermelada-tejocote', 'Galletas de Mermelada de Tejocote', 30, {
+      productoConPrecio('Galletas de Mermelada de Tejocote', 30, {
         gananciaObjetivo: 0.8,
       }),
     );
@@ -141,7 +141,7 @@ describe('compras', () => {
       const compra = await como(app, ALMACEN).post('/compras', compraV001());
       await como(app, ADMIN).put(
         `/productos/${IDS.tejocote}`,
-        productoConPrecio('galletas-mermelada-tejocote', 'Galletas de Mermelada de Tejocote', 30),
+        productoConPrecio('Galletas de Mermelada de Tejocote', 30),
       );
       await como(app, ALMACEN).post('/inventario/traspasos', {
         claveIdempotencia: clave(),

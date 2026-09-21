@@ -31,7 +31,7 @@ describe('reportes', () => {
     await como(app, ALMACEN).post('/compras', compraV001());
     await como(app, ADMIN).put(
       `/productos/${IDS.tejocote}`,
-      productoConPrecio('galletas-mermelada-tejocote', 'Galletas de Mermelada de Tejocote', 30, {
+      productoConPrecio('Galletas de Mermelada de Tejocote', 30, {
         stockMinimo: 5,
       }),
     );

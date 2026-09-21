@@ -118,15 +118,9 @@ export function compraV001() {
   };
 }
 
-/** Datos completos de un producto de la semilla, para un PUT que solo cambia algunos. */
-export function productoConPrecio(
-  slug: string,
-  nombre: string,
-  precioVenta: number | null,
-  extra: object = {},
-) {
+/** Datos completos de un producto (sin slug: lo pone la API), para un POST o un PUT. */
+export function productoConPrecio(nombre: string, precioVenta: number | null, extra: object = {}) {
   return {
-    slug,
     nombre,
     categoriaId: 1,
     variedad: '',

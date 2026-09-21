@@ -94,3 +94,28 @@ test('un vendedor no ve pantallas de otros roles', async ({ page }) => {
   await expect(menu.getByRole('link', { name: 'Compras', includeHidden: true })).toHaveCount(0);
   await expect(menu.getByRole('link', { name: 'Usuarios', includeHidden: true })).toHaveCount(0);
 });
+
+test('el slug de un producto nuevo se genera solo y no se puede editar', async ({ page }, info) => {
+  const nombre = `Galletas de Piña ${info.project.name}`;
+  await entrarComo(page, 'admin');
+  await page.goto('/productos');
+  await esperarCarga(page);
+  await page.getByRole('button', { name: 'Nuevo producto' }).click();
+  const dialogo = page.getByRole('dialog');
+  await expect(dialogo.getByRole('textbox', { name: /slug/i })).toHaveCount(0);
+  await expect(dialogo.getByText('Se genera con el nombre')).toBeVisible();
+
+  await dialogo.getByLabel('Nombre').fill(nombre);
+  await expect(dialogo.getByText(`galletas-de-pina-${info.project.name}`)).toBeVisible();
+  await dialogo.getByRole('combobox', { name: 'Categoría' }).click();
+  await page.getByRole('option', { name: 'Galletas' }).click();
+  await dialogo.getByRole('button', { name: 'Guardar' }).click();
+  await expect(page.getByText(`${nombre} guardado.`)).toBeVisible();
+
+  // Al editarlo, el slug se ve pero sigue sin ser editable.
+  await page.getByRole('button', { name: `Editar ${nombre}` }).click();
+  await expect(
+    page.getByRole('dialog').getByText(`galletas-de-pina-${info.project.name}`),
+  ).toBeVisible();
+  await expect(page.getByRole('dialog').getByRole('textbox', { name: /slug/i })).toHaveCount(0);
+});

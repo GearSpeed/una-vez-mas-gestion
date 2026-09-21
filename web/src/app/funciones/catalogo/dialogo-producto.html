@@ -4,33 +4,17 @@
     <div class="rejilla-campos">
       <mat-form-field>
         <mat-label>Nombre</mat-label>
-        <input matInput formControlName="nombre" (input)="alCambiarNombre()" cdkFocusInitial />
+        <input matInput formControlName="nombre" cdkFocusInitial />
         @if (formulario.controls.nombre.hasError('required')) {
           <mat-error>Escribe el nombre.</mat-error>
+        } @else if (formulario.controls.nombre.hasError('servidor')) {
+          <mat-error>{{ formulario.controls.nombre.getError('servidor') }}</mat-error>
         }
       </mat-form-field>
-      <mat-form-field>
-        <mat-label>Slug (URL en el sitio)</mat-label>
-        <input
-          matInput
-          formControlName="slug"
-          (input)="alEditarSlug()"
-          autocapitalize="off"
-          spellcheck="false"
-        />
-        <mat-hint
-          >Igual al de products.json del sitio: /catalogo/{{
-            formulario.controls.slug.value || 'slug'
-          }}</mat-hint
-        >
-        @if (formulario.controls.slug.hasError('pattern')) {
-          <mat-error>Solo minúsculas, números y guiones; sin acentos ni ñ.</mat-error>
-        } @else if (formulario.controls.slug.hasError('servidor')) {
-          <mat-error>{{ formulario.controls.slug.getError('servidor') }}</mat-error>
-        } @else if (formulario.controls.slug.hasError('required')) {
-          <mat-error>Escribe el slug.</mat-error>
-        }
-      </mat-form-field>
+      <p class="slug">
+        <span class="ayuda">Slug</span>
+        <span>{{ slug() || 'Se genera con el nombre' }}</span>
+      </p>
       <mat-form-field>
         <mat-label>Categoría</mat-label>
         <mat-select formControlName="categoriaId">
