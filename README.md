@@ -44,7 +44,7 @@ npm run migrar               # crea el esquema (como gestion_owner)
 npm run semilla -- --demo    # roles, 13 productos, Almacén, admin y datos de prueba
 npm run preparar-bucket      # crea el bucket de imágenes en MinIO (una vez)
 npm run subir-imagenes -- ../una_vez_mas_web_site  # opcional: las fotos del sitio
-npm run dev                  # API en :3000 y app en http://localhost:4300
+npm run dev                  # API en :3001 y app en http://localhost:4300
 ```
 
 Si tu Docker Desktop está apagado y usas el motor del sistema, `docker compose` falla con
