@@ -47,8 +47,10 @@ npm run subir-imagenes -- ../una_vez_mas_web_site  # opcional: las fotos del sit
 npm run dev                  # API en :3000 y app en http://localhost:4300
 ```
 
-Si tu Docker Desktop está apagado y usas el motor del sistema, antepone
-`DOCKER_HOST=unix:///var/run/docker.sock` a los comandos de `docker` y de pruebas.
+Si tu Docker Desktop está apagado y usas el motor del sistema, `docker compose` falla con
+«Cannot connect to the Docker daemon». Se arregla una sola vez con
+`docker context use default`, o antepone `DOCKER_HOST=unix:///var/run/docker.sock` a los
+comandos de `docker` y de pruebas.
 
 En desarrollo no hay Cloudflare Access (`AUTH_MODO=desarrollo`): entras como
 `DEV_CORREO`. Con `--demo` hay un usuario por rol, y desde el menú de usuario (arriba a
