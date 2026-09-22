@@ -29,6 +29,13 @@
       "when": 1790032920247,
       "tag": "0003_lineas_netas_y_tasa_tarjeta",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790036527374,
+      "tag": "0004_comision_devuelta",
+      "breakpoints": true
     }
   ]
 }

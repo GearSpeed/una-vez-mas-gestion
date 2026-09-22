@@ -2,10 +2,17 @@
 <form [formGroup]="formulario" (ngSubmit)="guardar()" novalidate>
   <mat-dialog-content class="contenido">
     <p class="ayuda">
-      Se le regresa al cliente la parte proporcional de cada producto ({{
+      Al cliente se le regresa íntegro lo que pagó por esas piezas ({{
         venta.metodoPago | etiqueta: 'metodo'
       }}, como pagó).
     </p>
+    @if (conComision) {
+      <p class="aviso-tarjeta">
+        Haz el reembolso en Mercado Pago desde <strong>Actividad</strong> → el cobro →
+        <strong>Devolver dinero</strong>. Así te regresa la parte de su comisión; si lo mandas como
+        transferencia nueva, no.
+      </p>
+    }
 
     <fieldset formArrayName="lineas" class="lineas">
       <legend>¿Qué regresa?</legend>
@@ -50,6 +57,11 @@
     <p class="total" aria-live="polite">
       {{ piezas() }} {{ piezas() === 1 ? 'pieza' : 'piezas' }} · Se reembolsan
       <strong>{{ reembolso() | currency }}</strong>
+      @if (conComision && comisionQueRegresa() !== '0.00') {
+        <span class="ayuda bloque">
+          Mercado Pago te regresa {{ comisionQueRegresa() | currency }} de su comisión.
+        </span>
+      }
     </p>
     @if (error()) {
       <p class="error-texto" role="alert">{{ error() }}</p>

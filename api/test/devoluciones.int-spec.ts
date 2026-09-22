@@ -114,6 +114,45 @@ describe('comisión de tarjeta y devoluciones', () => {
         utilidad: '43.49',
       });
     });
+
+    it('al devolver, Mercado Pago regresa la parte proporcional de su comisión', async () => {
+      const vendida = await como(app, ANA).post('/ventas', venta(4, { metodoPago: 'tarjeta' }));
+      const ruta = `/ventas/${vendida.body.id}/devoluciones`;
+
+      // Regresa 1 de 4: al cliente $30 íntegros; de los $4.87, Mercado Pago regresa $1.22.
+      const parcial = await como(app, ANA).post(
+        ruta,
+        devolucion([{ productoId: IDS.tejocote, cantidad: 1 }]),
+      );
+      expect(parcial.body).toMatchObject({ reembolsado: '30.00', comision: '3.65' });
+      expect(parcial.body.devoluciones[0]).toMatchObject({
+        reembolso: '30.00',
+        comisionDevuelta: '1.22',
+      });
+      const detalle = await como(app, ADMIN).get(`/ventas/${vendida.body.id}`);
+      // $120 − $30 − $3.65 de comisión − 3 × $17.91 de costo
+      expect(detalle.body.costos).toEqual({ costoTotal: '53.73', utilidad: '32.62' });
+      const utilidad = await como(app, ADMIN).get('/reportes/utilidad');
+      expect(utilidad.body[0]).toMatchObject({ ingreso: '90.00', comision: '3.65' });
+
+      // Regresa el resto: la comisión vuelve completa y la venta queda en ceros.
+      const total = await como(app, ANA).post(
+        ruta,
+        devolucion([{ productoId: IDS.tejocote, cantidad: 3 }]),
+      );
+      expect(total.body).toMatchObject({ reembolsado: '120.00', comision: '0.00' });
+      expect(total.body.devoluciones[1].comisionDevuelta).toBe('3.65');
+      expect((await como(app, ADMIN).get(`/ventas/${vendida.body.id}`)).body.costos).toEqual({
+        costoTotal: '0.00',
+        utilidad: '0.00',
+      });
+
+      const lista = await como(app, ANA).get('/ventas');
+      expect(lista.body.resumen).toMatchObject({ importe: '0.00', comisiones: '0.00' });
+      expect(lista.body.filas[0]).toMatchObject({ comision: '0.00', reembolsado: '120.00' });
+      const corte = await como(app, ANA).get('/reportes/corte');
+      expect(corte.body).toMatchObject({ comisiones: '0.00', totalVendido: '0.00' });
+    });
   });
 
   describe('devoluciones', () => {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   calcularCompra,
   comisionDeCobro,
+  comisionDevuelta,
   costoTraslado,
   descuentoValido,
   importeLinea,
@@ -146,6 +147,54 @@ describe('comisión de Mercado Pago', () => {
   it('redondea la comisión y su IVA por separado', () => {
     // 3.50 % de $85.00 = $2.975 → $2.98; IVA 16 % = $0.4768 → $0.48
     expect(comisionDeCobro('85.00', MERCADO_PAGO)).toMatchObject({ total: '3.46', neto: '81.54' });
+  });
+
+  it('en una devolución total regresa la comisión completa', () => {
+    expect(
+      comisionDevuelta({
+        comision: '40.60',
+        total: '1000.00',
+        reembolsadoAntes: '0',
+        devueltaAntes: '0',
+        reembolso: '1000.00',
+      }),
+    ).toBe('40.60');
+  });
+
+  it('en devoluciones parciales regresa la parte proporcional y al final cuadra', () => {
+    // Venta de $85 con $3.46 de comisión; se devuelve $28.33 tres veces (28.33 + 28.34 + 28.33).
+    const base = { comision: '3.46', total: '85.00' };
+    const primera = comisionDevuelta({
+      ...base,
+      reembolsadoAntes: '0',
+      devueltaAntes: '0',
+      reembolso: '28.33',
+    });
+    const segunda = comisionDevuelta({
+      ...base,
+      reembolsadoAntes: '28.33',
+      devueltaAntes: primera,
+      reembolso: '28.34',
+    });
+    const tercera = comisionDevuelta({
+      ...base,
+      reembolsadoAntes: '56.67',
+      devueltaAntes: (Number(primera) + Number(segunda)).toFixed(2),
+      reembolso: '28.33',
+    });
+    expect([primera, segunda, tercera]).toEqual(['1.15', '1.16', '1.15']);
+  });
+
+  it('sin comisión no regresa nada', () => {
+    expect(
+      comisionDevuelta({
+        comision: '0',
+        total: '60.00',
+        reembolsadoAntes: '0',
+        devueltaAntes: '0',
+        reembolso: '30.00',
+      }),
+    ).toBe('0.00');
   });
 });
 

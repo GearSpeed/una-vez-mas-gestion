@@ -484,6 +484,8 @@ export const devoluciones = gestion.table(
     motivo: text().notNull(),
     /** Lo que se le regresó al cliente, por el mismo método con que pagó. */
     reembolso: dinero().notNull(),
+    /** Lo que la entidad del cobro con tarjeta regresó de su comisión (proporcional). */
+    comisionDevuelta: dinero().notNull().default('0'),
     usuarioId: integer()
       .notNull()
       .references(() => usuarios.id),
@@ -492,6 +494,7 @@ export const devoluciones = gestion.table(
   },
   (t) => [
     check('devoluciones_reembolso', sql`reembolso >= 0`),
+    check('devoluciones_comision_devuelta', sql`comision_devuelta >= 0`),
     index('devoluciones_venta').on(t.ventaId),
     index('devoluciones_fecha').on(t.fecha),
   ],

@@ -7,7 +7,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { reembolsoDeLinea, sumar, type VentaDetalle } from '@uvm/compartido';
+import { comisionDevuelta, reembolsoDeLinea, sumar, type VentaDetalle } from '@uvm/compartido';
 import { startWith } from 'rxjs';
 import { ApiService } from '../../core/api';
 import { marcarErroresDelServidor, mensajeDeError } from '../../core/errores';
@@ -82,6 +82,23 @@ export class DialogoDevolucion {
         });
       }),
     ),
+  );
+
+  /** Lo que retuvo Mercado Pago al cobrar y lo que ya regresó en devoluciones anteriores. */
+  private readonly comisionDevueltaAntes = sumar(
+    this.venta.devoluciones.map((d) => d.comisionDevuelta),
+  );
+  private readonly comisionCobrada = sumar([this.venta.comision, this.comisionDevueltaAntes]);
+  protected readonly conComision = this.comisionCobrada !== '0.00';
+  /** La parte de su comisión que regresa Mercado Pago, con la misma cuenta que la API. */
+  protected readonly comisionQueRegresa = computed(() =>
+    comisionDevuelta({
+      comision: this.comisionCobrada,
+      total: this.venta.total,
+      reembolsadoAntes: this.venta.reembolsado,
+      devueltaAntes: this.comisionDevueltaAntes,
+      reembolso: this.reembolso(),
+    }),
   );
   protected readonly piezas = computed(() =>
     (this.valor().lineas ?? []).reduce(

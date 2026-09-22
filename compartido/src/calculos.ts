@@ -291,6 +291,35 @@ export function reembolsoDeLinea(linea: DevolucionDeLinea): Decimal {
   );
 }
 
+export interface ComisionDeDevolucion {
+  /** Lo que retuvo la entidad al cobrar la venta. */
+  readonly comision: Decimal;
+  /** Lo que pagó el cliente. */
+  readonly total: Decimal;
+  /** Reembolsos y comisión ya regresados en devoluciones anteriores. */
+  readonly reembolsadoAntes: Decimal;
+  readonly devueltaAntes: Decimal;
+  /** Lo que se le regresa al cliente en esta devolución. */
+  readonly reembolso: Decimal;
+}
+
+/**
+ * Lo que la entidad regresa de su comisión cuando se le devuelve dinero al
+ * cliente desde el cobro original («Devolver dinero» en Mercado Pago): la parte
+ * proporcional a lo reembolsado. Sobre el acumulado, para que al devolver todo
+ * regrese exacto la comisión completa.
+ */
+export function comisionDevuelta(devolucion: ComisionDeDevolucion): Decimal {
+  if (big(devolucion.total).lte(0)) return fijar(big(0), DECIMALES_DINERO);
+  const acumulado = big(devolucion.comision)
+    .times(big(devolucion.reembolsadoAntes).plus(devolucion.reembolso))
+    .div(devolucion.total);
+  return fijar(
+    big(fijar(acumulado, DECIMALES_DINERO)).minus(devolucion.devueltaAntes),
+    DECIMALES_DINERO,
+  );
+}
+
 /* -----------------------------------------------------------------------------
    Utilidades
    -------------------------------------------------------------------------- */

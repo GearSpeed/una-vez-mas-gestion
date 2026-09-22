@@ -181,7 +181,10 @@ export interface VentaResumen {
   readonly piezas: number;
   /** Lo que pagó el cliente. */
   readonly total: Decimal;
-  /** Lo que retuvo la entidad del cobro con tarjeta (la absorbe el negocio). */
+  /**
+   * Lo que se quedó la entidad del cobro con tarjeta (lo absorbe el negocio): lo que
+   * retuvo al cobrar menos lo que regresó en devoluciones.
+   */
   readonly comision: Decimal;
   /** Lo que se le ha regresado al cliente en devoluciones. */
   readonly reembolsado: Decimal;
@@ -208,6 +211,8 @@ export interface DevolucionResumen {
   readonly motivo: string;
   readonly registradoPor: string;
   readonly reembolso: Decimal;
+  /** Lo que la entidad del cobro con tarjeta le regresó al negocio de su comisión. */
+  readonly comisionDevuelta: Decimal;
   readonly lineas: readonly {
     readonly productoId: number;
     readonly producto: string;

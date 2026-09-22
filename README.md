@@ -74,7 +74,7 @@ probar lo que ve cada rol. Ese modo se niega a arrancar si `NODE_ENV=production`
   precio es 40.30 % y la ganancia sobre costo 67.51 %.
 - **API unitarias**: el JWT de Access (válido, otra app, otro emisor, otra llave, vencido,
   alterado) y el CSV.
-- **API integración** (78, PostgreSQL 18 real): los mismos números del Excel de punta a
+- **API integración** (79, PostgreSQL 18 real): los mismos números del Excel de punta a
   punta, dos ventas simultáneas de la última pieza (una pasa, la otra recibe 409),
   cancelaciones, devoluciones, comisión de tarjeta, traspasos, conteo, permisos por rol, que un vendedor nunca reciba llaves
   `costo*`, y que la propia BD no deje borrar, reescribir el kardex ni dejar existencias
@@ -105,7 +105,10 @@ probar lo que ve cada rol. Ese modo se niega a arrancar si `NODE_ENV=production`
 - **Comisión de tarjeta** (Mercado Pago): tasa + IVA sobre la tasa, hoy 3.50 % + 16 % =
   4.06 %. La absorbe el negocio: el cliente paga el precio normal y la venta guarda lo que
   se retiene; la utilidad ya la descuenta. El admin cambia la tasa en Productos → «Cobro
-  con tarjeta» y aplica solo a ventas nuevas. Una devolución no regresa la comisión.
+  con tarjeta» y aplica solo a ventas nuevas. Al devolver, el cliente recibe íntegro lo
+  que pagó y Mercado Pago regresa la parte proporcional de su comisión (si se devuelve
+  todo, la comisión completa), siempre que el reembolso se haga desde el cobro original
+  («Devolver dinero» en la app de Mercado Pago), no como transferencia nueva.
 - **Ajustes**: si restan, al costo promedio; si suman, al costo que se indique. El
   **conteo físico** registra lo que hay y ajusta solo las diferencias.
 - **Precio**: sin precio no se vende (y el sitio dice «Consulta precio»). La ganancia
@@ -166,6 +169,8 @@ migraciones SQL, en `api/drizzle/`:
 - `0003_lineas_netas_y_tasa_tarjeta.sql` está escrita a mano: la vista
   `venta_lineas_netas` (cada línea ya sin lo devuelto, para reportes) y la tasa inicial
   de la tarjeta.
+- `0004_comision_devuelta.sql`: la columna la generó drizzle-kit; la vista, a mano (la
+  comisión de cada línea ya sin lo que Mercado Pago regresó).
 
 Una migración ya aplicada **no se edita**: cualquier cambio va en una nueva
 (`npm run generar-migracion -w api`, o `--custom` para SQL a mano).

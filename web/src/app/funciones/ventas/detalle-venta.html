@@ -144,6 +144,11 @@
             <li class="tarjeta">
               <strong>{{ d.folio }}</strong> · {{ d.fecha | date: 'mediumDate' }} · se reembolsaron
               {{ d.reembolso | currency }} ({{ d.registradoPor }}): «{{ d.motivo }}»
+              @if (d.comisionDevuelta !== '0.00') {
+                <span class="ayuda">
+                  Mercado Pago regresó {{ d.comisionDevuelta | currency }} de su comisión.
+                </span>
+              }
               <span class="ayuda">
                 @for (l of d.lineas; track l.productoId; let ultimo = $last) {
                   {{ l.cantidad }} {{ l.producto }}

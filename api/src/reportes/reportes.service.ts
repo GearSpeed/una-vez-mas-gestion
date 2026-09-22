@@ -321,9 +321,14 @@ export class ReportesService {
           ),
         )
         .groupBy(ventas.metodoPago),
-      // El dinero regresado a clientes cuenta el día de la devolución.
+      // El dinero regresado a clientes, y la comisión que regresa la entidad, cuentan el
+      // día de la devolución.
       this.db
-        .select({ metodo: ventas.metodoPago, importe: sum(devoluciones.reembolso) })
+        .select({
+          metodo: ventas.metodoPago,
+          importe: sum(devoluciones.reembolso),
+          comisionDevuelta: sum(devoluciones.comisionDevuelta),
+        })
         .from(devoluciones)
         .innerJoin(ventas, eq(ventas.id, devoluciones.ventaId))
         .where(
@@ -383,7 +388,10 @@ export class ReportesService {
         .toSorted((a, b) => a.producto.localeCompare(b.producto, 'es')),
       cobros: importes,
       reembolsos: regresado,
-      comisiones: sumar(cobros.map((fila) => fila.comision ?? '0')),
+      comisiones: restar(
+        sumar(cobros.map((fila) => fila.comision ?? '0')),
+        sumar(reembolsos.map((fila) => fila.comisionDevuelta ?? '0')),
+      ),
       totalVendido: restar(sumar(Object.values(importes)), sumar(Object.values(regresado))),
     };
   }

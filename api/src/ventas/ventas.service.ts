@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import {
   comisionDeCobro,
+  comisionDevuelta,
   comparar,
   descuentoValido,
   type DevolucionResumen,
@@ -32,7 +33,7 @@ import { conCostos } from '../comun/costos.js';
 import { fechaDelDocumento } from '../comun/fechas.js';
 import { conIdempotencia } from '../comun/idempotencia.js';
 import { type BaseDatos, DB } from '../db/conexion.js';
-import { reembolsadoDeVenta } from '../db/consultas.js';
+import { comisionNetaDeVenta, reembolsadoDeVenta } from '../db/consultas.js';
 import {
   devolucionDetalle,
   devoluciones,
@@ -238,6 +239,21 @@ export class VentasService {
           });
 
           const reembolso = sumar(lineas.map((l) => l.reembolso));
+          // Devolver desde el cobro original le regresa al negocio la parte de la comisión.
+          const [antes] = await tx
+            .select({
+              reembolsado: sql<string>`coalesce(sum(${devoluciones.reembolso}), 0)`,
+              comisionDevuelta: sql<string>`coalesce(sum(${devoluciones.comisionDevuelta}), 0)`,
+            })
+            .from(devoluciones)
+            .where(eq(devoluciones.ventaId, ventaId));
+          const comision = comisionDevuelta({
+            comision: venta.comision,
+            total: venta.total,
+            reembolsadoAntes: antes?.reembolsado ?? '0',
+            devueltaAntes: antes?.comisionDevuelta ?? '0',
+            reembolso,
+          });
           const [devolucion] = await tx
             .insert(devoluciones)
             .values({
@@ -245,6 +261,7 @@ export class VentasService {
               ventaId,
               motivo: datos.motivo,
               reembolso,
+              comisionDevuelta: comision,
               usuarioId: usuario.id,
               claveIdempotencia: datos.claveIdempotencia,
             })
@@ -286,6 +303,7 @@ export class VentasService {
               devolucion: devolucion.folio,
               motivo: datos.motivo,
               reembolso,
+              comisionDevuelta: comision,
               lineas: lineas.map((l) => ({
                 productoId: l.productoId,
                 cantidad: l.cantidad,
@@ -376,7 +394,7 @@ export class VentasService {
           metodoPago: ventas.metodoPago,
           piezas: ventas.piezas,
           total: ventas.total,
-          comision: ventas.comision,
+          comision: sql<string>`${comisionNetaDeVenta}::numeric(12, 2)`,
           reembolsado: sql<string>`${reembolsadoDeVenta}::numeric(12, 2)`,
           estado: ventas.estado,
         })
@@ -393,7 +411,7 @@ export class VentasService {
           metodo: ventas.metodoPago,
           cobrado: sql<string>`coalesce(sum(${ventas.total}), 0)`,
           reembolsado: sql<string>`coalesce(sum(${reembolsadoDeVenta}), 0)`,
-          comisiones: sql<string>`coalesce(sum(${ventas.comision}), 0)`,
+          comisiones: sql<string>`coalesce(sum(${comisionNetaDeVenta}), 0)`,
           ventas: count(),
         })
         .from(ventas)
@@ -436,7 +454,7 @@ export class VentasService {
         metodoPago: ventas.metodoPago,
         piezas: ventas.piezas,
         total: ventas.total,
-        comision: ventas.comision,
+        comision: sql<string>`${comisionNetaDeVenta}::numeric(12, 2)`,
         estado: ventas.estado,
         notas: ventas.notas,
         registradoEn: ventas.registradoEn,
@@ -509,6 +527,7 @@ export class VentasService {
         motivo: devoluciones.motivo,
         registradoPor: usuarios.nombre,
         reembolso: devoluciones.reembolso,
+        comisionDevuelta: devoluciones.comisionDevuelta,
       })
       .from(devoluciones)
       .innerJoin(usuarios, eq(usuarios.id, devoluciones.usuarioId))

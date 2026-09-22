@@ -74,6 +74,7 @@ test('precio, compra, carga y venta de punta a punta', async ({ page, request })
   await expect(page.getByText(/retiene \$2\.27 .*te llegan \$53\.73/)).toBeVisible();
   await page.locator('mat-button-toggle', { hasText: 'Transferencia' }).click();
   await expect(page.getByText(/retiene/)).toHaveCount(0);
+  await page.locator('mat-button-toggle', { hasText: 'Tarjeta' }).click();
   await page.getByRole('button', { name: 'Registrar venta' }).click();
   const aviso = page.getByText(/Venta V-\d{6} registrada por \$56\.00/);
   await expect(aviso).toBeVisible();
@@ -85,21 +86,25 @@ test('precio, compra, carga y venta de punta a punta', async ({ page, request })
   await page.goto('/ventas');
   await esperarCarga(page);
   await expect(page.getByRole('heading', { level: 1, name: 'Mis ventas' })).toBeVisible();
-  await expect(page.getByText(/Transferencia: \$\d/)).toBeVisible();
+  await expect(page.getByText(/Tarjeta: \$\d/)).toBeVisible();
 
-  // 6. El cliente regresa una pieza en buen estado: vuelve a su inventario.
+  // 6. El cliente regresa una pieza en buen estado: vuelve a su inventario, se le
+  //    regresan sus $28 y Mercado Pago regresa la mitad de su comisión.
   await page.getByRole('link', { name: folio }).click();
   await esperarCarga(page);
   await page.getByRole('button', { name: 'Registrar devolución' }).click();
   const dialogo = page.getByRole('dialog');
   await expect(dialogo).toBeVisible();
+  await expect(dialogo.getByText(/Devolver dinero/)).toBeVisible();
   await sinViolaciones(page);
   await dialogo.getByLabel('Piezas').fill('1');
   await dialogo.getByLabel('Motivo').fill('No era el sabor que pidió');
   await expect(dialogo.getByText('Se reembolsan $28.00')).toBeVisible();
+  await expect(dialogo.getByText('Mercado Pago te regresa $1.14 de su comisión.')).toBeVisible();
   await dialogo.getByRole('button', { name: 'Registrar devolución' }).click();
   await expect(dialogo).toHaveCount(0);
   await expect(page.getByText(/Devolución D-\d{6}: se reembolsan \$28\.00/)).toBeVisible();
+  await expect(page.getByText('Mercado Pago regresó $1.14 de su comisión.')).toBeVisible();
   expect(await piezasDeAna(request, producto)).toBe(antes + 4);
 });
 
