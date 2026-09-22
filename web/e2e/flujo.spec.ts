@@ -1,4 +1,5 @@
 import { expect, type APIRequestContext, test } from '@playwright/test';
+import sharp from 'sharp';
 import { entrarComo, esperarCarga, sinViolaciones, USUARIOS } from './ayudantes';
 
 /**
@@ -144,4 +145,86 @@ test('el slug de un producto nuevo se genera solo y no se puede editar', async (
     page.getByRole('dialog').getByText(`galletas-de-pina-${info.project.name}`),
   ).toBeVisible();
   await expect(page.getByRole('dialog').getByRole('textbox', { name: /slug/i })).toHaveCount(0);
+});
+
+test('la foto de un producto se sube al bucket y se ve con su ID', async ({ page }, info) => {
+  // Escritorio y celular comparten la BD: cada uno usa su producto.
+  const { producto, id } =
+    info.project.name === 'celular'
+      ? { producto: 'Galletas de Avena', id: 1 }
+      : { producto: 'Galletas de Nuez', id: 4 };
+  await entrarComo(page, 'admin');
+  await page.goto('/productos');
+  await esperarCarga(page);
+
+  // Se encuentra por su ID, el que llevará el código de barras.
+  await page.getByLabel('Buscar por nombre o ID').fill(String(id));
+  await expect(page.locator('tbody tr')).toHaveCount(1);
+  await expect(page.getByRole('rowheader', { name: new RegExp(producto) })).toBeVisible();
+
+  await page.getByRole('button', { name: `Editar ${producto}` }).click();
+  const dialogo = page.getByRole('dialog');
+  await expect(dialogo.getByText('ID', { exact: true })).toBeVisible();
+  await expect(dialogo.getByText('Sin imagen')).toBeVisible();
+
+  const foto = await sharp({
+    create: { width: 1600, height: 1200, channels: 3, background: '#b5793a' },
+  })
+    .jpeg()
+    .toBuffer();
+  await dialogo.locator('input[type="file"]').setInputFiles({
+    name: `foto-${info.project.name}.jpg`,
+    mimeType: 'image/jpeg',
+    buffer: foto,
+  });
+  await dialogo.getByLabel('Texto alternativo').fill(`${producto} sobre una charola`);
+  await dialogo.getByRole('button', { name: 'Subir imagen' }).click();
+
+  const imagen = dialogo.getByRole('img', { name: `${producto} sobre una charola` });
+  await expect(imagen).toBeVisible();
+  await expect(imagen).toHaveAttribute(
+    'src',
+    new RegExp(`/imagenes/productos/${id}/[0-9a-f]{16}-600\\.webp`),
+  );
+  // Se cargó de verdad desde el bucket (la política de contenido la deja pasar).
+  expect(await imagen.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(600);
+  await sinViolaciones(page);
+
+  await dialogo.getByRole('button', { name: 'Cerrar' }).click();
+  await expect(dialogo).toHaveCount(0);
+  const miniatura = page.locator('tbody tr').first().locator('.miniatura img');
+  await expect(miniatura).toHaveAttribute('src', /-600\.webp/);
+});
+
+test('el menú lateral se abre y se cierra con su icono', async ({ page }, info) => {
+  const celular = info.project.name === 'celular';
+  await entrarComo(page, 'ana');
+  await page.goto('/');
+  await esperarCarga(page);
+  const lateral = page.locator('mat-sidenav');
+  const abrir = page.getByRole('button', { name: 'Abrir el menú' });
+  const cerrar = page.getByRole('button', { name: 'Cerrar el menú' });
+
+  if (celular) {
+    // Al cargar no tapa nada: se abre solo si se toca el icono.
+    await expect(lateral).toBeHidden();
+    await abrir.click();
+    await expect(lateral).toBeVisible();
+    await expect(cerrar).toHaveAttribute('aria-expanded', 'true');
+    await sinViolaciones(page);
+    // Al elegir una pantalla se quita de en medio.
+    await lateral.getByRole('link', { name: 'Mi mercancía' }).click();
+    await esperarCarga(page);
+    await expect(lateral).toBeHidden();
+  } else {
+    // En escritorio empieza fijo, pero se puede cerrar y se queda así.
+    await expect(lateral).toBeVisible();
+    await cerrar.click();
+    await expect(lateral).toBeHidden();
+    await page.goto('/inventario');
+    await esperarCarga(page);
+    await expect(lateral).toBeHidden();
+    await abrir.click();
+    await expect(lateral).toBeVisible();
+  }
 });

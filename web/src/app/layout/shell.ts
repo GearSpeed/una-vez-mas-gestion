@@ -22,6 +22,27 @@ import { filter, map } from 'rxjs';
 import { menuPara } from '../core/menu';
 import { SesionService } from '../core/sesion';
 
+/** Con menos ancho que esto, el menú va encima del contenido y sale cerrado. */
+const ANCHO_ESCRITORIO = '(min-width: 80rem)';
+/** Si en escritorio lo dejaste cerrado, así se queda la próxima vez. */
+const LLAVE_MENU = 'uvm:menu-abierto';
+
+function menuGuardado(): boolean {
+  try {
+    return localStorage.getItem(LLAVE_MENU) !== 'no';
+  } catch {
+    return true;
+  }
+}
+
+function guardarMenu(abierto: boolean): void {
+  try {
+    localStorage.setItem(LLAVE_MENU, abierto ? 'si' : 'no');
+  } catch {
+    // Sin almacenamiento el menú simplemente vuelve a salir abierto.
+  }
+}
+
 /** Correos de la semilla de prueba (`npm run semilla -- --demo`), para cambiar de rol en desarrollo. */
 const USUARIOS_PRUEBA = [
   { correo: null, nombre: 'Administrador (DEV_CORREO)' },
@@ -62,11 +83,16 @@ export class Shell {
 
   protected readonly esEscritorio = toSignal(
     inject(BreakpointObserver)
-      .observe('(min-width: 64rem)')
+      .observe(ANCHO_ESCRITORIO)
       .pipe(map((estado) => estado.matches)),
     { initialValue: false },
   );
-  protected readonly menuAbierto = signal(false);
+  /** En escritorio el menú es una columna fija; en lo demás, una capa encima. */
+  private readonly abiertoEnEscritorio = signal(menuGuardado());
+  private readonly abiertoEncima = signal(false);
+  protected readonly menuAbierto = computed(() =>
+    this.esEscritorio() ? this.abiertoEnEscritorio() : this.abiertoEncima(),
+  );
 
   constructor() {
     // Al navegar: se cierra el menú en el celular y el foco va al título de la
@@ -78,7 +104,8 @@ export class Shell {
         takeUntilDestroyed(inject(DestroyRef)),
       )
       .subscribe(() => {
-        this.menuAbierto.set(false);
+        // Al cambiar de pantalla se quita de en medio; en escritorio no estorba.
+        this.abiertoEncima.set(false);
         if (primera) {
           primera = false;
           return;
@@ -91,6 +118,26 @@ export class Shell {
           { injector: this.injector },
         );
       });
+  }
+
+  protected alternarMenu(): void {
+    if (this.esEscritorio()) {
+      const abierto = !this.abiertoEnEscritorio();
+      this.abiertoEnEscritorio.set(abierto);
+      guardarMenu(abierto);
+    } else {
+      this.abiertoEncima.update((abierto) => !abierto);
+    }
+  }
+
+  /** Cuando se cierra solo (al tocar fuera o con Escape). */
+  protected alCerrar(): void {
+    if (this.esEscritorio()) {
+      this.abiertoEnEscritorio.set(false);
+      guardarMenu(false);
+    } else {
+      this.abiertoEncima.set(false);
+    }
   }
 
   protected cambiarUsuario(correo: string | null): void {

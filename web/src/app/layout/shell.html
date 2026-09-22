@@ -4,9 +4,10 @@
 
 <mat-sidenav-container class="contenedor">
   <mat-sidenav
+    id="menu-lateral"
     [mode]="esEscritorio() ? 'side' : 'over'"
-    [opened]="esEscritorio() || menuAbierto()"
-    (closedStart)="menuAbierto.set(false)"
+    [opened]="menuAbierto()"
+    (closedStart)="alCerrar()"
     class="lateral"
   >
     <div class="marca">
@@ -39,16 +40,16 @@
 
   <mat-sidenav-content>
     <mat-toolbar class="barra">
-      @if (!esEscritorio()) {
-        <button
-          mat-icon-button
-          type="button"
-          (click)="menuAbierto.set(true)"
-          aria-label="Abrir el menú"
-        >
-          <mat-icon>menu</mat-icon>
-        </button>
-      }
+      <button
+        mat-icon-button
+        type="button"
+        (click)="alternarMenu()"
+        [attr.aria-label]="menuAbierto() ? 'Cerrar el menú' : 'Abrir el menú'"
+        [attr.aria-expanded]="menuAbierto()"
+        aria-controls="menu-lateral"
+      >
+        <mat-icon>menu</mat-icon>
+      </button>
       <span class="titulo-barra">Una vez más</span>
       <span class="espacio"></span>
       @if (sesion(); as s) {
