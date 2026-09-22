@@ -39,9 +39,11 @@ Requisitos: Node **24.15 o más** (Angular 22 lo exige; `.nvmrc` fija 24.21) y D
 nvm use                      # Node 24.21
 npm install
 cp .env.example .env         # y cambia las contraseñas
-docker compose up -d db      # PostgreSQL 18 en localhost:5433
+docker compose up -d db minio  # PostgreSQL 18 en :5433 y MinIO (imágenes) en :9000
 npm run migrar               # crea el esquema (como gestion_owner)
 npm run semilla -- --demo    # roles, 13 productos, Almacén, admin y datos de prueba
+npm run preparar-bucket      # crea el bucket de imágenes en MinIO (una vez)
+npm run subir-imagenes -- ../una_vez_mas_web_site  # opcional: las fotos del sitio
 npm run dev                  # API en :3000 y app en http://localhost:4300
 ```
 
@@ -55,34 +57,38 @@ probar lo que ve cada rol. Ese modo se niega a arrancar si `NODE_ENV=production`
 
 ## Scripts
 
-| Comando                            | Qué hace                                                        |
-| ---------------------------------- | --------------------------------------------------------------- |
-| `npm run dev`                      | compartido (watch), API (watch) y Angular (4300, con proxy)     |
-| `npm run build`                    | compila los tres paquetes                                       |
-| `npm test`                         | pruebas unitarias (compartido, API y web)                       |
-| `npm run test:integracion`         | la API contra un PostgreSQL 18 real (Testcontainers)            |
-| `npm run e2e`                      | compila y corre Playwright + axe en escritorio y celular        |
-| `npm run lint` / `format`          | oxlint (con tipos) y Prettier                                   |
-| `npm run migrar`                   | aplica migraciones pendientes                                   |
-| `npm run semilla [-- --demo]`      | datos iniciales; `--demo` agrega usuarios, proveedor y vehículo |
-| `npm run generar-migracion -w api` | genera la migración a partir de `api/src/db/esquema.ts`         |
+| Comando                             | Qué hace                                                        |
+| ----------------------------------- | --------------------------------------------------------------- |
+| `npm run dev`                       | compartido (watch), API (watch) y Angular (4300, con proxy)     |
+| `npm run build`                     | compila los tres paquetes                                       |
+| `npm test`                          | pruebas unitarias (compartido, API y web)                       |
+| `npm run test:integracion`          | la API contra un PostgreSQL 18 real (Testcontainers)            |
+| `npm run e2e`                       | compila y corre Playwright + axe en escritorio y celular        |
+| `npm run lint` / `format`           | oxlint (con tipos) y Prettier                                   |
+| `npm run migrar`                    | aplica migraciones pendientes                                   |
+| `npm run semilla [-- --demo]`       | datos iniciales; `--demo` agrega usuarios, proveedor y vehículo |
+| `npm run preparar-bucket`           | crea el bucket de imágenes en el MinIO local (solo desarrollo)  |
+| `npm run subir-imagenes -- <sitio>` | sube las fotos del sitio y se las asigna a cada producto        |
+| `npm run generar-migracion -w api`  | genera la migración a partir de `api/src/db/esquema.ts`         |
 
 ## Pruebas
 
-- **compartido** (27): las cuentas, contra los números del Excel: la compra V001 da $28.75
+- **compartido** (44): las cuentas, contra los números del Excel: la compra V001 da $28.75
   de gasolina, $0.359375 por pieza y el tejocote cuesta $17.909375; a $30 el margen sobre
   precio es 40.30 % y la ganancia sobre costo 67.51 %.
 - **API unitarias**: el JWT de Access (válido, otra app, otro emisor, otra llave, vencido,
   alterado) y el CSV.
-- **API integración** (79, PostgreSQL 18 real): los mismos números del Excel de punta a
+- **API integración** (87, PostgreSQL 18 real y MinIO): los mismos números del Excel de punta a
   punta, dos ventas simultáneas de la última pieza (una pasa, la otra recibe 409),
   cancelaciones, devoluciones, comisión de tarjeta, traspasos, conteo, permisos por rol, que un vendedor nunca reciba llaves
   `costo*`, y que la propia BD no deje borrar, reescribir el kardex ni dejar existencias
-  negativas, y que el rol del sitio no vea tablas.
+  negativas, que el rol del sitio no vea tablas, y las imágenes: WebP de 1200 y 600 px
+  sin metadatos, servidas por el bucket, y lo que no es imagen o pesa más de 10 MB se
+  rechaza.
 - **web** (15): menú por permisos, errores de la API, sesión y la pantalla de venta.
-- **e2e** (46, Playwright): axe (WCAG 2.1 A/AA) en todas las pantallas y diálogos, en
+- **e2e** (48, Playwright): axe (WCAG 2.1 A/AA) en todas las pantallas y diálogos, en
   escritorio y en celular, y el recorrido completo: precio → compra → carga → venta →
-  devolución.
+  devolución, y subir la foto de un producto.
 
 ## Reglas del negocio
 
@@ -111,6 +117,12 @@ probar lo que ve cada rol. Ese modo se niega a arrancar si `NODE_ENV=production`
   («Devolver dinero» en la app de Mercado Pago), no como transferencia nueva.
 - **Ajustes**: si restan, al costo promedio; si suman, al costo que se indique. El
   **conteo físico** registra lo que hay y ajusta solo las diferencias.
+- **Imágenes**: una foto por producto, la misma que muestra el sitio. Se sube desde el
+  diálogo del producto (JPG, PNG o WebP de hasta 10 MB, con texto alternativo); la API la
+  endereza, le quita los metadatos (GPS incluido) y la guarda en el bucket en WebP de 1200
+  y 600 px. Del bucket la sirve el sitio (`publico.catalogo` trae la ruta).
+- **ID**: cada producto muestra su ID en la tabla y en su diálogo, y las búsquedas lo
+  aceptan («12» encuentra el producto 12). Es el que llevará el código de barras.
 - **Precio**: sin precio no se vende (y el sitio dice «Consulta precio»). La ganancia
   objetivo es sobre el costo; en pantalla se ven lado a lado la ganancia sobre costo y
   el margen sobre precio, cada uno con su nombre.
@@ -171,6 +183,8 @@ migraciones SQL, en `api/drizzle/`:
   de la tarjeta.
 - `0004_comision_devuelta.sql`: la columna la generó drizzle-kit; la vista, a mano (la
   comisión de cada línea ya sin lo que Mercado Pago regresó).
+- `0005_imagenes_de_productos.sql`: las columnas las generó drizzle-kit; a mano, la vista
+  `publico.catalogo` gana `id`, `imagen`, `imagen_chica` e `imagen_alt`.
 
 Una migración ya aplicada **no se edita**: cualquier cambio va en una nueva
 (`npm run generar-migracion -w api`, o `--custom` para SQL a mano).
@@ -196,5 +210,6 @@ Slugs:
 
 ## Desplegar
 
-Hetzner + Docker Compose + Cloudflare Tunnel + Cloudflare Access:
+VPS de Contabo + Docker Compose + Cloudflare Tunnel + Cloudflare Access, y las imágenes en
+el Object Storage de Contabo:
 [docs/despliegue.md](docs/despliegue.md).

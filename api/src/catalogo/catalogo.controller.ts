@@ -1,15 +1,30 @@
-import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+  Query,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   type Categoria,
   type DatosCategoria,
+  type DatosImagenProducto,
   type DatosProducto,
   esquemaCategoria,
+  esquemaImagenProducto,
   esquemaProducto,
   type Producto,
 } from '@uvm/compartido';
 import { RequierePermiso, UsuarioActual } from '../acceso/decoradores.js';
 import { UsuarioSesion } from '../acceso/usuario-sesion.js';
 import { ParseId, Validar } from '../comun/validar.js';
+import { PESO_MAXIMO_IMAGEN } from '../imagenes/procesar-imagen.js';
 import { ProductosService } from './productos.service.js';
 
 @Controller()
@@ -52,6 +67,42 @@ export class CatalogoController {
     @Body(new Validar(esquemaProducto)) datos: DatosProducto,
   ): Promise<Producto> {
     return this.productos.actualizar(usuario, id, datos);
+  }
+
+  /** Multipart: `archivo` (JPG, PNG o WebP de hasta 10 MB) y `alt`. */
+  @Post('productos/:id/imagen')
+  @RequierePermiso('productos.gestionar')
+  @UseInterceptors(
+    FileInterceptor('archivo', { limits: { fileSize: PESO_MAXIMO_IMAGEN, files: 1 } }),
+  )
+  async subirImagen(
+    @UsuarioActual() usuario: UsuarioSesion,
+    @Param('id', ParseId) id: number,
+    @UploadedFile() archivo: { readonly buffer: Buffer } | undefined,
+    @Body(new Validar(esquemaImagenProducto)) datos: DatosImagenProducto,
+  ): Promise<Producto> {
+    const producto = await this.productos.subirImagen(usuario, id, archivo?.buffer, datos);
+    if (!producto) throw new Error('No se leyó el producto');
+    return producto;
+  }
+
+  @Put('productos/:id/imagen')
+  @RequierePermiso('productos.gestionar')
+  cambiarAltImagen(
+    @UsuarioActual() usuario: UsuarioSesion,
+    @Param('id', ParseId) id: number,
+    @Body(new Validar(esquemaImagenProducto)) datos: DatosImagenProducto,
+  ): Promise<Producto> {
+    return this.productos.cambiarAltImagen(usuario, id, datos);
+  }
+
+  @Delete('productos/:id/imagen')
+  @RequierePermiso('productos.gestionar')
+  quitarImagen(
+    @UsuarioActual() usuario: UsuarioSesion,
+    @Param('id', ParseId) id: number,
+  ): Promise<Producto> {
+    return this.productos.quitarImagen(usuario, id);
   }
 
   @Get('categorias')

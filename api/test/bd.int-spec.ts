@@ -50,6 +50,10 @@ describe('la base de datos', () => {
           precio: '30.00',
           existencia_total: 10,
           existencia_almacen: 10,
+          id: IDS.avena,
+          imagen: null,
+          imagen_chica: null,
+          imagen_alt: null,
         },
       ]);
     });

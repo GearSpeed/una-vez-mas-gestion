@@ -1,7 +1,9 @@
 import { resolve } from 'node:path';
+import { MinioContainer } from '@testcontainers/minio';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import type { TestProject } from 'vitest/node';
 import { migrar } from '../src/db/migrar.js';
+import { prepararBucketPublico } from '../src/imagenes/preparar-bucket.js';
 
 export interface UrlsBd {
   readonly owner: string;
@@ -9,11 +11,22 @@ export interface UrlsBd {
   readonly sitio: string;
 }
 
+/** El bucket de imágenes de las pruebas (MinIO). */
+export interface Bucket {
+  readonly endpoint: string;
+  readonly bucket: string;
+  readonly accessKey: string;
+  readonly secretKey: string;
+}
+
 declare module 'vitest' {
   export interface ProvidedContext {
     urlsBd: UrlsBd;
+    bucket: Bucket;
   }
 }
+
+export const IMAGEN_MINIO = 'quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z';
 
 /**
  * Levanta un PostgreSQL 18 real con el mismo script de roles que producción
@@ -23,6 +36,10 @@ declare module 'vitest' {
  *   DOCKER_HOST=unix:///var/run/docker.sock npm run test:integracion
  */
 export default async function preparar(proyecto: TestProject) {
+  const minio = new MinioContainer(IMAGEN_MINIO)
+    .withUsername('pruebas')
+    .withPassword('pruebas-secreto')
+    .start();
   const contenedor = await new PostgreSqlContainer('postgres:18-alpine')
     .withEnvironment({
       GESTION_OWNER_PASSWORD: 'owner',
@@ -48,7 +65,17 @@ export default async function preparar(proyecto: TestProject) {
   await migrar(urls.owner);
   proyecto.provide('urlsBd', urls);
 
+  const s3 = await minio;
+  const bucket: Bucket = {
+    endpoint: s3.getConnectionUrl(),
+    bucket: 'imagenes',
+    accessKey: s3.getUsername(),
+    secretKey: s3.getPassword(),
+  };
+  await prepararBucketPublico({ ...bucket, region: 'us-east-1' });
+  proyecto.provide('bucket', bucket);
+
   return async () => {
-    await contenedor.stop();
+    await Promise.all([contenedor.stop(), s3.stop()]);
   };
 }

@@ -11,10 +11,13 @@
     "generar-migracion": "drizzle-kit generate",
     "migrar": "tsx src/cli/migrar.ts",
     "semilla": "tsx src/cli/semilla.ts",
+    "preparar-bucket": "tsx src/cli/preparar-bucket.ts",
+    "subir-imagenes": "tsx src/cli/subir-imagenes.ts",
     "test": "vitest run",
     "test:integracion": "vitest run --config vitest.integracion.config.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1137.0",
     "@nestjs/common": "^12.0.4",
     "@nestjs/core": "^12.0.4",
     "@nestjs/platform-express": "^12.0.4",
@@ -29,12 +32,14 @@
     "pino-http": "^11.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
+    "sharp": "^0.35.4",
     "zod": "^4.6.5"
   },
   "devDependencies": {
     "@nestjs/cli": "^12.0.3",
     "@nestjs/schematics": "^12.0.4",
     "@nestjs/testing": "^12.0.4",
+    "@testcontainers/minio": "^12.1.0",
     "@testcontainers/postgresql": "^12.1.0",
     "@types/express": "^5.0.6",
     "@types/node": "^24.13.6",

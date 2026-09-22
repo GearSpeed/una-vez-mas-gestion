@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PATRON_SLUG } from './dominio.js';
-import { slugDe } from './texto.js';
+import { coincideBusqueda, slugDe } from './texto.js';
 
 describe('slugDe', () => {
   it.each([
@@ -21,5 +21,19 @@ describe('slugDe', () => {
     const slug = slugDe(`${'a'.repeat(79)} b`);
     expect(slug.length).toBeLessThanOrEqual(80);
     expect(slug).toMatch(PATRON_SLUG);
+  });
+});
+
+describe('coincideBusqueda', () => {
+  it('busca por nombre sin acentos ni mayúsculas', () => {
+    expect(coincideBusqueda('pina', 12, 'Galletas de Piña')).toBe(true);
+    expect(coincideBusqueda('  ', 12, 'Galletas de Piña')).toBe(true);
+    expect(coincideBusqueda('coco', 12, 'Galletas de Piña')).toBe(false);
+  });
+
+  it('un número encuentra el producto con ese ID', () => {
+    expect(coincideBusqueda('12', 12, 'Galletas de Piña')).toBe(true);
+    expect(coincideBusqueda('1', 12, 'Galletas de Piña')).toBe(false);
+    expect(coincideBusqueda('6', 12, 'Galletas de Piña 6 pzas')).toBe(true);
   });
 });

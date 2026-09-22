@@ -89,6 +89,15 @@ export const esquemaProducto = z.object({
   publicado: z.boolean().default(false),
 });
 
+/** El texto alternativo de la foto: lo leen los lectores de pantalla y los buscadores. */
+export const esquemaImagenProducto = z.object({
+  alt: z
+    .string()
+    .trim()
+    .min(3, 'Describe la imagen en pocas palabras')
+    .max(200, 'Máximo 200 caracteres'),
+});
+
 export const esquemaProveedor = z.object({
   nombre: requerido(120),
   contacto: texto(120).default(''),
@@ -343,6 +352,7 @@ export const esquemaFiltroCorte = esquemaPeriodo.extend({ ubicacionId: idEnQuery
 
 export type DatosCategoria = z.output<typeof esquemaCategoria>;
 export type DatosProducto = z.output<typeof esquemaProducto>;
+export type DatosImagenProducto = z.output<typeof esquemaImagenProducto>;
 export type DatosProveedor = z.output<typeof esquemaProveedor>;
 export type DatosVehiculo = z.output<typeof esquemaVehiculo>;
 export type NuevaCompra = z.output<typeof esquemaNuevaCompra>;

@@ -167,6 +167,13 @@ export const productos = gestion.table(
     activo: boolean().notNull().default(true),
     /** Si el sitio lo muestra (vista `publico.catalogo`). */
     publicado: boolean().notNull().default(false),
+    /**
+     * Clave de la imagen en el bucket, sin variante: `productos/12/3f9a…`. Las
+     * variantes son `<clave>-1200.webp` y `<clave>-600.webp`. `null`: sin imagen.
+     */
+    imagenClave: text(),
+    /** Texto alternativo de la imagen (accesibilidad y buscadores). */
+    imagenAlt: text().notNull().default(''),
     creadoEn: ahora(),
     actualizadoEn: ahora(),
   },
@@ -176,6 +183,7 @@ export const productos = gestion.table(
     check('productos_ganancia_objetivo', sql`ganancia_objetivo >= 0`),
     check('productos_costo_promedio', sql`costo_promedio >= 0`),
     check('productos_stock_minimo', sql`stock_minimo >= 0`),
+    check('productos_imagen_clave', sql`imagen_clave ~ '^productos/[0-9]+/[0-9a-f]{16}$'`),
   ],
 );
 

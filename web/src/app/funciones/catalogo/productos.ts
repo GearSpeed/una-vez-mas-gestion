@@ -1,4 +1,4 @@
-import { CurrencyPipe, PercentPipe } from '@angular/common';
+import { CurrencyPipe, NgOptimizedImage, PercentPipe } from '@angular/common';
 import { httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -9,7 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTabsModule } from '@angular/material/tabs';
-import { type Categoria, normalizar, type Producto } from '@uvm/compartido';
+import { type Categoria, coincideBusqueda, type Producto } from '@uvm/compartido';
 import { ApiService } from '../../core/api';
 import { AvisosService } from '../../core/avisos';
 import { mensajeDeError } from '../../core/errores';
@@ -28,6 +28,7 @@ import { type DatosDialogoProducto, DialogoProducto } from './dialogo-producto';
     Encabezado,
     EstadoCarga,
     CurrencyPipe,
+    NgOptimizedImage,
     PercentPipe,
     ReactiveFormsModule,
     MatButtonModule,
@@ -55,9 +56,9 @@ export class Productos {
   );
   protected readonly categorias = httpResource<Categoria[]>(() => '/api/categorias');
   protected readonly visibles = computed(() => {
-    const q = normalizar(this.busqueda());
-    return (this.productos.value() ?? []).filter(
-      (p) => !q || normalizar(`${p.nombre} ${p.slug} ${p.categoria}`).includes(q),
+    const q = this.busqueda();
+    return (this.productos.value() ?? []).filter((p) =>
+      coincideBusqueda(q, p.id, `${p.nombre} ${p.slug} ${p.categoria}`),
     );
   });
   protected readonly conCostos = computed(() => this.visibles().some((p) => p.costos));

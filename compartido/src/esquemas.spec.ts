@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   esquemaNuevaCompra,
   esquemaNuevaVenta,
+  esquemaImagenProducto,
   esquemaProducto,
   esquemaUsuario,
 } from './esquemas.js';
@@ -101,5 +102,15 @@ describe('esquemaUsuario', () => {
       roles: ['vendedor'],
     });
     expect(usuario.correo).toBe('ana@unavezmasmx.com');
+  });
+});
+
+describe('esquemaImagenProducto', () => {
+  it('recorta el texto alternativo y lo exige con sentido', () => {
+    expect(esquemaImagenProducto.parse({ alt: '  Galletas de avena en un plato  ' })).toEqual({
+      alt: 'Galletas de avena en un plato',
+    });
+    expect(esquemaImagenProducto.safeParse({ alt: ' a ' }).success).toBe(false);
+    expect(esquemaImagenProducto.safeParse({ alt: 'x'.repeat(201) }).success).toBe(false);
   });
 });

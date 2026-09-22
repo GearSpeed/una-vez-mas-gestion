@@ -17,6 +17,10 @@ export class ApiService {
   put<T>(ruta: string, cuerpo: unknown): Promise<T> {
     return firstValueFrom(this.http.put<T>(`/api${ruta}`, cuerpo));
   }
+
+  delete<T>(ruta: string): Promise<T> {
+    return firstValueFrom(this.http.delete<T>(`/api${ruta}`));
+  }
 }
 
 /** Query string sin los valores vacíos: `?desde=2026-09-01&pagina=2`. */

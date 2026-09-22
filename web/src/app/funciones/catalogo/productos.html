@@ -11,7 +11,7 @@
     <mat-tab label="Productos">
       <div class="filtros pestana">
         <mat-form-field>
-          <mat-label>Buscar</mat-label>
+          <mat-label>Buscar por nombre o ID</mat-label>
           <mat-icon matPrefix aria-hidden="true">search</mat-icon>
           <input
             matInput
@@ -41,6 +41,7 @@
           </caption>
           <thead>
             <tr>
+              <th scope="col" class="numero">ID</th>
               <th scope="col">Producto</th>
               <th scope="col">Categoría</th>
               <th scope="col" class="numero">Precio</th>
@@ -59,14 +60,24 @@
           <tbody>
             @for (p of visibles(); track p.id) {
               <tr>
+                <td class="numero">{{ p.id }}</td>
                 <th scope="row">
-                  {{ p.nombre }}
-                  <span class="ayuda"
-                    >{{ p.slug }}{{ p.presentacion ? ' · ' + p.presentacion : '' }}</span
-                  >
-                  @if (!p.activo) {
-                    <span class="estado">Dado de baja</span>
-                  }
+                  <span class="con-miniatura">
+                    <span class="miniatura">
+                      @if (p.imagen; as img) {
+                        <img [ngSrc]="img.urlChica" alt="" fill sizes="3rem" />
+                      }
+                    </span>
+                    <span>
+                      {{ p.nombre }}
+                      <span class="ayuda"
+                        >{{ p.slug }}{{ p.presentacion ? ' · ' + p.presentacion : '' }}</span
+                      >
+                      @if (!p.activo) {
+                        <span class="estado">Dado de baja</span>
+                      }
+                    </span>
+                  </span>
                 </th>
                 <td>{{ p.categoria }}</td>
                 <td class="numero">
@@ -112,7 +123,7 @@
               </tr>
             } @empty {
               <tr>
-                <td colspan="9">No hay productos que mostrar.</td>
+                <td colspan="10">No hay productos que mostrar.</td>
               </tr>
             }
           </tbody>

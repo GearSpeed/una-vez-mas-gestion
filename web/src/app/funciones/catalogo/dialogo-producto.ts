@@ -13,6 +13,7 @@ import { startWith } from 'rxjs';
 import { ApiService } from '../../core/api';
 import { marcarErroresDelServidor, mensajeDeError } from '../../core/errores';
 import { numeroONulo } from '../../ui/claves';
+import { ImagenProducto } from './imagen-producto';
 
 export interface DatosDialogoProducto {
   readonly producto: Producto | null;
@@ -26,6 +27,7 @@ export interface DatosDialogoProducto {
 @Component({
   selector: 'uvm-dialogo-producto',
   imports: [
+    ImagenProducto,
     ReactiveFormsModule,
     CurrencyPipe,
     PercentPipe,
@@ -46,7 +48,9 @@ export class DialogoProducto {
   private readonly api = inject(ApiService);
   private readonly fb = inject(FormBuilder).nonNullable;
 
-  private readonly producto = this.datos.producto;
+  protected readonly producto = this.datos.producto;
+  /** Si ya se subió o quitó la imagen: al cerrar, la lista se actualiza. */
+  protected readonly imagenCambiada = signal<Producto | null>(null);
   protected readonly titulo = this.producto ? `Editar ${this.producto.nombre}` : 'Nuevo producto';
 
   protected readonly formulario = this.fb.group({
@@ -102,6 +106,10 @@ export class DialogoProducto {
 
   protected readonly guardando = signal(false);
   protected readonly error = signal<string | null>(null);
+
+  protected cerrar(): void {
+    this.referencia.close(this.imagenCambiada() ?? undefined);
+  }
 
   protected async guardar(): Promise<void> {
     this.formulario.markAllAsTouched();

@@ -41,6 +41,16 @@ fieldset {
   gap: 0 1.5rem;
 }
 
+.identidad {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.id {
+  font: var(--mat-sys-title-medium);
+  font-variant-numeric: tabular-nums;
+}
+
 .slug {
   display: grid;
   gap: 0.125rem;

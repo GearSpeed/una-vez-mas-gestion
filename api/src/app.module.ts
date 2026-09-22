@@ -9,6 +9,7 @@ import { ComprasModule } from './compras/compras.module.js';
 import { ConfigModule } from './config/config.module.js';
 import { ENTORNO, type Entorno } from './config/entorno.js';
 import { DbModule } from './db/db.module.js';
+import { ImagenesModule } from './imagenes/imagenes.module.js';
 import { InventarioModule } from './inventario/inventario.module.js';
 import { ProveedoresModule } from './proveedores/proveedores.module.js';
 import { ReportesModule } from './reportes/reportes.module.js';
@@ -45,6 +46,7 @@ import { VentasModule } from './ventas/ventas.module.js';
       }),
     }),
     DbModule,
+    ImagenesModule,
     AccesoModule,
     CatalogoModule,
     ProveedoresModule,

@@ -1,4 +1,4 @@
-# Producción: un VPS con Docker (Hetzner). Nada queda abierto a internet:
+# Producción: un VPS con Docker (Contabo). Nada queda abierto a internet:
 # cloudflared abre un túnel de salida hacia Cloudflare y Cloudflare Access
 # decide quién entra. Las variables salen del .env del servidor; la guía está
 # en docs/despliegue.md.
@@ -50,6 +50,13 @@ services:
       AUTH_MODO: access
       CF_ACCESS_TEAM: ${CF_ACCESS_TEAM:?Falta CF_ACCESS_TEAM}
       CF_ACCESS_AUD: ${CF_ACCESS_AUD:?Falta CF_ACCESS_AUD}
+      # Imágenes de producto: Object Storage de Contabo (docs/despliegue.md).
+      S3_ENDPOINT: ${S3_ENDPOINT:?Falta S3_ENDPOINT}
+      S3_REGION: ${S3_REGION:-default}
+      S3_BUCKET: ${S3_BUCKET:?Falta S3_BUCKET}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?Falta S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?Falta S3_SECRET_KEY}
+      IMAGENES_URL_PUBLICA: ${IMAGENES_URL_PUBLICA:?Falta IMAGENES_URL_PUBLICA}
       LOG_NIVEL: ${LOG_NIVEL:-info}
     depends_on:
       migraciones:

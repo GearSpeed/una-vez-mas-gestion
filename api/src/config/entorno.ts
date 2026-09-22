@@ -18,6 +18,20 @@ const esquemaEntorno = z
     CF_ACCESS_AUD: z.string().min(1).optional(),
     /** Carpeta del front compilado. Si existe, la API también sirve la SPA. */
     WEB_DIST: z.string().min(1).optional(),
+    /**
+     * Bucket S3 de las imágenes de producto (Object Storage de Contabo; MinIO en
+     * desarrollo). Sin él, la app funciona pero no deja subir imágenes.
+     */
+    S3_ENDPOINT: z.url().optional(),
+    S3_REGION: z.string().min(1).default('us-east-1'),
+    S3_BUCKET: z.string().min(1).optional(),
+    S3_ACCESS_KEY: z.string().min(1).optional(),
+    S3_SECRET_KEY: z.string().min(1).optional(),
+    /** De dónde se sirven: la base a la que se le agrega la clave de cada imagen. */
+    IMAGENES_URL_PUBLICA: z
+      .url()
+      .transform((url) => url.replace(/\/+$/, ''))
+      .optional(),
     LOG_NIVEL: z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),
@@ -28,6 +42,21 @@ const esquemaEntorno = z
         code: 'custom',
         path: ['AUTH_MODO'],
         message: 'Con AUTH_MODO=access hacen falta CF_ACCESS_TEAM y CF_ACCESS_AUD',
+      });
+    }
+    const bucket = [
+      entorno.S3_ENDPOINT,
+      entorno.S3_BUCKET,
+      entorno.S3_ACCESS_KEY,
+      entorno.S3_SECRET_KEY,
+      entorno.IMAGENES_URL_PUBLICA,
+    ];
+    if (bucket.some(Boolean) && !bucket.every(Boolean)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['S3_ENDPOINT'],
+        message:
+          'Para las imágenes hacen falta todas: S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY, S3_SECRET_KEY e IMAGENES_URL_PUBLICA',
       });
     }
     if (entorno.NODE_ENV === 'production' && entorno.AUTH_MODO === 'desarrollo') {

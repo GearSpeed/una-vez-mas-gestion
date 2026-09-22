@@ -7,6 +7,7 @@ import {
 import {
   type Categoria,
   type DatosCategoria,
+  type DatosImagenProducto,
   type DatosProducto,
   indicadoresPrecio,
   type Producto,
@@ -18,10 +19,15 @@ import { registrarEnBitacora } from '../comun/bitacora.js';
 import { conCostos } from '../comun/costos.js';
 import { type BaseDatos, DB, type Ejecutor } from '../db/conexion.js';
 import { categorias, existencias, productos } from '../db/esquema.js';
+import { AlmacenImagenes } from '../imagenes/almacen-imagenes.js';
+import { procesarImagen } from '../imagenes/procesar-imagen.js';
 
 @Injectable()
 export class ProductosService {
-  constructor(@Inject(DB) private readonly db: BaseDatos) {}
+  constructor(
+    @Inject(DB) private readonly db: BaseDatos,
+    private readonly almacen: AlmacenImagenes,
+  ) {}
 
   async listar(usuario: UsuarioSesion, incluirInactivos: boolean): Promise<Producto[]> {
     const filas = await this.consulta(this.db).orderBy(
@@ -113,6 +119,91 @@ export class ProductosService {
     return this.obtener(usuario, id);
   }
 
+  /* ---- imagen ---- */
+
+  /**
+   * Optimiza la foto, la sube al bucket y se la asigna al producto. La clave lleva
+   * la huella del archivo: la misma foto no se vuelve a subir, y una nueva nunca
+   * choca con la caché de la anterior (que se queda en el bucket).
+   */
+  async subirImagen(
+    usuario: UsuarioSesion | null,
+    id: number,
+    archivo: Buffer | undefined,
+    { alt }: DatosImagenProducto,
+  ): Promise<Producto | null> {
+    if (!archivo) {
+      throw new UnprocessableEntityException({
+        mensaje: 'Elige una imagen.',
+        campos: { archivo: 'Elige una imagen' },
+      });
+    }
+    const [actual] = await this.db
+      .select({ imagenClave: productos.imagenClave, imagenAlt: productos.imagenAlt })
+      .from(productos)
+      .where(eq(productos.id, id));
+    if (!actual) throw new NotFoundException('El producto no existe.');
+
+    const imagen = await procesarImagen(archivo);
+    const clave = `productos/${id}/${imagen.huella}`;
+    if (clave !== actual.imagenClave) await this.almacen.subir(clave, imagen);
+    if (clave !== actual.imagenClave || alt !== actual.imagenAlt) {
+      await this.db.transaction(async (tx) => {
+        await tx
+          .update(productos)
+          .set({ imagenClave: clave, imagenAlt: alt, actualizadoEn: new Date() })
+          .where(eq(productos.id, id));
+        await registrarEnBitacora(tx, {
+          usuarioId: usuario?.id ?? null,
+          accion: 'cambiar_imagen',
+          entidad: 'producto',
+          entidadId: id,
+          datos: { antes: actual.imagenClave, despues: clave },
+        });
+      });
+    }
+    return usuario ? this.obtener(usuario, id) : null;
+  }
+
+  async cambiarAltImagen(
+    usuario: UsuarioSesion,
+    id: number,
+    { alt }: DatosImagenProducto,
+  ): Promise<Producto> {
+    const [cambiado] = await this.db
+      .update(productos)
+      .set({ imagenAlt: alt, actualizadoEn: new Date() })
+      .where(eq(productos.id, id))
+      .returning({ imagenClave: productos.imagenClave });
+    if (!cambiado) throw new NotFoundException('El producto no existe.');
+    return this.obtener(usuario, id);
+  }
+
+  /** El producto se queda sin imagen; el archivo sigue en el bucket. */
+  async quitarImagen(usuario: UsuarioSesion, id: number): Promise<Producto> {
+    await this.db.transaction(async (tx) => {
+      const [actual] = await tx
+        .select({ imagenClave: productos.imagenClave })
+        .from(productos)
+        .where(eq(productos.id, id))
+        .for('update');
+      if (!actual) throw new NotFoundException('El producto no existe.');
+      if (actual.imagenClave === null) return;
+      await tx
+        .update(productos)
+        .set({ imagenClave: null, imagenAlt: '', actualizadoEn: new Date() })
+        .where(eq(productos.id, id));
+      await registrarEnBitacora(tx, {
+        usuarioId: usuario.id,
+        accion: 'quitar_imagen',
+        entidad: 'producto',
+        entidadId: id,
+        datos: { antes: actual.imagenClave },
+      });
+    });
+    return this.obtener(usuario, id);
+  }
+
   /* ---- categorías ---- */
 
   async categorias(): Promise<Categoria[]> {
@@ -153,6 +244,8 @@ export class ProductosService {
         stockMinimo: productos.stockMinimo,
         activo: productos.activo,
         publicado: productos.publicado,
+        imagenClave: productos.imagenClave,
+        imagenAlt: productos.imagenAlt,
         existenciaTotal: sql<number>`coalesce((select sum(e.cantidad) from ${existencias} e
           where e.producto_id = ${productos.id}), 0)::int`,
       })
@@ -166,10 +259,13 @@ export class ProductosService {
     {
       costoPromedio,
       gananciaObjetivo,
+      imagenClave,
+      imagenAlt,
       ...fila
     }: Awaited<ReturnType<ProductosService['consulta']>>[number],
   ): Producto {
-    return conCostos(usuario, fila, () => ({
+    const imagen = imagenClave ? { ...this.almacen.urls(imagenClave), alt: imagenAlt } : null;
+    return conCostos(usuario, { ...fila, imagen }, () => ({
       costoPromedio,
       gananciaObjetivo,
       ...indicadoresPrecio(costoPromedio, fila.precioVenta, gananciaObjetivo),

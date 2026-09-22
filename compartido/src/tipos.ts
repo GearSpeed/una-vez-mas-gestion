@@ -93,7 +93,17 @@ export interface Producto {
   readonly publicado: boolean;
   /** Suma de todas las ubicaciones. */
   readonly existenciaTotal: number;
+  /** La foto en el bucket (la misma que muestra el sitio), o `null` si no tiene. */
+  readonly imagen: ImagenProducto | null;
   readonly costos?: CostosProducto;
+}
+
+export interface ImagenProducto {
+  /** 1200 px de ancho, para el detalle. */
+  readonly url: string;
+  /** 600 px, para listas y miniaturas. */
+  readonly urlChica: string;
+  readonly alt: string;
 }
 
 export interface Proveedor {

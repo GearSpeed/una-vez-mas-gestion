@@ -74,6 +74,8 @@ export class FiltroErrores implements ExceptionFilter {
     };
     let texto = mensaje ?? (Array.isArray(message) ? message.join('. ') : message) ?? error.message;
     if (estado === 404 && texto.startsWith('Cannot ')) texto = 'No existe esa ruta.';
+    // Multer corta la subida al pasar el límite (imágenes de producto: 10 MB).
+    if (estado === 413) texto = 'El archivo pesa más de 10 MB.';
     return { estado, cuerpo: campos ? { mensaje: texto, campos } : { mensaje: texto } };
   }
 }

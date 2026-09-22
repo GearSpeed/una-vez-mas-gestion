@@ -34,7 +34,13 @@ export const IDS = {
 
 export async function crearApp(): Promise<INestApplication> {
   const urls = inject('urlsBd');
+  const bucket = inject('bucket');
   Object.assign(process.env, {
+    S3_ENDPOINT: bucket.endpoint,
+    S3_BUCKET: bucket.bucket,
+    S3_ACCESS_KEY: bucket.accessKey,
+    S3_SECRET_KEY: bucket.secretKey,
+    IMAGENES_URL_PUBLICA: `${bucket.endpoint}/${bucket.bucket}`,
     NODE_ENV: 'test',
     DATABASE_URL: urls.app,
     AUTH_MODO: 'desarrollo',

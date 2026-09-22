@@ -18,6 +18,7 @@ import { RouterLink } from '@angular/router';
 import {
   CANALES_VENTA,
   type CanalVenta,
+  coincideBusqueda,
   type ComisionPago,
   comisionDeCobro,
   type Existencia,
@@ -25,7 +26,6 @@ import {
   importeLinea,
   METODOS_PAGO,
   type MetodoPago,
-  normalizar,
   totalVenta,
   type Ubicacion,
   type VentaDetalle,
@@ -112,9 +112,9 @@ export class NuevaVenta {
     ),
   );
   protected readonly visibles = computed(() => {
-    const q = normalizar(this.busqueda());
-    return this.disponibles().filter(
-      (f) => !q || normalizar(`${f.producto} ${f.categoria}`).includes(q),
+    const q = this.busqueda();
+    return this.disponibles().filter((f) =>
+      coincideBusqueda(q, f.productoId, `${f.producto} ${f.categoria}`),
     );
   });
 

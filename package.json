@@ -2,7 +2,7 @@
   "name": "una-vez-mas-gestion",
   "version": "0.1.0",
   "private": true,
-  "description": "Aplicativo de inventario y ventas de Una vez m\u00e1s",
+  "description": "Aplicativo de inventario y ventas de Una vez más",
   "packageManager": "npm@11.19.0",
   "engines": {
     "node": ">=24.15.0"
@@ -20,6 +20,8 @@
     "e2e": "npm run build && npm run e2e -w web",
     "migrar": "npm run migrar -w api",
     "semilla": "npm run semilla -w api --",
+    "preparar-bucket": "npm run preparar-bucket -w api",
+    "subir-imagenes": "npm run subir-imagenes -w api --",
     "lint": "oxlint --type-aware compartido/src api/src api/test web/src web/e2e",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

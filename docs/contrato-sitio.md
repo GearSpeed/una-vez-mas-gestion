@@ -17,9 +17,27 @@ publicado**:
 | `precio`             | `numeric(12,2)` o `NULL` | Precio de venta en MXN. **`NULL` = «Consulta precio»**.                   |
 | `existencia_total`   | `integer`                | Piezas en todas las ubicaciones (almacén y lo que traen los vendedores).  |
 | `existencia_almacen` | `integer`                | Solo lo del almacén.                                                      |
+| `id`                 | `integer`                | ID del producto en la app (el que llevará su código de barras).           |
+| `imagen`             | `text` o `NULL`          | Foto de 1200 px de ancho (WebP), como ruta dentro del bucket.             |
+| `imagen_chica`       | `text` o `NULL`          | La misma foto a 600 px, para listas y miniaturas.                         |
+| `imagen_alt`         | `text` o `NULL`          | Su texto alternativo, para el atributo `alt`.                             |
 
 Un producto sin publicar, o dado de baja, no aparece. Cómo mostrar la existencia
 («Disponible», «Últimas piezas», «Agotado»…) lo decide el sitio.
+
+### Imágenes
+
+Las fotos se suben desde la app al Object Storage de Contabo, que es de lectura pública,
+y el sitio las sirve de ahí. La URL completa es la **URL pública del bucket** (la misma
+`IMAGENES_URL_PUBLICA` del servidor de la app) más `/` más la ruta:
+
+```
+https://usc1.contabostorage.com/<cuenta>:imagenes/productos/4/3f9a1c2b7d8e6f50-1200.webp
+```
+
+Las rutas nunca cambian de contenido: una foto nueva lleva otro nombre. Se pueden guardar
+en caché para siempre (el bucket manda `Cache-Control: immutable`). `imagen` es `NULL`
+mientras el producto no tenga foto: el sitio decide qué mostrar en su lugar.
 
 ## Qué no puede leer
 
@@ -39,7 +57,7 @@ prueba que lo verifica (`api/test/bd.int-spec.ts`).
 
 ```sql
 -- Todo el catálogo
-SELECT slug, nombre, categoria, presentacion, precio, existencia_total
+SELECT slug, nombre, categoria, presentacion, precio, existencia_total, imagen_chica, imagen_alt
 FROM catalogo
 ORDER BY categoria, nombre;
 
@@ -72,6 +90,7 @@ Así el sitio lee por Cloudflare sin que Postgres quede expuesto.
 - Cambiar un `slug` rompe la URL del producto en el sitio: se hace solo a propósito y
   junto con `products.json`.
 
-| Fecha      | Cambio                                            |
-| ---------- | ------------------------------------------------- |
-| 2026-09-21 | Primera versión: `publico.catalogo` (7 columnas). |
+| Fecha      | Cambio                                                    |
+| ---------- | --------------------------------------------------------- |
+| 2026-09-21 | Primera versión: `publico.catalogo` (7 columnas).         |
+| 2026-09-22 | Se agregan `id`, `imagen`, `imagen_chica` e `imagen_alt`. |

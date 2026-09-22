@@ -11,10 +11,18 @@
           <mat-error>{{ formulario.controls.nombre.getError('servidor') }}</mat-error>
         }
       </mat-form-field>
-      <p class="slug">
-        <span class="ayuda">Slug</span>
-        <span>{{ slug() || 'Se genera con el nombre' }}</span>
-      </p>
+      <div class="identidad">
+        @if (producto) {
+          <p class="slug">
+            <span class="ayuda">ID</span>
+            <span class="id">{{ producto.id }}</span>
+          </p>
+        }
+        <p class="slug">
+          <span class="ayuda">Slug</span>
+          <span>{{ slug() || 'Se genera con el nombre' }}</span>
+        </p>
+      </div>
       <mat-form-field>
         <mat-label>Categoría</mat-label>
         <mat-select formControlName="categoriaId">
@@ -107,6 +115,12 @@
       }
     </fieldset>
 
+    @if (producto) {
+      <uvm-imagen-producto [producto]="producto" (cambio)="imagenCambiada.set($event)" />
+    } @else {
+      <p class="ayuda">Guarda el producto para agregar su imagen.</p>
+    }
+
     <div class="casillas">
       <mat-checkbox formControlName="activo">Activo (se puede comprar y vender)</mat-checkbox>
       <mat-checkbox formControlName="publicado">Publicado en el sitio</mat-checkbox>
@@ -117,7 +131,9 @@
     }
   </mat-dialog-content>
   <mat-dialog-actions align="end">
-    <button mat-button type="button" mat-dialog-close>Cancelar</button>
+    <button mat-button type="button" (click)="cerrar()">
+      {{ imagenCambiada() ? 'Cerrar' : 'Cancelar' }}
+    </button>
     <button mat-flat-button type="submit" [disabled]="guardando()">
       {{ guardando() ? 'Guardando…' : 'Guardar' }}
     </button>

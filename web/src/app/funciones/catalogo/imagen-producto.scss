@@ -1,0 +1,52 @@
+.imagen {
+  border: 0;
+  margin: 0;
+  padding: 0;
+
+  legend {
+    font: var(--mat-sys-title-medium);
+    padding-bottom: 0.5rem;
+  }
+}
+
+.cuerpo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.marco {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: 0 0 12rem;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  background: var(--mat-sys-surface-container);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.controles {
+  display: grid;
+  gap: 0.5rem;
+  flex: 1 1 16rem;
+}
+
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.nombre-archivo {
+  flex-basis: 100%;
+  overflow-wrap: anywhere;
+}
