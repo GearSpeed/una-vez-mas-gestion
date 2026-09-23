@@ -22,7 +22,9 @@ COPY package.json package-lock.json ./
 COPY compartido/package.json compartido/
 COPY api/package.json api/
 COPY web/package.json web/
-RUN npm ci --omit=dev --no-audit --no-fund --workspace=@uvm/api --workspace=@uvm/compartido
+# Sin ejecutar scripts de los paquetes: aquí solo hay que colocar archivos.
+RUN npm ci --omit=dev --no-audit --no-fund --ignore-scripts \
+    --workspace=@uvm/api --workspace=@uvm/compartido
 
 # ---- 3. Imagen final ----
 FROM node:24.21-alpine

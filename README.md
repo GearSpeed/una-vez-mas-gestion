@@ -80,13 +80,15 @@ probar lo que ve cada rol. Ese modo se niega a arrancar si `NODE_ENV=production`
   precio es 40.30 % y la ganancia sobre costo 67.51 %.
 - **API unitarias**: el JWT de Access (válido, otra app, otro emisor, otra llave, vencido,
   alterado) y el CSV.
-- **API integración** (87, PostgreSQL 18 real y MinIO): los mismos números del Excel de punta a
+- **API integración** (100, PostgreSQL 18 real y MinIO): los mismos números del Excel de punta a
   punta, dos ventas simultáneas de la última pieza (una pasa, la otra recibe 409),
   cancelaciones, devoluciones, comisión de tarjeta, traspasos, conteo, permisos por rol, que un vendedor nunca reciba llaves
   `costo*`, y que la propia BD no deje borrar, reescribir el kardex ni dejar existencias
   negativas, que el rol del sitio no vea tablas, y las imágenes: WebP de 1200 y 600 px
   sin metadatos, servidas por el bucket, y lo que no es imagen o pesa más de 10 MB se
-  rechaza.
+  rechaza; y lo que protege a la API de cara a internet: la ruta pública, el límite de
+  peticiones, el rechazo de peticiones de otros sitios y los permisos de los roles de
+  Postgres.
 - **web** (15): menú por permisos, errores de la API, sesión y la pantalla de venta.
 - **e2e** (48, Playwright): axe (WCAG 2.1 A/AA) en todas las pantallas y diálogos, en
   escritorio y en celular, y el recorrido completo: precio → compra → carga → venta →
@@ -142,7 +144,7 @@ crea) y un usuario puede tener varios.
 | `productos.gestionar` (alta, precio, publicar)                      |   ✓   |         |          |          |
 | `costos.ver` (costo, márgenes, utilidad)                            |   ✓   |         |          |    ✓     |
 | `proveedores.gestionar`                                             |   ✓   |    ✓    |          |          |
-| `compras.ver` / `compras.registrar`                                 | ✓ / ✓ |  ✓ / ✓  |          |  ✓ / –   |
+| `compras.ver` / `compras.registrar` (con los costos del proveedor)  | ✓ / ✓ |  ✓ / ✓  |          |  ✓ / –   |
 | `compras.cancelar`                                                  |   ✓   |         |          |          |
 | `inventario.ver_todo` (todas las ubicaciones)                       |   ✓   |    ✓    |          |    ✓     |
 | `traspasos.registrar` / `ajustes.registrar`                         |   ✓   |    ✓    |          |          |
@@ -155,6 +157,10 @@ crea) y un usuario puede tener varios.
 El vendedor siempre ve sus propias ventas, su mercancía y su corte. Al darle a alguien el
 rol Vendedor se crea sola su ubicación.
 
+**Almacén sí ve los costos del proveedor** al abrir una compra, aunque no tenga
+`costos.ver`: es quien los captura. Lo que `costos.ver` protege es el costo promedio, los
+márgenes y la utilidad en productos, existencias, ventas y reportes.
+
 ## Seguridad
 
 - **Identidad**: Cloudflare Access firma un JWT en cada petición; la API verifica firma,
@@ -166,8 +172,15 @@ rol Vendedor se crea sola su ubicación.
 - **Roles de Postgres**: `gestion_owner` (migraciones), `gestion_app` (la API: sin
   borrar, y el kardex y la bitácora solo aceptan filas nuevas) y `sitio_lectura` (solo la
   vista `publico.catalogo`).
-- **CSRF**: toda escritura debe venir del mismo origen (`Sec-Fetch-Site`). CSP estricta
-  con helmet.
+- **CSRF**: toda escritura debe venir del mismo origen (`Sec-Fetch-Site`) y los POST
+  llegar como JSON, que un formulario de otra página no puede mandar. CSP estricta con
+  helmet y `Cache-Control: no-store` en toda la API.
+- **Límite de peticiones**: por usuario (o por IP sin sesión), con cubos más estrictos
+  para la ruta pública y para subir imágenes.
+- **Lo único sin identidad** es `GET /api/publico/catalogo`, lo que lee el sitio: sin
+  ids, sin costos y sin la existencia exacta ([docs/contrato-sitio.md](docs/contrato-sitio.md)).
+- **Todo lo demás**, incluida la revisión de seguridad completa y qué hay que hacer en el
+  servidor, está en [docs/seguridad.md](docs/seguridad.md).
 - **Datos sensibles**: costos, márgenes y proveedores no van al repo. `.gitignore` excluye
   `*.xlsx`, `.env` y respaldos; la semilla no lleva costos, precios ni proveedores reales.
 
@@ -187,6 +200,10 @@ migraciones SQL, en `api/drizzle/`:
   comisión de cada línea ya sin lo que Mercado Pago regresó).
 - `0005_imagenes_de_productos.sql`: las columnas las generó drizzle-kit; a mano, la vista
   `publico.catalogo` gana `id`, `imagen`, `imagen_chica` e `imagen_alt`.
+- `0006_endurecer_permisos_y_vistas.sql` está escrita a mano: los permisos por omisión
+  dejan de repartir escritura (cada migración concede lo suyo tabla por tabla), las vistas
+  internas corren con los permisos de quien consulta y el catálogo del sitio gana
+  `disponibilidad`.
 
 Una migración ya aplicada **no se edita**: cualquier cambio va en una nueva
 (`npm run generar-migracion -w api`, o `--custom` para SQL a mano).

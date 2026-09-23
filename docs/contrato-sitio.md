@@ -1,96 +1,108 @@
 # Contrato con el back del sitio
 
-El sitio (`www.unavezmasmx.com`) va a mostrar precio y existencia leyendo esta misma base
-de datos. Este documento es todo lo que su back necesita saber, y lo único que puede ver.
+El sitio (`www.unavezmasmx.com`) muestra precio, disponibilidad e imágenes leyendo esta
+aplicación. Este documento es todo lo que su back necesita saber, y lo único que puede ver.
 
-## Qué puede leer
+El sitio **no se conecta a la base de datos**. Lee una ruta HTTP de solo lectura, cacheada
+en Cloudflare. Así el motor de base de datos no queda expuesto a nada (ver
+[seguridad.md](seguridad.md)).
 
-Una sola vista: **`publico.catalogo`**. Tiene una fila por producto **activo y
-publicado**:
-
-| Columna              | Tipo                     | Qué es                                                                    |
-| -------------------- | ------------------------ | ------------------------------------------------------------------------- |
-| `slug`               | `text`                   | La llave con el sitio: es el `id` de `products.json` y `/catalogo/:slug`. |
-| `nombre`             | `text`                   | Nombre del producto.                                                      |
-| `categoria`          | `text`                   | «Galletas», «Borrachitos», «Alegrías»…                                    |
-| `presentacion`       | `text` o `NULL`          | «6 pzas». `NULL` si no se ha definido.                                    |
-| `precio`             | `numeric(12,2)` o `NULL` | Precio de venta en MXN. **`NULL` = «Consulta precio»**.                   |
-| `existencia_total`   | `integer`                | Piezas en todas las ubicaciones (almacén y lo que traen los vendedores).  |
-| `existencia_almacen` | `integer`                | Solo lo del almacén.                                                      |
-| `id`                 | `integer`                | ID del producto en la app (el que llevará su código de barras).           |
-| `imagen`             | `text` o `NULL`          | Foto de 1200 px de ancho (WebP), como ruta dentro del bucket.             |
-| `imagen_chica`       | `text` o `NULL`          | La misma foto a 600 px, para listas y miniaturas.                         |
-| `imagen_alt`         | `text` o `NULL`          | Su texto alternativo, para el atributo `alt`.                             |
-
-Un producto sin publicar, o dado de baja, no aparece. Cómo mostrar la existencia
-(«Disponible», «Últimas piezas», «Agotado»…) lo decide el sitio.
-
-### Imágenes
-
-Las fotos se suben desde la app al Object Storage de Contabo, que es de lectura pública,
-y el sitio las sirve de ahí. La URL completa es la **URL pública del bucket** (la misma
-`IMAGENES_URL_PUBLICA` del servidor de la app) más `/` más la ruta:
+## Qué se lee
 
 ```
-https://usc1.contabostorage.com/<cuenta>:imagenes/productos/4/3f9a1c2b7d8e6f50-1200.webp
+GET https://gestion.unavezmasmx.com/api/publico/catalogo
 ```
 
-Las rutas nunca cambian de contenido: una foto nueva lleva otro nombre. Se pueden guardar
-en caché para siempre (el bucket manda `Cache-Control: immutable`). `imagen` es `NULL`
-mientras el producto no tenga foto: el sitio decide qué mostrar en su lugar.
+Sin identidad, sin llaves, sin cabeceras especiales. Responde un arreglo con una entrada
+por producto **activo y publicado**, ordenado por categoría y nombre:
 
-## Qué no puede leer
-
-Nada más. El rol `sitio_lectura` no tiene acceso al esquema `gestion`: ni costos, ni
-márgenes, ni proveedores, ni ventas, ni usuarios. La vista corre con los permisos de su
-dueño, así que el sitio no necesita permisos sobre las tablas y no los tiene. Hay una
-prueba que lo verifica (`api/test/bd.int-spec.ts`).
-
-## Cómo conectarse
-
-- **Rol**: `sitio_lectura`. Su contraseña es `SITIO_LECTURA_PASSWORD` del `.env` del
-  servidor.
-- **Base**: `gestion`. El `search_path` del rol ya es `publico`, así que basta con
-  `catalogo`.
-- **Límites**: 10 conexiones como máximo y 5 segundos por consulta.
-- **Solo lectura**: cualquier escritura falla.
-
-```sql
--- Todo el catálogo
-SELECT slug, nombre, categoria, presentacion, precio, existencia_total, imagen_chica, imagen_alt
-FROM catalogo
-ORDER BY categoria, nombre;
-
--- Un producto (la página /catalogo/:slug)
-SELECT precio, existencia_total FROM catalogo WHERE slug = $1;
+```json
+[
+  {
+    "slug": "galletas-avena",
+    "nombre": "Galletas de Avena",
+    "categoria": "Galletas",
+    "presentacion": "6 pzas",
+    "precio": "30.00",
+    "disponibilidad": "disponible",
+    "imagen": {
+      "url": "https://usc1.contabostorage.com/<cuenta>:imagenes/productos/1/3f9a1c2b7d8e6f50-1200.webp",
+      "urlChica": "https://usc1.contabostorage.com/<cuenta>:imagenes/productos/1/3f9a1c2b7d8e6f50-600.webp",
+      "alt": "Galletas de avena con amaranto sobre un plato de barro"
+    }
+  }
+]
 ```
 
-`numeric` llega como texto en la mayoría de los drivers («30.00»). Conviene dejarlo así
-o convertirlo solo para mostrarlo.
+| Campo            | Tipo            | Qué es                                                                   |
+| ---------------- | --------------- | ------------------------------------------------------------------------ |
+| `slug`           | texto           | La llave con el sitio: es el `id` de `products.json` y `/catalogo/:slug` |
+| `nombre`         | texto           | Nombre del producto                                                      |
+| `categoria`      | texto           | «Galletas», «Borrachitos», «Alegrías»…                                   |
+| `presentacion`   | texto o `null`  | «6 pzas». `null` si no se ha definido                                    |
+| `precio`         | texto o `null`  | Precio en MXN como texto decimal. **`null` = «Consulta precio»**         |
+| `disponibilidad` | texto           | `disponible`, `ultimas_piezas` (5 o menos) o `agotado`                   |
+| `imagen`         | objeto o `null` | `url` (1200 px), `urlChica` (600 px) y `alt`. `null` si no tiene foto    |
 
-### Por dónde llega a la BD
+El precio viaja como texto (`"30.00"`) para que no se pierdan centavos al convertirlo:
+conviene mostrarlo tal cual, o convertirlo solo al formatear.
 
-En producción la BD no tiene puertos abiertos a internet. Si el back del sitio corre en
-Cloudflare (Pages Functions o Workers), la ruta recomendada es **Hyperdrive con base de
-datos privada**:
+**Por qué no va la existencia exacta**: con el número, cualquiera que consulte dos veces al
+día calcula el ritmo de venta del negocio. Cómo mostrar cada estado («Disponible»,
+«Últimas piezas», «Agotado»…) lo decide el sitio.
 
-1. En el túnel de Cloudflare del servidor, agregar una ruta TCP hacia `db:5432`, por
-   ejemplo con el hostname `bd.unavezmasmx.com`.
-2. Protegerla con una aplicación de Cloudflare Access que solo admita un **service
-   token**.
-3. Crear el Hyperdrive con ese hostname, el service token y el usuario `sitio_lectura`.
+## Caché y límites
 
-Así el sitio lee por Cloudflare sin que Postgres quede expuesto.
+- La respuesta trae `Cache-Control: public, max-age=60, s-maxage=300,
+stale-while-revalidate=600`. Conviene dejar que Cloudflare la cachee con una regla de
+  caché: así el origen casi no se toca.
+- Hay un límite de **60 peticiones por minuto** por IP. El sitio debería leer el catálogo
+  al construirse o cada pocos minutos, no en cada visita.
+- Las imágenes las sirve el bucket, no la aplicación, y son inmutables: una foto nueva
+  tiene otra URL, así que se pueden cachear para siempre.
+
+## Qué no se puede ver
+
+Nada más. No hay ruta pública para ventas, costos, márgenes, proveedores, usuarios ni
+existencias. Todo lo demás exige pasar por Cloudflare Access y tener permisos en la
+aplicación.
+
+## En Cloudflare
+
+La aplicación entera está detrás de Access. Para que esta ruta quede abierta hay que
+declararla, de una de estas dos formas:
+
+- **Una aplicación de Access para `gestion.unavezmasmx.com/api/publico/*` con política
+  _Bypass_ para todos** (la recomendada: un solo hostname y el resto sigue protegido).
+- O un hostname propio del túnel (por ejemplo `datos.unavezmasmx.com`) sin Access. Aunque
+  se use, el resto de la API sigue negando sin identidad, porque el guard de la aplicación
+  pide el JWT de Access.
 
 ## Cambios al contrato
 
-- **Agregar** columnas a la vista está permitido y no rompe al sitio.
-- **Quitar o renombrar** una columna, o cambiar su significado, se coordina antes con
-  quien mantiene el back del sitio. Va en una migración nueva y se anota aquí.
-- Cambiar un `slug` rompe la URL del producto en el sitio: se hace solo a propósito y
-  junto con `products.json`.
+- **Agregar** campos a la respuesta está permitido y no rompe al sitio.
+- **Quitar o renombrar** un campo, o cambiar su significado, se coordina antes con quien
+  mantiene el back del sitio y se anota aquí.
+- Cambiar un `slug` rompe la URL del producto en el sitio: se hace solo a propósito y junto
+  con `products.json`.
 
-| Fecha      | Cambio                                                    |
-| ---------- | --------------------------------------------------------- |
-| 2026-09-21 | Primera versión: `publico.catalogo` (7 columnas).         |
-| 2026-09-22 | Se agregan `id`, `imagen`, `imagen_chica` e `imagen_alt`. |
+| Fecha      | Cambio                                                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------------------------- |
+| 2026-09-21 | Primera versión: la vista `publico.catalogo` (7 columnas)                                                  |
+| 2026-09-22 | Se agregan `id`, `imagen`, `imagen_chica` e `imagen_alt`                                                   |
+| 2026-09-23 | El contrato pasa a ser HTTP (`/api/publico/catalogo`), con `disponibilidad` en vez de la existencia exacta |
+
+## La vista `publico.catalogo` (uso interno)
+
+La vista sigue existiendo, con el rol `sitio_lectura`, para herramientas internas o para
+una consulta directa desde el propio servidor. **No es la vía del sitio** y no se expone
+fuera del servidor. Dos advertencias si se usa:
+
+- `existencia_total` y `existencia_almacen` quedan **obsoletas**: se retiran cuando nadie
+  las consulte. En su lugar está la columna `disponibilidad`.
+- Los límites del rol (5 s por consulta, 10 conexiones) son una red contra accidentes, no
+  un candado: un rol puede levantarse los suyos. Lo que de verdad garantiza que no escriba
+  es que no tiene permisos de escritura sobre nada, y hay una prueba que lo verifica
+  (`api/test/bd.int-spec.ts`).
+- El rol no ve ningún dato del esquema `gestion`, pero sí los **nombres** de tablas y
+  columnas a través del catálogo del sistema, que Postgres deja leer siempre.

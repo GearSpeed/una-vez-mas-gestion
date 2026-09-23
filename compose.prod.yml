@@ -2,17 +2,42 @@
 # cloudflared abre un túnel de salida hacia Cloudflare y Cloudflare Access
 # decide quién entra. Las variables salen del .env del servidor; la guía está
 # en docs/despliegue.md.
-name: una-vez-mas-gestion
+# Nombre propio, distinto al del compose de desarrollo: en el servidor, un
+# `docker compose down -v` con el archivo equivocado no puede llevarse estos datos.
+name: una-vez-mas-gestion-prod
 
+# La imagen se compila en CI y se despliega por SHA, nunca `latest` ni compilando
+# en el servidor: así se sabe exactamente qué está corriendo y se puede volver atrás.
 x-imagen: &imagen
-  image: ${IMAGEN:-ghcr.io/gearspeed/una-vez-mas-gestion:latest}
-  build: .
+  image: ${IMAGEN:?Falta IMAGEN (ghcr.io/gearspeed/una-vez-mas-gestion:<sha>)}
+
+# Ningún contenedor necesita poderes de root ni escribir en su propio disco.
+x-blindaje: &blindaje
+  security_opt: ['no-new-privileges:true']
+  cap_drop: [ALL]
+
+# Los logs no se comen el disco del VPS.
+x-registro: &registro
+  logging:
+    driver: json-file
+    options:
+      max-size: '10m'
+      max-file: '3'
 
 services:
   db:
     image: postgres:18-alpine
     restart: unless-stopped
+    <<: *registro
+    # El entrypoint de Postgres necesita estas para cambiarse al usuario postgres.
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    networks: [datos]
+    mem_limit: 2g
+    shm_size: 256mb
     environment:
+      POSTGRES_INITDB_ARGS: '--auth-host=scram-sha-256 --auth-local=scram-sha-256'
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD}
       GESTION_OWNER_PASSWORD: ${GESTION_OWNER_PASSWORD:?Falta GESTION_OWNER_PASSWORD}
       GESTION_APP_PASSWORD: ${GESTION_APP_PASSWORD:?Falta GESTION_APP_PASSWORD}
@@ -30,8 +55,11 @@ services:
 
   # Corre una vez en cada despliegue, como gestion_owner, y termina.
   migraciones:
-    <<: *imagen
+    <<: [*imagen, *blindaje, *registro]
     command: ['node', 'api/dist/cli/migrar.js']
+    networks: [datos]
+    read_only: true
+    tmpfs: ['/tmp:size=32m,mode=1777']
     environment:
       DATABASE_URL_MIGRACIONES: postgres://gestion_owner:${GESTION_OWNER_PASSWORD}@db:5432/gestion
       ADMIN_INICIAL_CORREO: ${ADMIN_INICIAL_CORREO:-}
@@ -42,8 +70,13 @@ services:
     restart: 'no'
 
   app:
-    <<: *imagen
+    <<: [*imagen, *blindaje, *registro]
     restart: unless-stopped
+    # La app habla con la base y recibe del túnel; no necesita nada más.
+    networks: [borde, datos]
+    read_only: true
+    tmpfs: ['/tmp:size=128m,mode=1777']
+    mem_limit: 1g
     environment:
       NODE_ENV: production
       DATABASE_URL: postgres://gestion_app:${GESTION_APP_PASSWORD}@db:5432/gestion
@@ -62,14 +95,29 @@ services:
       migraciones:
         condition: service_completed_successfully
 
+  # Lo único que habla con internet. Sin acceso a la red de la base: aunque lo
+  # comprometan, no alcanza a Postgres.
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:2025.8.1
     restart: unless-stopped
+    <<: [*blindaje, *registro]
     command: tunnel --no-autoupdate run
+    networks: [borde]
+    read_only: true
+    user: '65532:65532'
+    mem_limit: 256m
     environment:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?Falta CLOUDFLARE_TUNNEL_TOKEN}
     depends_on:
-      - app
+      app:
+        condition: service_healthy
+
+networks:
+  # cloudflared ↔ app
+  borde:
+  # app ↔ db, sin salida a internet
+  datos:
+    internal: true
 
 volumes:
   datos:
