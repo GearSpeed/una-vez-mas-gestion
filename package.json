@@ -21,6 +21,7 @@
     "migrar": "npm run migrar -w api",
     "semilla": "npm run semilla -w api --",
     "preparar-bucket": "npm run preparar-bucket -w api",
+    "probar-imagenes": "npm run probar-imagenes -w api",
     "subir-imagenes": "npm run subir-imagenes -w api --",
     "lint": "oxlint --type-aware compartido/src api/src api/test web/src web/e2e",
     "format": "prettier --write .",

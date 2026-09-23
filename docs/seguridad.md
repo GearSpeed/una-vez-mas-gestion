@@ -6,16 +6,16 @@ infraestructura del servidor y los datos.
 
 ## Cómo está protegido, capa por capa
 
-| Capa             | Qué la protege                                                                  |
-| ---------------- | ------------------------------------------------------------------------------- |
-| Quién entra      | Cloudflare Access delante de todo; la app además valida el JWT que firma Access |
-| Qué puede hacer  | Permisos por rol, con un guard que niega toda ruta que no declare cuál exige    |
-| Qué datos recibe | La API filtra costos y márgenes, y un vendedor solo ve sus ventas               |
-| La red           | El servidor no abre puertos: `cloudflared` sale hacia Cloudflare, nadie entra   |
-| La base          | Tres roles separados; la API no borra y no puede reescribir el kardex           |
-| El sitio público | Una ruta de solo lectura, cacheada; el sitio nunca toca la base                 |
-| Las fotos        | Bucket de solo lectura pública; la app reescribe cada imagen y le quita el GPS  |
-| Los respaldos    | Cifrados en la nube, con prueba de restauración                                 |
+| Capa             | Qué la protege                                                                                          |
+| ---------------- | ------------------------------------------------------------------------------------------------------- |
+| Quién entra      | Cloudflare Access delante de todo; la app además valida el JWT que firma Access                         |
+| Qué puede hacer  | Permisos por rol, con un guard que niega toda ruta que no declare cuál exige                            |
+| Qué datos recibe | La API filtra costos y márgenes, y un vendedor solo ve sus ventas                                       |
+| La red           | El servidor no abre puertos: `cloudflared` sale hacia Cloudflare, nadie entra                           |
+| La base          | Tres roles separados; la API no borra y no puede reescribir el kardex                                   |
+| El sitio público | Una ruta de solo lectura, cacheada; el sitio nunca toca la base                                         |
+| Las fotos        | Bucket privado de R2, servido por `img.unavezmasmx.com`; la app reescribe cada imagen y le quita el GPS |
+| Los respaldos    | Cifrados en la nube, con prueba de restauración                                                         |
 
 ## Decisiones que sostienen todo lo demás
 
@@ -29,6 +29,10 @@ infraestructura del servidor y los datos.
 - **Al sitio no se le publica la existencia exacta**, solo `disponible`, `ultimas_piezas` o
   `agotado`: con el número exacto, cualquiera que consulte dos veces al día estima las
   ventas del negocio y cuánta mercancía traen los vendedores.
+- **Las fotos se sirven por un dominio propio** (`img.unavezmasmx.com`) desde un bucket de
+  Cloudflare R2 que por el lado S3 sigue privado: por el dominio no se puede listar ni
+  escribir, la URL no delata dónde están guardadas y las sirve la caché de Cloudflare. El
+  token que usa la app está limitado a ese bucket.
 - **Nada de lo sensible vive en el repositorio.** El `.env` nunca se versionó (se
   verificó en todo el historial), la semilla no lleva costos ni proveedores reales, y los
   respaldos están excluidos.
@@ -76,8 +80,9 @@ infraestructura del servidor y los datos.
 
 ## Lo que queda asumido (y por qué)
 
-- **Las llaves S3 de Contabo son de toda la cuenta**, no de un bucket: Contabo no ofrece
-  llaves por bucket. Se mitiga con un bucket dedicado, versionado activado y rotación.
+- **El token del bucket puede escribir sus objetos.** Está limitado a ese bucket, así que
+  una filtración no alcanza nada más de la cuenta; aun así, quien lo tenga podría sustituir
+  fotos del catálogo. Se mitiga rotándolo (docs/despliegue.md) y revisando el bucket.
 - **El rol del sitio puede ver los nombres de tablas y columnas** por el catálogo del
   sistema de Postgres; los datos no. Aislarlo del todo exigiría una base aparte.
 - **`style-src 'unsafe-inline'`** en la política de contenido: lo exige Angular Material
@@ -97,7 +102,8 @@ Estos pasos no viven en el repositorio; están detallados en
 5. `.env` en modo 600.
 6. Dos políticas de Access: sesión corta con doble factor para administradores, sesión
    larga para vendedores.
-7. Verificar con `curl` que el bucket no permite listado ni escritura anónima.
+7. Conectar `img.unavezmasmx.com` al bucket de R2 y correr `npm run probar-imagenes`:
+   confirma que las fotos se sirven y que sin llaves nadie lista ni escribe.
 8. Llave de Backblaze sin permiso de borrado, con Object Lock: es lo que salva de un
    ransomware.
 9. Restaurar un respaldo antes de dar el sistema por bueno.

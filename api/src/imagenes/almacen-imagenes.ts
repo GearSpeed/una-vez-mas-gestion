@@ -15,9 +15,10 @@ export interface UrlsImagen {
 }
 
 /**
- * El bucket de las imágenes: Object Storage de Contabo en producción, MinIO en
- * desarrollo y en las pruebas; los tres hablan S3. De ahí mismo las sirve el sitio.
- * Nada se borra: una foto nueva lleva otra clave y la anterior se queda.
+ * El bucket de las imágenes: Cloudflare R2 en producción, MinIO en desarrollo y en
+ * las pruebas; los dos hablan S3. Las fotos se sirven por el dominio propio que
+ * apunta al bucket (`IMAGENES_URL_PUBLICA`), no por este endpoint, que solo acepta
+ * peticiones firmadas.
  */
 @Injectable()
 export class AlmacenImagenes implements OnModuleDestroy {

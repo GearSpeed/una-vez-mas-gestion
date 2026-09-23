@@ -59,19 +59,20 @@ probar lo que ve cada rol. Ese modo se niega a arrancar si `NODE_ENV=production`
 
 ## Scripts
 
-| Comando                             | Qué hace                                                        |
-| ----------------------------------- | --------------------------------------------------------------- |
-| `npm run dev`                       | compartido (watch), API (watch) y Angular (4300, con proxy)     |
-| `npm run build`                     | compila los tres paquetes                                       |
-| `npm test`                          | pruebas unitarias (compartido, API y web)                       |
-| `npm run test:integracion`          | la API contra un PostgreSQL 18 real (Testcontainers)            |
-| `npm run e2e`                       | compila y corre Playwright + axe en escritorio y celular        |
-| `npm run lint` / `format`           | oxlint (con tipos) y Prettier                                   |
-| `npm run migrar`                    | aplica migraciones pendientes                                   |
-| `npm run semilla [-- --demo]`       | datos iniciales; `--demo` agrega usuarios, proveedor y vehículo |
-| `npm run preparar-bucket`           | crea el bucket de imágenes en el MinIO local (solo desarrollo)  |
-| `npm run subir-imagenes -- <sitio>` | sube las fotos del sitio y se las asigna a cada producto        |
-| `npm run generar-migracion -w api`  | genera la migración a partir de `api/src/db/esquema.ts`         |
+| Comando                             | Qué hace                                                               |
+| ----------------------------------- | ---------------------------------------------------------------------- |
+| `npm run dev`                       | compartido (watch), API (watch) y Angular (4300, con proxy)            |
+| `npm run build`                     | compila los tres paquetes                                              |
+| `npm test`                          | pruebas unitarias (compartido, API y web)                              |
+| `npm run test:integracion`          | la API contra un PostgreSQL 18 real (Testcontainers)                   |
+| `npm run e2e`                       | compila y corre Playwright + axe en escritorio y celular               |
+| `npm run lint` / `format`           | oxlint (con tipos) y Prettier                                          |
+| `npm run migrar`                    | aplica migraciones pendientes                                          |
+| `npm run semilla [-- --demo]`       | datos iniciales; `--demo` agrega usuarios, proveedor y vehículo        |
+| `npm run preparar-bucket`           | crea el bucket de imágenes en el MinIO local (solo desarrollo)         |
+| `npm run subir-imagenes -- <sitio>` | sube las fotos del sitio y se las asigna a cada producto               |
+| `npm run probar-imagenes`           | revisa que las fotos se sirvan y que el bucket no acepte nada de fuera |
+| `npm run generar-migracion -w api`  | genera la migración a partir de `api/src/db/esquema.ts`                |
 
 ## Pruebas
 
@@ -123,8 +124,10 @@ probar lo que ve cada rol. Ese modo se niega a arrancar si `NODE_ENV=production`
   **conteo físico** registra lo que hay y ajusta solo las diferencias.
 - **Imágenes**: una foto por producto, la misma que muestra el sitio. Se sube desde el
   diálogo del producto (JPG, PNG o WebP de hasta 10 MB, con texto alternativo); la API la
-  endereza, le quita los metadatos (GPS incluido) y la guarda en el bucket en WebP de 1200
-  y 600 px. Del bucket la sirve el sitio (`publico.catalogo` trae la ruta).
+  endereza, le quita los metadatos (GPS incluido) y la guarda en WebP de 1200 y 600 px en
+  un bucket de Cloudflare R2. El sitio las sirve desde `img.unavezmasmx.com`, que va por la
+  caché de Cloudflare; la base guarda solo la ruta, así que cambiar de dominio o de
+  proveedor es cambiar una variable.
 - **ID**: cada producto muestra su ID en la tabla y en su diálogo, y las búsquedas lo
   aceptan («12» encuentra el producto 12). Es el que llevará el código de barras.
 - **Precio**: sin precio no se vende (y el sitio dice «Consulta precio»). La ganancia
@@ -230,5 +233,6 @@ Slugs:
 ## Desplegar
 
 VPS de Contabo + Docker Compose + Cloudflare Tunnel + Cloudflare Access, y las imágenes en
-el Object Storage de Contabo:
-[docs/despliegue.md](docs/despliegue.md).
+Cloudflare R2 servidas por `img.unavezmasmx.com`: [docs/despliegue.md](docs/despliegue.md).
+La revisión de seguridad y el endurecimiento del servidor, en
+[docs/seguridad.md](docs/seguridad.md).

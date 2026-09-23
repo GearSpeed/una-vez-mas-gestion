@@ -38,12 +38,12 @@ Servicios de `compose.prod.yml`:
 | `CF_ACCESS_AUD`           | El _Application Audience (AUD) Tag_ de la app en Access                        |
 | `CLOUDFLARE_TUNNEL_TOKEN` | El token del túnel                                                             |
 | `ADMIN_INICIAL_CORREO`    | El primer administrador (para la semilla)                                      |
-| `S3_ENDPOINT`             | El del Object Storage, p. ej. `https://usc1.contabostorage.com`                |
-| `S3_REGION`               | `default` (Contabo no usa regiones de AWS)                                     |
-| `S3_BUCKET`               | El bucket de las imágenes, p. ej. `imagenes`                                   |
-| `S3_ACCESS_KEY`           | La _access key_ S3 del Object Storage                                          |
-| `S3_SECRET_KEY`           | La _secret key_ S3 del Object Storage                                          |
-| `IMAGENES_URL_PUBLICA`    | La URL pública del bucket (ver abajo)                                          |
+| `S3_ENDPOINT`             | El de R2: `https://<id-de-cuenta>.r2.cloudflarestorage.com`                    |
+| `S3_REGION`               | `auto` (R2 no usa regiones)                                                    |
+| `S3_BUCKET`               | El bucket de las imágenes: `imagenes`                                          |
+| `S3_ACCESS_KEY`           | La _access key_ del token de R2, limitado a ese bucket                         |
+| `S3_SECRET_KEY`           | La _secret key_ de ese token                                                   |
+| `IMAGENES_URL_PUBLICA`    | El dominio de las imágenes: `https://img.unavezmasmx.com` (ver abajo)          |
 | `IMAGEN`                  | La imagen exacta a desplegar: `…:<sha-del-commit>`, nunca `latest`             |
 | `COMPOSE_FILE`            | `compose.prod.yml`, para que `docker compose` a secas no tome el de desarrollo |
 
@@ -72,9 +72,9 @@ sed -i "s|^GESTION_APP_PASSWORD=.*|GESTION_APP_PASSWORD=$NUEVA|" .env
 docker compose up -d --force-recreate app
 ```
 
-Lo mismo para `gestion_owner` y `sitio_lectura`. Las llaves S3 se rotan generando unas
-nuevas en el panel de Contabo, cambiándolas en el `.env` y recreando la app; el token del
-túnel, creando un túnel nuevo o rotándolo en Zero Trust.
+Lo mismo para `gestion_owner` y `sitio_lectura`. Las llaves de R2 se rotan creando un token
+nuevo, cambiándolas en el `.env` y recreando la app; el token del túnel, creando un túnel
+nuevo o rotándolo en Zero Trust.
 
 ## 3. Cloudflare
 
@@ -106,40 +106,70 @@ que esa ruta necesita quedar fuera de Access: crea una aplicación aparte para
 `gestion.unavezmasmx.com/api/publico/*` con política _Bypass_ para todos. El resto sigue
 protegido. Ver [contrato-sitio.md](contrato-sitio.md).
 
-## 3.1 Object Storage de Contabo (imágenes de producto)
+## 3.1 Imágenes de producto (Cloudflare R2 + `img.unavezmasmx.com`)
 
-Las fotos de los productos se suben desde la app y el sitio las sirve directo del
-bucket, así que tiene que ser **de lectura pública** (nadie puede escribir sin llaves).
+Las fotos se suben desde la app a un bucket de **Cloudflare R2** y se sirven por un
+dominio propio, que va por la red de Cloudflare: cargan rápido desde México, la salida de
+datos no se cobra y la URL no delata dónde están guardadas.
 
-1. En el panel de Contabo: **Object Storage → Create bucket**, en la misma región que el
-   VPS. Nombre sugerido: `imagenes`.
-2. En el bucket, activar **Public sharing**. Contabo da una URL como
-   `https://usc1.contabostorage.com/<id-de-tu-cuenta>:imagenes`: esa va en
-   `IMAGENES_URL_PUBLICA`, sin `/` al final.
-3. **Account → Security & Access → S3 Object Storage Credentials**: copiar la _access key_
-   y la _secret key_ a `S3_ACCESS_KEY` y `S3_SECRET_KEY`. `S3_ENDPOINT` es la parte de la
-   URL hasta `.com` (`https://usc1.contabostorage.com`).
+1. **Crear el bucket.** Cloudflare → R2 → _Create bucket_, nombre `imagenes`. La ubicación
+   puede quedar automática.
+2. **Conectar el dominio.** En el bucket, _Settings → Custom Domains → Connect domain_:
+   `img.unavezmasmx.com`. Cloudflare crea el registro DNS, emite el certificado y lo deja
+   detrás de su caché. El bucket **sigue siendo privado por el lado S3**: lo público es el
+   dominio, y por ahí no se puede listar ni escribir.
+3. **Crear el token.** R2 → _API tokens_ → token **limitado a ese bucket**, permiso
+   _Object Read & Write_. Te da la _Access Key ID_, la _Secret Access Key_ y el endpoint
+   `https://<id-de-cuenta>.r2.cloudflarestorage.com`. Ese token no puede tocar nada más de
+   la cuenta: si se filtra, el daño se queda en este bucket.
+4. **Llenar el `.env`**:
 
-La app guarda cada foto en WebP (1200 y 600 px) con un nombre que no se repite, y con
-caché de un año. Nada se borra del bucket: una foto nueva lleva otro nombre.
+   ```
+   S3_ENDPOINT=https://<id-de-cuenta>.r2.cloudflarestorage.com
+   S3_REGION=auto
+   S3_BUCKET=imagenes
+   S3_ACCESS_KEY=<access key id>
+   S3_SECRET_KEY=<secret access key>
+   IMAGENES_URL_PUBLICA=https://img.unavezmasmx.com
+   ```
 
-Para subir las fotos que hoy tiene el sitio (una sola vez, después del primer arranque):
-se clona el repo del sitio en el servidor y se corre el script con la imagen de la app,
-que ya trae las variables del bucket y de la BD.
+   `IMAGENES_URL_PUBLICA` va **sin `/` al final** y es el dominio, nunca el endpoint S3:
+   por el endpoint no se sirven lecturas públicas y las fotos saldrían rotas.
+
+5. **Comprobar**, ya con alguna foto subida:
+
+   ```bash
+   docker compose run --rm app node api/dist/cli/probar-imagenes.js
+   ```
+
+   Revisa que la imagen se descargue por su URL pública y que sin llaves no se pueda
+   listar el bucket ni escribir en él. La primera vez que pidas una foto verás
+   `cf-cache-status: MISS`; la segunda, `HIT`.
+
+La app guarda cada foto en WebP (1200 y 600 px) con un nombre que lleva la huella del
+archivo, y con caché de un año: una foto nueva estrena nombre, así que ninguna caché sirve
+la vieja. Al reemplazar o quitar una imagen, la anterior se borra del bucket.
+
+**Rotar el token**: se crea uno nuevo en R2, se cambian las dos variables, se recrea la app
+(`docker compose up -d --force-recreate app`) y se borra el viejo.
+
+**Cambiar de proveedor o de dominio** es cambiar variables: la base de datos guarda solo la
+ruta de cada imagen, no la URL, y el sitio recibe las URLs ya armadas desde el catálogo.
+
+### Las fotos que ya tiene el sitio
+
+Una sola vez, después del primer arranque: se clona el repo del sitio en el servidor y se
+corre el script con la imagen de la app, que ya trae las variables del bucket y de la BD.
 
 ```bash
 git clone <repo del sitio> /srv/una-vez-mas-sitio
-docker compose -f compose.prod.yml run --rm -v /srv/una-vez-mas-sitio:/sitio:ro app \
+docker compose run --rm -v /srv/una-vez-mas-sitio:/sitio:ro app \
   node api/dist/cli/subir-imagenes.js /sitio
 ```
 
 Empareja cada foto con su producto por el slug y usa el texto alternativo de
 `products.json`. Al final lista las fotos que no tuvieron producto y los productos que se
 quedaron sin foto. Se puede repetir: lo que ya se subió no se vuelve a subir.
-
-Si más adelante las imágenes se sirven por un dominio propio con CDN (por ejemplo
-`img.unavezmasmx.com` frente al bucket), basta cambiar `IMAGENES_URL_PUBLICA`: la BD guarda
-solo la ruta de cada imagen, no la URL.
 
 ## 4. Primer arranque
 

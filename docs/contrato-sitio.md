@@ -26,8 +26,8 @@ por producto **activo y publicado**, ordenado por categoría y nombre:
     "precio": "30.00",
     "disponibilidad": "disponible",
     "imagen": {
-      "url": "https://usc1.contabostorage.com/<cuenta>:imagenes/productos/1/3f9a1c2b7d8e6f50-1200.webp",
-      "urlChica": "https://usc1.contabostorage.com/<cuenta>:imagenes/productos/1/3f9a1c2b7d8e6f50-600.webp",
+      "url": "https://img.unavezmasmx.com/productos/1/3f9a1c2b7d8e6f50-1200.webp",
+      "urlChica": "https://img.unavezmasmx.com/productos/1/3f9a1c2b7d8e6f50-600.webp",
       "alt": "Galletas de avena con amaranto sobre un plato de barro"
     }
   }
@@ -58,8 +58,11 @@ stale-while-revalidate=600`. Conviene dejar que Cloudflare la cachee con una reg
   caché: así el origen casi no se toca.
 - Hay un límite de **60 peticiones por minuto** por IP. El sitio debería leer el catálogo
   al construirse o cada pocos minutos, no en cada visita.
-- Las imágenes las sirve el bucket, no la aplicación, y son inmutables: una foto nueva
-  tiene otra URL, así que se pueden cachear para siempre.
+- Las imágenes las sirve `img.unavezmasmx.com` (un bucket de Cloudflare R2 detrás de la
+  caché de Cloudflare), no la aplicación, y son inmutables: una foto nueva tiene otra URL,
+  así que se pueden cachear para siempre.
+- **El sitio no debe fijar ese dominio en su código**: las URLs llegan completas en esta
+  respuesta. Si algún día cambia el dominio o el proveedor, el sitio no se entera.
 
 ## Qué no se puede ver
 

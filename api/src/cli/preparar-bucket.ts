@@ -1,7 +1,8 @@
 /**
  * `npm run preparar-bucket`: solo para desarrollo. Crea en el MinIO local
  * (docker compose) el bucket de las imágenes y lo deja de lectura pública.
- * En producción el bucket se crea en el panel de Contabo (docs/despliegue.md).
+ * En producción el bucket se crea en el panel de Cloudflare R2 y se publica
+ * conectándole un dominio (docs/despliegue.md).
  */
 import { cargarArchivoEnv } from '../config/cargar-env.js';
 import { leerEntorno } from '../config/entorno.js';

@@ -1,4 +1,6 @@
 # Generados: no se formatean
+# Copias de trabajo de otras herramientas (Kilo Code)
+.kilo/
 api/drizzle/
 web/src/estilos/_colores-marca.scss
 **/dist/

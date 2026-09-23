@@ -15,8 +15,9 @@ export interface DatosBucket {
 
 /**
  * Crea el bucket (si no existe) y deja que cualquiera lea sus objetos: así los
- * sirve el sitio. Es para MinIO en desarrollo y en las pruebas; en Contabo el
- * bucket se crea en su panel y se hace público con «Public sharing».
+ * sirve el sitio. Es para MinIO en desarrollo y en las pruebas. En producción no
+ * hace falta: en R2 el bucket se crea en el panel y lo público es el dominio que se
+ * le conecta, no una política del bucket (docs/despliegue.md).
  */
 export async function prepararBucketPublico(datos: DatosBucket): Promise<void> {
   const cliente = new S3Client({

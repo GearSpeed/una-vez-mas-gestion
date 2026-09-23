@@ -29,7 +29,7 @@ const esquemaEntorno = z
     /** Carpeta del front compilado. Si existe, la API también sirve la SPA. */
     WEB_DIST: z.string().min(1).optional(),
     /**
-     * Bucket S3 de las imágenes de producto (Object Storage de Contabo; MinIO en
+     * Bucket S3 de las imágenes de producto (Cloudflare R2 en producción; MinIO en
      * desarrollo). Sin él, la app funciona pero no deja subir imágenes.
      */
     S3_ENDPOINT: z.url().optional(),
