@@ -61,7 +61,10 @@ describe('imágenes de producto', () => {
   ) => {
     let peticion = request(app.getHttpServer())
       .post(`/api/productos/${id}/imagen`)
-      .set('X-Dev-Correo', correo);
+      .set('X-Dev-Correo', correo)
+      // Lo que manda el navegador al subir desde la app: sin eso, la defensa contra
+      // peticiones de otros sitios rechaza el multipart (comun/origen.ts).
+      .set('Sec-Fetch-Site', 'same-origin');
     if (alt !== null) peticion = peticion.field('alt', alt);
     if (archivo) peticion = peticion.attach('archivo', archivo, nombre);
     return peticion;
@@ -101,14 +104,14 @@ describe('imágenes de producto', () => {
     expect(datos.width).toBe(400);
   });
 
-  it('la misma foto conserva su URL; una distinta estrena otra y la anterior se queda', async () => {
+  it('la misma foto conserva su URL; al cambiarla, la anterior se borra del bucket', async () => {
     const primera = await subir(IDS.avena, await foto());
     const otraVez = await subir(IDS.avena, await foto());
     expect(otraVez.body.imagen.url).toBe(primera.body.imagen.url);
 
     const nueva = await subir(IDS.avena, await foto(2000, 1500, '#3c6ec8'));
     expect(nueva.body.imagen.url).not.toBe(primera.body.imagen.url);
-    await descargar(primera.body.imagen.url);
+    expect((await fetch(primera.body.imagen.url)).status).toBe(404);
   });
 
   /** Lo que el sitio lee de la avena en publico.catalogo. */
@@ -172,7 +175,7 @@ describe('imágenes de producto', () => {
     expect((await subir(999, await foto())).status).toBe(404);
   });
 
-  it('se cambia el texto alternativo y se quita la imagen sin borrar el archivo', async () => {
+  it('se cambia el texto alternativo, y al quitarla el archivo se borra del bucket', async () => {
     const { body } = await subir(IDS.avena, await foto());
     const alt = await como(app, ADMIN).put(`/productos/${IDS.avena}/imagen`, {
       alt: 'Galletas de avena recién horneadas',
@@ -184,7 +187,7 @@ describe('imágenes de producto', () => {
       .set('X-Dev-Correo', ADMIN);
     expect(quitada.status).toBe(200);
     expect(quitada.body.imagen).toBeNull();
-    await descargar(body.imagen.url);
+    expect((await fetch(body.imagen.url)).status).toBe(404);
 
     const owner = conexion('owner');
     try {

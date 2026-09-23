@@ -41,6 +41,11 @@ export class IdentidadService {
       const { payload } = await jwtVerify(token, this.llaves, {
         issuer: this.entorno.CF_ACCESS_TEAM,
         audience: this.entorno.CF_ACCESS_AUD,
+        // Access firma con RS256 y siempre pone vencimiento: un token sin `exp`
+        // valdría para siempre, así que se exige.
+        algorithms: ['RS256'],
+        requiredClaims: ['exp', 'email'],
+        clockTolerance: 5,
       });
       const correo = payload['email'];
       if (typeof correo !== 'string' || correo === '') throw new Error('El token no trae correo');

@@ -10,6 +10,25 @@ export const ANCHOS_IMAGEN = { grande: 1200, chica: 600 } as const;
 
 const FORMATOS = new Set(['jpeg', 'png', 'webp']);
 
+/**
+ * 25 megapíxeles: más que cualquier foto de celular y poco para una bomba de
+ * descompresión (un PNG de pocos MB puede declarar cientos de megapíxeles y pedir
+ * gigabytes al decodificarse).
+ */
+const PIXELES_MAXIMOS = 25_000_000;
+
+// Una foto a la vez: libvips reparte hilos por imagen y varias subidas a la vez
+// multiplican la memoria del proceso.
+sharp.concurrency(1);
+let cola: Promise<unknown> = Promise.resolve();
+
+/** Encola una tarea pesada para que no se procesen dos imágenes al mismo tiempo. */
+function enCola<T>(tarea: () => Promise<T>): Promise<T> {
+  const resultado = cola.then(tarea, tarea);
+  cola = resultado.catch(() => undefined);
+  return resultado;
+}
+
 export interface ImagenProcesada {
   /** Huella del archivo original: la misma foto da la misma clave. */
   readonly huella: string;
@@ -27,11 +46,15 @@ function invalida(mensaje: string): UnprocessableEntityException {
  * metadatos (fecha, cámara, GPS de las fotos de celular) y la deja en WebP de 1200
  * y 600 px de ancho, sin agrandar las que ya son más chicas.
  */
-export async function procesarImagen(original: Buffer): Promise<ImagenProcesada> {
+export function procesarImagen(original: Buffer): Promise<ImagenProcesada> {
+  return enCola(() => convertir(original));
+}
+
+async function convertir(original: Buffer): Promise<ImagenProcesada> {
   if (original.length === 0) throw invalida('El archivo está vacío.');
   if (original.length > PESO_MAXIMO_IMAGEN) throw invalida('La imagen pesa más de 10 MB.');
 
-  const entrada = () => sharp(original, { failOn: 'error', limitInputPixels: 60_000_000 });
+  const entrada = () => sharp(original, { failOn: 'error', limitInputPixels: PIXELES_MAXIMOS });
   let formato: string | undefined;
   try {
     formato = (await entrada().metadata()).format;
@@ -42,16 +65,17 @@ export async function procesarImagen(original: Buffer): Promise<ImagenProcesada>
     throw invalida('Sube una imagen JPG, PNG o WebP.');
   }
 
-  const variante = (ancho: number) =>
-    entrada()
-      .rotate()
-      .resize({ width: ancho, withoutEnlargement: true })
-      .webp({ quality: 80 })
-      .toBuffer();
-  const [grande, chica] = await Promise.all([
-    variante(ANCHOS_IMAGEN.grande),
-    variante(ANCHOS_IMAGEN.chica),
-  ]);
+  // El original se decodifica una sola vez; la chica sale de la grande, que ya está
+  // enderezada, limpia de metadatos y es mucho más barata de procesar.
+  const grande = await entrada()
+    .rotate()
+    .resize({ width: ANCHOS_IMAGEN.grande, withoutEnlargement: true })
+    .webp({ quality: 80 })
+    .toBuffer();
+  const chica = await sharp(grande)
+    .resize({ width: ANCHOS_IMAGEN.chica, withoutEnlargement: true })
+    .webp({ quality: 80 })
+    .toBuffer();
   const huella = createHash('sha256').update(original).digest('hex').slice(0, 16);
   return { huella, grande, chica };
 }

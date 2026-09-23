@@ -110,6 +110,18 @@ describe('IdentidadService con Cloudflare Access', () => {
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
+  it('rechaza un token sin vencimiento: valdría para siempre', async () => {
+    const token = await new SignJWT({ email: 'ana@demo.local' })
+      .setProtectedHeader({ alg: 'RS256', kid: 'llave-1' })
+      .setIssuer(team)
+      .setAudience(AUD)
+      .setIssuedAt()
+      .sign(llavePrivada);
+    await expect(
+      identidad.correoDe(solicitudCon({ 'Cf-Access-Jwt-Assertion': token })),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
   it('rechaza un token alterado', async () => {
     const [cabecera, , firma] = (await firmar()).split('.');
     const cuerpoFalso = Buffer.from(

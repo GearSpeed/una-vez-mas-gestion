@@ -36,9 +36,7 @@ export class AccesoGuard implements CanActivate {
     const correo = await this.identidad.correoDe(solicitud);
     const usuario = await this.sesiones.cargar(correo);
     if (!usuario) {
-      throw new ForbiddenException(
-        `${correo} no tiene acceso. Pide al administrador que te dé de alta.`,
-      );
+      throw new ForbiddenException('No tienes acceso. Pide al administrador que te dé de alta.');
     }
     solicitud.usuario = usuario;
 

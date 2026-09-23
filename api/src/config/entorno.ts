@@ -13,7 +13,17 @@ const esquemaEntorno = z
     AUTH_MODO: z.enum(['access', 'desarrollo']).default('access'),
     DEV_CORREO: z.string().trim().toLowerCase().pipe(z.email()).optional(),
     /** https://<team>.cloudflareaccess.com */
-    CF_ACCESS_TEAM: z.url().optional(),
+    CF_ACCESS_TEAM: z
+      .url()
+      // Por http, quien esté en el camino sirve sus propias llaves y firma tokens
+      // con el correo que quiera. Solo se admite sin cifrar contra la misma máquina,
+      // que es como corren las pruebas.
+      .refine(
+        (url) =>
+          url.startsWith('https://') || /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(url),
+        'Debe ser https',
+      )
+      .optional(),
     /** El "Application Audience (AUD) Tag" de la aplicación en Access. */
     CF_ACCESS_AUD: z.string().min(1).optional(),
     /** Carpeta del front compilado. Si existe, la API también sirve la SPA. */
@@ -32,6 +42,8 @@ const esquemaEntorno = z
       .url()
       .transform((url) => url.replace(/\/+$/, ''))
       .optional(),
+    /** Peticiones por minuto y por usuario (o por IP si no hay sesión). */
+    LIMITE_PETICIONES: z.coerce.number().int().positive().default(300),
     LOG_NIVEL: z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),
@@ -59,11 +71,13 @@ const esquemaEntorno = z
           'Para las imágenes hacen falta todas: S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY, S3_SECRET_KEY e IMAGENES_URL_PUBLICA',
       });
     }
-    if (entorno.NODE_ENV === 'production' && entorno.AUTH_MODO === 'desarrollo') {
+    // Lista blanca, no lista negra: si NODE_ENV llega vacío o con otra cosa, el modo
+    // desarrollo (que confía en una cabecera) no arranca.
+    if (entorno.AUTH_MODO === 'desarrollo' && entorno.NODE_ENV === 'production') {
       ctx.addIssue({
         code: 'custom',
         path: ['AUTH_MODO'],
-        message: 'AUTH_MODO=desarrollo no se permite en producción',
+        message: 'AUTH_MODO=desarrollo solo se permite con NODE_ENV=development o test',
       });
     }
   });

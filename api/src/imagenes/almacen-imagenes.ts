@@ -1,7 +1,8 @@
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import {
   Inject,
   Injectable,
+  Logger,
   type OnModuleDestroy,
   ServiceUnavailableException,
 } from '@nestjs/common';
@@ -20,6 +21,7 @@ export interface UrlsImagen {
  */
 @Injectable()
 export class AlmacenImagenes implements OnModuleDestroy {
+  private readonly logger = new Logger(AlmacenImagenes.name);
   private readonly cliente: S3Client | null;
   private readonly bucket: string;
   private readonly base: string;
@@ -49,9 +51,8 @@ export class AlmacenImagenes implements OnModuleDestroy {
   async subir(clave: string, imagen: ImagenProcesada): Promise<void> {
     const cliente = this.cliente;
     if (!cliente) {
-      throw new ServiceUnavailableException(
-        'El almacenamiento de imágenes no está configurado en el servidor.',
-      );
+      this.logger.error('Faltan las variables S3_* e IMAGENES_URL_PUBLICA.');
+      throw new ServiceUnavailableException('No se pueden guardar imágenes ahora mismo.');
     }
     await Promise.all(
       (['grande', 'chica'] as const).map((variante) =>
@@ -66,6 +67,27 @@ export class AlmacenImagenes implements OnModuleDestroy {
         ),
       ),
     );
+  }
+
+  /** Borra las dos variantes de una imagen que se reemplazó o se quitó. */
+  async borrar(clave: string): Promise<void> {
+    const cliente = this.cliente;
+    if (!cliente) return;
+    try {
+      await Promise.all(
+        (['grande', 'chica'] as const).map((variante) =>
+          cliente.send(
+            new DeleteObjectCommand({
+              Bucket: this.bucket,
+              Key: claveDeVariante(clave, variante),
+            }),
+          ),
+        ),
+      );
+    } catch (error) {
+      // Que no se caiga la operación del producto porque el bucket no respondió.
+      this.logger.warn(`No se pudo borrar la imagen ${clave}: ${String(error)}`);
+    }
   }
 
   urls(clave: string): UrlsImagen {

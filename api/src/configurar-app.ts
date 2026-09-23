@@ -1,6 +1,7 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { configurarZodEnEspanol } from '@uvm/compartido';
 import helmet from 'helmet';
+import { sinCache } from './comun/cache.js';
 import { soloMismoOrigen } from './comun/origen.js';
 import { AlmacenImagenes } from './imagenes/almacen-imagenes.js';
 
@@ -14,8 +15,9 @@ export function configurarApp(app: NestExpressApplication): void {
   configurarZodEnEspanol();
   app.setGlobalPrefix('api');
   app.disable('x-powered-by');
-  // Detrás de Cloudflare Tunnel: la IP real viene en las cabeceras del proxy.
-  app.set('trust proxy', 'loopback');
+  // La IP real la pone Cloudflare en CF-Connecting-IP (ver comun/limite-peticiones.ts);
+  // no se confía en X-Forwarded-For, que cualquiera puede escribir.
+  app.set('trust proxy', false);
   app.use(
     helmet({
       contentSecurityPolicy: {
@@ -32,4 +34,5 @@ export function configurarApp(app: NestExpressApplication): void {
     }),
   );
   app.use('/api', soloMismoOrigen);
+  app.use('/api', sinCache);
 }

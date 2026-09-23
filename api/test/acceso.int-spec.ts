@@ -27,7 +27,11 @@ describe('acceso y permisos', () => {
   it('un correo que no está dado de alta no entra', async () => {
     const respuesta = await como(app, 'extrano@correo.com').get('/yo');
     expect(respuesta.status).toBe(403);
-    expect(respuesta.body.mensaje).toMatch(/no tiene acceso/);
+    // Sin repetir el correo recibido: el mensaje es igual para cualquiera.
+    expect(respuesta.body.mensaje).toBe(
+      'No tienes acceso. Pide al administrador que te dé de alta.',
+    );
+    expect(respuesta.body.mensaje).not.toContain('extrano@correo.com');
   });
 
   it('/yo devuelve permisos y la ubicación propia', async () => {

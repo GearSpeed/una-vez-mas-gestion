@@ -24,11 +24,17 @@ if (entorno.WEB_DIST) {
   app.useStaticAssets(carpeta, {
     index: false,
     setHeaders: (respuesta, ruta) => {
-      // Los bundles llevan hash en el nombre: nunca cambian.
+      // Los bundles llevan hash en el nombre: nunca cambian. El index.html no se
+      // cachea nunca: es el que apunta a los bundles nuevos tras cada despliegue.
       const conHash = /-[A-Z0-9]{8,}\.(js|css)$/i.test(ruta);
+      const esIndice = ruta.endsWith('index.html');
       respuesta.setHeader(
         'Cache-Control',
-        conHash ? 'public, max-age=31536000, immutable' : 'public, max-age=3600',
+        esIndice
+          ? 'no-cache'
+          : conHash
+            ? 'public, max-age=31536000, immutable'
+            : 'public, max-age=3600',
       );
     },
   });

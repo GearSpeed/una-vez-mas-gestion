@@ -294,7 +294,7 @@ export const esquemaUsuario = z.object({
   correo: z.string().trim().toLowerCase().pipe(z.email('Escribe un correo válido')),
   nombre: requerido(120),
   activo: z.boolean().default(true),
-  roles: z.array(z.string().min(1)).min(1, 'Elige al menos un rol'),
+  roles: z.array(z.string().min(1).max(60)).min(1, 'Elige al menos un rol').max(20),
 });
 
 export const esquemaUbicacion = z.object({
@@ -313,7 +313,8 @@ export const esquemaPeriodo = z.object({
   hasta: esquemaFecha.optional(),
 });
 
-const pagina = z.coerce.number().int().min(1).default(1);
+// Con tope: un OFFSET enorme hace que Postgres recorra el índice entero para nada.
+const pagina = z.coerce.number().int().min(1).max(10_000).default(1);
 
 export const esquemaFiltroVentas = esquemaPeriodo.extend({
   vendedorId: idEnQuery,

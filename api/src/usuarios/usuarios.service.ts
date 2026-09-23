@@ -93,7 +93,8 @@ export class UsuariosService {
         accion: 'crear',
         entidad: 'usuario',
         entidadId: creado.id,
-        datos: { correo: datos.correo, roles: datos.roles, activo: datos.activo },
+        // Sin el correo: ya está en el usuario (entidadId) y la bitácora no se borra.
+        datos: { roles: datos.roles, activo: datos.activo },
       });
       return creado.id;
     });
@@ -142,7 +143,8 @@ export class UsuariosService {
         accion: 'actualizar',
         entidad: 'usuario',
         entidadId: id,
-        datos: { correo: datos.correo, roles: datos.roles, activo: datos.activo },
+        // Sin el correo: ya está en el usuario (entidadId) y la bitácora no se borra.
+        datos: { roles: datos.roles, activo: datos.activo },
       });
     });
     return this.obtener(id);

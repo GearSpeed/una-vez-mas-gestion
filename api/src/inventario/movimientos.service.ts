@@ -1,4 +1,9 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import {
   DECIMALES_COSTO,
   type Decimal,
@@ -158,7 +163,12 @@ export class MovimientosService {
     for (const solicitud of solicitudes) {
       const producto = porProducto.get(solicitud.productoId);
       const ubicacion = porUbicacion.get(solicitud.ubicacionId);
-      if (!producto || !ubicacion) throw new Error('Producto o ubicación sin cargar');
+      if (!producto || !ubicacion) {
+        throw new UnprocessableEntityException({
+          mensaje: 'Ese producto o esa ubicación no existen.',
+          campos: { ubicacionId: 'Elige una ubicación válida' },
+        });
+      }
 
       const k = clave(solicitud.productoId, solicitud.ubicacionId);
       const antes = enUbicacion.get(k) ?? 0;

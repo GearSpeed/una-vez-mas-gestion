@@ -82,6 +82,16 @@ export const ETIQUETAS_ESTADO: Readonly<Record<EstadoDocumento, string>> = {
 };
 
 /** Formato de los slugs: es la llave que une la BD con `products.json` del sitio. */
+/**
+ * Lo que el sitio ve de la existencia: nunca el número exacto, para no publicar el
+ * ritmo de venta ni cuánta mercancía traen cargada los vendedores.
+ */
+export const DISPONIBILIDADES = ['disponible', 'ultimas_piezas', 'agotado'] as const;
+export type Disponibilidad = (typeof DISPONIBILIDADES)[number];
+
+/** Con esta cantidad o menos, el sitio dice «últimas piezas». */
+export const PIEZAS_ULTIMAS = 5;
+
 export const PATRON_SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 /** Zona horaria del negocio: define qué es "hoy" y cómo se agrupan los reportes. */

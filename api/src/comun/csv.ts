@@ -21,7 +21,7 @@ export function aCsv<T>(filas: readonly T[], columnas: readonly ColumnaCsv<T>[])
 function celda(valor: string | number | null | undefined): string {
   if (valor === null || valor === undefined) return '';
   let texto = String(valor);
-  if (typeof valor === 'string' && /^[=+\-@]/.test(texto) && Number.isNaN(Number(texto)))
+  if (typeof valor === 'string' && /^[\s=+\-@]/.test(texto) && Number.isNaN(Number(texto)))
     texto = `'${texto}`;
   return /[",\r\n]/.test(texto) ? `"${texto.replaceAll('"', '""')}"` : texto;
 }

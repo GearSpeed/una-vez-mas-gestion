@@ -324,7 +324,10 @@ export class VentasService {
   async cancelar(usuario: UsuarioSesion, id: number, motivo: string): Promise<VentaDetalle> {
     await this.db.transaction(async (tx) => {
       const [venta] = await tx.select().from(ventas).where(eq(ventas.id, id)).for('update');
-      if (!venta) throw new NotFoundException('La venta no existe.');
+      // Una venta ajena responde igual que una que no existe.
+      if (!venta || (!usuario.puede('ventas.ver_todas') && venta.vendedorId !== usuario.id)) {
+        throw new NotFoundException('La venta no existe.');
+      }
       if (venta.estado === 'cancelado')
         throw new ConflictException('La venta ya estaba cancelada.');
       const [conDevolucion] = await tx

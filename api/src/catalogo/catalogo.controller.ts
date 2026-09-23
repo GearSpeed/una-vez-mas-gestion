@@ -11,6 +11,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import {
   type Categoria,
   type DatosCategoria,
@@ -24,6 +25,7 @@ import {
 import { RequierePermiso, UsuarioActual } from '../acceso/decoradores.js';
 import { UsuarioSesion } from '../acceso/usuario-sesion.js';
 import { ParseId, Validar } from '../comun/validar.js';
+import { LIMITE_IMAGENES } from '../comun/limite-peticiones.js';
 import { PESO_MAXIMO_IMAGEN } from '../imagenes/procesar-imagen.js';
 import { ProductosService } from './productos.service.js';
 
@@ -72,6 +74,7 @@ export class CatalogoController {
   /** Multipart: `archivo` (JPG, PNG o WebP de hasta 10 MB) y `alt`. */
   @Post('productos/:id/imagen')
   @RequierePermiso('productos.gestionar')
+  @Throttle(LIMITE_IMAGENES)
   @UseInterceptors(
     FileInterceptor('archivo', { limits: { fileSize: PESO_MAXIMO_IMAGEN, files: 1 } }),
   )

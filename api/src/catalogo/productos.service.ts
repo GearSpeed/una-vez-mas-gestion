@@ -147,6 +147,7 @@ export class ProductosService {
     const imagen = await procesarImagen(archivo);
     const clave = `productos/${id}/${imagen.huella}`;
     if (clave !== actual.imagenClave) await this.almacen.subir(clave, imagen);
+    const anterior = clave === actual.imagenClave ? null : actual.imagenClave;
     if (clave !== actual.imagenClave || alt !== actual.imagenAlt) {
       await this.db.transaction(async (tx) => {
         await tx
@@ -161,6 +162,9 @@ export class ProductosService {
           datos: { antes: actual.imagenClave, despues: clave },
         });
       });
+      // La foto anterior se va del bucket: una imagen subida por error no se queda
+      // pública para siempre.
+      if (anterior) await this.almacen.borrar(anterior);
     }
     return usuario ? this.obtener(usuario, id) : null;
   }
@@ -179,8 +183,9 @@ export class ProductosService {
     return this.obtener(usuario, id);
   }
 
-  /** El producto se queda sin imagen; el archivo sigue en el bucket. */
+  /** El producto se queda sin imagen y el archivo se borra del bucket. */
   async quitarImagen(usuario: UsuarioSesion, id: number): Promise<Producto> {
+    let borrada: string | null = null;
     await this.db.transaction(async (tx) => {
       const [actual] = await tx
         .select({ imagenClave: productos.imagenClave })
@@ -189,6 +194,7 @@ export class ProductosService {
         .for('update');
       if (!actual) throw new NotFoundException('El producto no existe.');
       if (actual.imagenClave === null) return;
+      borrada = actual.imagenClave;
       await tx
         .update(productos)
         .set({ imagenClave: null, imagenAlt: '', actualizadoEn: new Date() })
@@ -201,6 +207,7 @@ export class ProductosService {
         datos: { antes: actual.imagenClave },
       });
     });
+    if (borrada) await this.almacen.borrar(borrada);
     return this.obtener(usuario, id);
   }
 

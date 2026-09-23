@@ -6,6 +6,7 @@
 import type { Decimal } from './calculos.js';
 import type {
   CanalVenta,
+  Disponibilidad,
   EstadoDocumento,
   MetodoPago,
   MotivoAjuste,
@@ -241,6 +242,21 @@ export interface VentaDetalle extends VentaResumen {
   readonly devoluciones: readonly DevolucionResumen[];
   /** Costo de lo que se quedó el cliente y utilidad: cobrado − reembolsos − comisión − costo. */
   readonly costos?: { readonly costoTotal: Decimal; readonly utilidad: Decimal };
+}
+
+/**
+ * Lo único que sale sin identidad: lo que el sitio necesita para su catálogo. Sin
+ * costos, sin ids internos y sin la existencia exacta (ver `docs/contrato-sitio.md`).
+ */
+export interface ProductoPublico {
+  readonly slug: string;
+  readonly nombre: string;
+  readonly categoria: string;
+  readonly presentacion: string | null;
+  /** `null` = «Consulta precio». */
+  readonly precio: Decimal | null;
+  readonly disponibilidad: Disponibilidad;
+  readonly imagen: ImagenProducto | null;
 }
 
 /** Lo que retiene la entidad por cobrar con un método de pago (hoy: tarjeta, Mercado Pago). */
