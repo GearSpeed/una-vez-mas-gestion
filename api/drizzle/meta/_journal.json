@@ -43,6 +43,13 @@
       "when": 1790096856439,
       "tag": "0005_imagenes_de_productos",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790179221468,
+      "tag": "0006_endurecer_permisos_y_vistas",
+      "breakpoints": true
     }
   ]
 }

@@ -19,13 +19,15 @@ describe('la base de datos', () => {
   let app: INestApplication;
   let sitio: BaseDatos;
   let api: BaseDatos;
+  let owner: BaseDatos;
   beforeAll(async () => {
     app = await crearApp();
     sitio = conexion('sitio');
     api = conexion('app');
+    owner = conexion('owner');
   });
   afterAll(async () => {
-    await Promise.all([app.close(), sitio.$client.end(), api.$client.end()]);
+    await Promise.all([app.close(), sitio.$client.end(), api.$client.end(), owner.$client.end()]);
   });
   beforeEach(async () => {
     await reiniciarBd();
@@ -54,6 +56,7 @@ describe('la base de datos', () => {
           imagen: null,
           imagen_chica: null,
           imagen_alt: null,
+          disponibilidad: 'disponible',
         },
       ]);
     });
@@ -92,6 +95,37 @@ describe('la base de datos', () => {
 
     it('no puede crear tablas', async () => {
       await expect(api.execute(sql`create table gestion.intrusa (id int)`)).rejects.toThrow();
+    });
+
+    it('las tablas y vistas que vengan después no le dan escritura sola', async () => {
+      // Antes, los permisos por omisión repartían INSERT/UPDATE: una vista simple
+      // sobre `movimientos` habría devuelto el UPDATE que se revoca arriba.
+      const { rows } = await owner.execute(
+        sql`select defaclobjtype, defaclacl::text from pg_default_acl`,
+      );
+      for (const fila of rows) {
+        expect(String(fila['defaclacl'])).not.toMatch(/gestion_app=[^/]*[wa]/);
+      }
+    });
+
+    it('la vista interna de ventas corre con los permisos de quien consulta', async () => {
+      const { rows } = await owner.execute(
+        sql`select reloptions::text from pg_class where relname = 'venta_lineas_netas'`,
+      );
+      expect(String(rows[0]?.['reloptions'])).toContain('security_invoker=true');
+    });
+
+    it('los roles traen sus límites de consulta y de conexiones', async () => {
+      const { rows } = await owner.execute(
+        sql`select rolname, rolconnlimit, array_to_string(rolconfig, ',') as config
+            from pg_roles where rolname in ('gestion_app', 'sitio_lectura')`,
+      );
+      const porRol = new Map(rows.map((f) => [String(f['rolname']), f]));
+      expect(String(porRol.get('gestion_app')?.['config'])).toContain('statement_timeout=20s');
+      expect(porRol.get('gestion_app')?.['rolconnlimit']).toBe(25);
+      expect(String(porRol.get('sitio_lectura')?.['config'])).toContain(
+        'default_transaction_read_only=on',
+      );
     });
   });
 
