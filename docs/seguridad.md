@@ -11,7 +11,7 @@ infraestructura del servidor y los datos.
 | Quién entra      | Cloudflare Access delante de todo; la app además valida el JWT que firma Access                         |
 | Qué puede hacer  | Permisos por rol, con un guard que niega toda ruta que no declare cuál exige                            |
 | Qué datos recibe | La API filtra costos y márgenes, y un vendedor solo ve sus ventas                                       |
-| La red           | El servidor no abre puertos: `cloudflared` sale hacia Cloudflare, nadie entra                           |
+| La red           | La aplicación no abre ningún puerto: `cloudflared` sale hacia Cloudflare, nadie entra                   |
 | La base          | Tres roles separados; la API no borra y no puede reescribir el kardex                                   |
 | El sitio público | Una ruta de solo lectura, cacheada; el sitio nunca toca la base                                         |
 | Las fotos        | Bucket privado de R2, servido por `img.unavezmasmx.com`; la app reescribe cada imagen y le quita el GPS |
@@ -24,8 +24,12 @@ infraestructura del servidor y los datos.
   hacia Postgres para Hyperdrive: eso dejaba el motor de base de datos alcanzable desde la
   red de Cloudflare, protegido solo por una credencial estática, y un error de
   configuración lo habría dejado abierto sin que nada se rompiera a la vista.
-- **SSH por el túnel de Cloudflare.** El puerto 22 se cierra en cuanto el túnel funciona;
-  la vía de emergencia es la consola VNC del panel de Contabo.
+- **Los puertos abiertos son los mínimos y están controlados.** El servidor es compartido
+  (EasyPanel, n8n y un servidor de correo), así que «cero puertos» no aplica: quedan
+  abiertos 22, 80, 443 y los del correo, y nada más. El panel de EasyPanel, que manda sobre
+  Docker, se cerró a internet y solo se alcanza por Cloudflare o por un túnel SSH.
+- **SSH solo con llave y nunca como root**, con `fail2ban` vigilando y el firewall negando
+  por omisión. La vía de emergencia es la consola VNC del panel de Contabo.
 - **Al sitio no se le publica la existencia exacta**, solo `disponible`, `ultimas_piezas` o
   `agotado`: con el número exacto, cualquiera que consulte dos veces al día estima las
   ventas del negocio y cuánta mercancía traen los vendedores.
@@ -95,10 +99,11 @@ infraestructura del servidor y los datos.
 Estos pasos no viven en el repositorio; están detallados en
 [despliegue.md](despliegue.md), sección «Endurecer el servidor».
 
-1. Usuario sin privilegios, SSH solo con llave y sin root.
-2. Firewall que deniega todo lo entrante.
-3. Actualizaciones de seguridad automáticas.
-4. SSH por el túnel y cierre del puerto 22, con la consola VNC de Contabo probada antes.
+1. Usuario sin privilegios, SSH solo con llave y sin root. **Hecho.**
+2. Firewall que deniega todo lo entrante, más la regla de `DOCKER-USER` que cierra el panel
+   de EasyPanel. **Hecho.**
+3. Actualizaciones de seguridad automáticas, `fail2ban` y memoria de intercambio. **Hecho.**
+4. El panel de EasyPanel detrás de Cloudflare Access, por el mismo túnel de la aplicación.
 5. `.env` en modo 600.
 6. Dos políticas de Access: sesión corta con doble factor para administradores, sesión
    larga para vendedores.
