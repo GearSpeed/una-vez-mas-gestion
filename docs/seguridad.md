@@ -109,8 +109,8 @@ Estos pasos no viven en el repositorio; están detallados en
    larga para vendedores.
 7. Conectar `img.unavezmasmx.com` al bucket de R2 y correr `npm run probar-imagenes`:
    confirma que las fotos se sirven y que sin llaves nadie lista ni escribe.
-8. Llave de Backblaze sin permiso de borrado, con Object Lock: es lo que salva de un
-   ransomware.
+8. Bucket de respaldos privado, con retención de 30 días y su propio token: es lo que
+   salva de un ransomware. Y la contraseña del cifrado, guardada fuera del servidor.
 9. Restaurar un respaldo antes de dar el sistema por bueno.
 
 ## Mantenimiento

@@ -39,7 +39,7 @@ find "$DESTINO" -name 'gestion-*.dump' -mtime +3 -delete
 find "$DESTINO" -name 'gestion-*.dump.parcial' -mtime +1 -delete
 
 if command -v rclone > /dev/null; then
-  # La configuración de rclone (llaves de B2 y clave del cifrado) es de root y
+  # La configuración de rclone (llaves de R2 y clave del cifrado) es de root y
   # se indica explícitamente, para que el cron no dependa de quién lo ejecute.
   export RCLONE_CONFIG="${RCLONE_CONFIG:-/root/.config/rclone/rclone.conf}"
   rclone copy "$ARCHIVO" "$REMOTO" --immutable

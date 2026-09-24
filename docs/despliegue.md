@@ -253,20 +253,87 @@ Para volver atrás, se pone el SHA anterior y se repite. (Con `COMPOSE_FILE` en 
 
 ## 7. Respaldos
 
-`ops/respaldar.sh` hace un `pg_dump`, guarda 14 días en `respaldos/` y sube una copia a
-Backblaze B2 con rclone. El respaldo lleva costos y proveedores, así que el remoto debe
-ser un **`crypt` de rclone** sobre B2 (el script usa `b2cifrado:gestion` por omisión).
+`ops/respaldar.sh` hace un `pg_dump`, lo guarda 3 días en `respaldos/` y sube una copia
+**cifrada** a un segundo bucket de R2. El respaldo lleva costos y proveedores: no debe
+quedar legible ni en el servidor ajeno ni en la nube.
 
-```bash
-rclone config                                     # remoto b2 y, encima, uno crypt
-crontab -e
-# 15 3 * * *  /srv/una-vez-mas-gestion/ops/respaldar.sh >> /var/log/respaldo-gestion.log 2>&1
+### El bucket
+
+En R2, un bucket aparte del de las imágenes, llamado `respaldos`:
+
+- **Privado**, sin dominio propio: nadie debe poder leerlo desde internet.
+- **Bucket Lock Rule** con retención de **30 días**. Eso impide borrar o sobrescribir un
+  respaldo durante ese mes, incluso con las llaves correctas: es lo que lo salva de un
+  ransomware que llegue al servidor.
+- Su **propio token** (`servidor-respaldos`), limitado a ese bucket y con filtro de IP a
+  las del servidor. La llave de las imágenes no debe poder tocar los respaldos, ni al
+  revés.
+
+### rclone
+
+Hacen falta **dos remotos**: el bucket, y una capa `crypt` encima que cifra el contenido y
+también el nombre de los archivos.
+
+```ini
+# /root/.config/rclone/rclone.conf   (chmod 600)
+[r2respaldos]
+type = s3
+provider = Cloudflare
+access_key_id = <del token servidor-respaldos>
+secret_access_key = <del token servidor-respaldos>
+endpoint = https://<id-de-cuenta>.r2.cloudflarestorage.com
+region = auto
+no_check_bucket = true
+
+[respaldocifrado]
+type = crypt
+remote = r2respaldos:respaldos
+password = <rclone obscure ...>
+password2 = <rclone obscure ...>
 ```
 
-Una vez al mes, probar que el respaldo se restaura (no toca producción):
+Y en el `.env`: `RESPALDOS_REMOTO=respaldocifrado:` y
+`RCLONE_CONFIG=/root/.config/rclone/rclone.conf`.
+
+> **La contraseña del `crypt` es irrecuperable.** Sin ella, los respaldos de la nube no se
+> pueden leer: ni Cloudflare ni nadie puede ayudarte. Guárdala fuera del servidor, en un
+> gestor de contraseñas. Se obtiene con `rclone reveal` sobre los valores del archivo.
+
+Usa **rclone al día**, no el de los repositorios de Ubuntu: las versiones viejas fallan en
+cada subida a R2 con «NotImplemented» y reintentan.
 
 ```bash
-ops/probar-respaldo.sh
+VER=$(curl -s https://downloads.rclone.org/version.txt | grep -oE 'v[0-9.]+')
+curl -fLO "https://downloads.rclone.org/$VER/rclone-$VER-linux-amd64.deb"
+curl -fLO "https://downloads.rclone.org/$VER/SHA256SUMS"
+grep "rclone-$VER-linux-amd64.deb" SHA256SUMS | sha256sum -c -   # debe decir OK
+sudo dpkg -i "rclone-$VER-linux-amd64.deb"
+```
+
+### Cron
+
+```bash
+sudo crontab -e
+# 15 3 * * *  /srv/una-vez-mas-gestion/ops/respaldar.sh    >> /var/log/respaldo-gestion.log 2>&1
+# 30 4 1 * *  /srv/una-vez-mas-gestion/ops/purgar-bitacora.sh >> /var/log/respaldo-gestion.log 2>&1
+```
+
+### Probar que sirve
+
+Una vez al mes, y **siempre** antes de dar por bueno el sistema. Restaura en un PostgreSQL
+desechable, sin tocar producción:
+
+```bash
+sudo ops/probar-respaldo.sh                      # el último respaldo local
+```
+
+Y de vez en cuando, la prueba completa: bajarlo de la nube, descifrarlo y restaurarlo, que
+es lo que de verdad pasaría en un desastre.
+
+```bash
+ULTIMO=$(sudo rclone lsf respaldocifrado: | grep '\.dump$' | tail -1)
+sudo rclone copy "respaldocifrado:$ULTIMO" /tmp/prueba/
+sudo ops/probar-respaldo.sh "/tmp/prueba/$ULTIMO"
 ```
 
 ## 8. Día a día
@@ -404,5 +471,6 @@ curl -s -o /dev/null -w '%{http_code}\n' -X PUT --data x "$IMAGENES_URL_PUBLICA/
 - [ ] El respaldo corre de noche, y `ops/probar-respaldo.sh` funcionó al menos una vez.
 - [ ] **El servidor no expone ningún puerto**, ni siquiera SSH (entra por el túnel).
 - [ ] El bucket de imágenes es de lectura pública **y nada más**: comprobado con `curl`.
-- [ ] La llave de Backblaze no puede borrar, y el bucket tiene Object Lock.
+- [ ] El bucket de respaldos es privado, con regla de retención de 30 días y su propio token.
+- [ ] La contraseña del `crypt` está guardada **fuera** del servidor.
 - [ ] `docker compose ps` no muestra ningún puerto publicado.
