@@ -48,6 +48,41 @@ ip6tables -I DOCKER-USER 1 -i eth0 -p tcp --dport 3000 -j DROP
 Los puertos de Docker Swarm (2377 y 7946) sí los cierra `ufw`, porque los abre el propio
 Docker en el sistema y no un contenedor.
 
+### Cerrar el panel no es cerrar su puerto
+
+Tapar el 3000 deja el panel fuera de alcance **por su puerto**, pero EasyPanel también se
+sirve por el 443 de Traefik, y por tres caminos que vuelve a crear solo cada vez que
+cambia algo: su dominio de fábrica (`<id>.easypanel.host`), el dominio propio que se le
+haya puesto, y la **IP pelona** (`https://<ip>`, con `HostRegexp`). Ese 443 no se puede
+cerrar con el firewall: es el mismo que usa el correo.
+
+La salida es un archivo aparte en el directorio que Traefik lee en caliente,
+`/etc/easypanel/traefik/config/zz-panel-cerrado.yaml`. EasyPanel reescribe `main.yaml`,
+pero no toca lo demás:
+
+```yaml
+http:
+  services:
+    sin-salida:
+      loadBalancer:
+        servers:
+          - url: 'http://127.0.0.1:1'
+  routers:
+    https-panel-cerrado:
+      rule: 'Host(`<id>.easypanel.host`) || HostRegexp(`^[0-9.]+$`)'
+      priority: 10000 # gana sobre las rutas de EasyPanel
+      entryPoints: ['https']
+      service: sin-salida
+      tls: {}
+```
+
+Y el gemelo en `http`. Desde fuera, esos tres nombres contestan 502 y el panel solo entra
+por `panel.unavezmasmx.com`, con Access.
+
+> No se usa una lista de IPs permitidas: el `entryPoint` de EasyPanel tiene
+> `forwardedHeaders.insecure`, así que cualquiera puede mandar un `X-Forwarded-For` y
+> aparentar venir de dentro. Un servicio que no existe no se puede fingir.
+
 ### Memoria
 
 Con 8 GB compartidos entre el correo, n8n y la aplicación, los límites de

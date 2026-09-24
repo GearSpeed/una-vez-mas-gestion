@@ -27,7 +27,8 @@ infraestructura del servidor y los datos.
 - **Los puertos abiertos son los mínimos y están controlados.** El servidor es compartido
   (EasyPanel, n8n y un servidor de correo), así que «cero puertos» no aplica: quedan
   abiertos 22, 80, 443 y los del correo, y nada más. El panel de EasyPanel, que manda sobre
-  Docker, se cerró a internet y solo se alcanza por Cloudflare o por un túnel SSH.
+  Docker, se cerró a internet —su puerto, su dominio de fábrica y la IP pelona— y solo se
+  alcanza por Cloudflare Access o por un túnel SSH.
 - **SSH solo con llave y nunca como root**, con `fail2ban` vigilando y el firewall negando
   por omisión. La vía de emergencia es la consola VNC del panel de Contabo.
 - **Al sitio no se le publica la existencia exacta**, solo `disponible`, `ultimas_piezas` o
@@ -103,7 +104,8 @@ Estos pasos no viven en el repositorio; están detallados en
 2. Firewall que deniega todo lo entrante, más la regla de `DOCKER-USER` que cierra el panel
    de EasyPanel. **Hecho.**
 3. Actualizaciones de seguridad automáticas, `fail2ban` y memoria de intercambio. **Hecho.**
-4. El panel de EasyPanel detrás de Cloudflare Access, por el mismo túnel de la aplicación.
+4. El panel de EasyPanel detrás de Cloudflare Access, por el mismo túnel de la aplicación,
+   y sus otras puertas (dominio de fábrica e IP pelona) cerradas en Traefik. **Hecho.**
 5. `.env` en modo 600.
 6. Dos políticas de Access: sesión corta con doble factor para administradores, sesión
    larga para vendedores.
