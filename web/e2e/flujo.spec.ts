@@ -27,7 +27,15 @@ test('precio, compra, carga y venta de punta a punta', async ({ page, request })
   await esperarCarga(page);
   await page.getByRole('button', { name: `Editar ${producto}` }).click();
   await page.getByLabel('Precio de venta').fill('28');
+  // Se espera la respuesta del guardado, y no solo el aviso: si la API contesta un
+  // error o se tarda, el fallo dice cuál de las dos cosas pasó, en vez de dejar
+  // «no apareció el aviso», que puede ser cualquiera de las dos.
+  const guardado = page.waitForResponse(
+    (respuesta) =>
+      respuesta.request().method() === 'PUT' && respuesta.url().includes('/api/productos/'),
+  );
   await page.getByRole('button', { name: 'Guardar' }).click();
+  expect((await guardado).status()).toBe(200);
   await expect(page.getByText(`${producto} guardado.`)).toBeVisible();
 
   // 2. El almacén registra la compra con su viaje.

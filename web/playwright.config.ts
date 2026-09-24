@@ -12,6 +12,10 @@ export default defineConfig({
   workers: 1,
   reporter: [['list']],
   timeout: 30_000,
+  // Los runners de CI son mucho más lentos que esta máquina: la API, PostgreSQL,
+  // MinIO y el navegador se pelean los mismos núcleos. Con los 5 s de fábrica, una
+  // aserción legítima se cae por lenta.
+  expect: { timeout: 10_000 },
   use: {
     baseURL: 'http://localhost:3100',
     locale: 'es-MX',
