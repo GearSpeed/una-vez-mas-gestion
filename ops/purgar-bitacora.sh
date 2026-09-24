@@ -10,7 +10,12 @@ cd "$(dirname "$0")/.."
 
 MESES="${BITACORA_MESES:-24}"
 
-docker compose -f compose.prod.yml exec -T db \
+# La contraseña sale del .env: la base la exige hasta por el socket local.
+set -a
+. ./.env
+set +a
+
+docker compose -f compose.prod.yml exec -T -e PGPASSWORD="$GESTION_OWNER_PASSWORD" db \
   psql -U gestion_owner -d gestion -v ON_ERROR_STOP=1 -c \
   "DELETE FROM gestion.bitacora WHERE registrado_en < now() - interval '${MESES} months'"
 

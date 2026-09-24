@@ -18,10 +18,16 @@ PARCIAL="$ARCHIVO.parcial"
 
 compose() { docker compose -f compose.prod.yml "$@"; }
 
+# Las credenciales salen del .env del servidor: la base pide contraseña incluso por el
+# socket local (scram-sha-256), así que pg_dump no entra sin ella.
+set -a
+. ./.env
+set +a
+
 # Se escribe a un archivo aparte y solo se promueve si el dump se puede leer
 # completo: si pg_dump se corta a media copia, no queda un respaldo inservible con
 # nombre de bueno.
-compose exec -T db pg_dump -U postgres -d gestion -Fc > "$PARCIAL"
+compose exec -T -e PGPASSWORD="$POSTGRES_PASSWORD" db pg_dump -U postgres -d gestion -Fc > "$PARCIAL"
 if ! [ -s "$PARCIAL" ] || ! compose exec -T db pg_restore -l < "$PARCIAL" > /dev/null; then
   echo "El respaldo salió incompleto: no se guarda." >&2
   rm -f "$PARCIAL"
