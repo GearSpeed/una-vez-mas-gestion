@@ -17,6 +17,44 @@ Servicios de `compose.prod.yml`:
 | `app`         | La API de NestJS, que también sirve el front ya compilado.              |
 | `cloudflared` | El túnel de Cloudflare.                                                 |
 
+## 0. Un servidor compartido
+
+Este VPS no es exclusivo de la aplicación: ya corre **EasyPanel** (con Docker en modo
+Swarm y Traefik), **n8n** con su propio PostgreSQL y un **servidor de correo**. La
+aplicación convive con todo eso:
+
+- **No se toca nada de lo que ya está.** La aplicación trae su propio `docker compose`,
+  su propia base de datos y su propio túnel, y **no publica ningún puerto**: no hay
+  forma de que choque con Traefik ni con el correo.
+- **Lo que queda abierto a internet** es lo que necesitan esos servicios: 22 (SSH), 80 y
+  443 (Traefik) y los ocho del correo. Nada más.
+- **El panel de EasyPanel no se expone.** Controla Docker, así que quien entrara ahí
+  mandaría en el servidor entero. Se cierra con una regla de firewall y se alcanza por el
+  túnel de Cloudflare (o, de emergencia, por un túnel SSH:
+  `ssh -N -L 3300:localhost:3000 despliegue@<ip>`).
+
+### El firewall no basta con Docker
+
+`ufw` **no filtra los puertos que publica un contenedor**: ese tráfico no pasa por sus
+reglas. Para cerrarlos hay que escribir en la cadena `DOCKER-USER`, que sí lo ve. En este
+servidor eso vive en `/usr/local/sbin/cerrar-panel.sh`, lanzado por el servicio
+`cerrar-panel.service` después de Docker, para que sobreviva a los reinicios:
+
+```sh
+iptables  -I DOCKER-USER 1 -i eth0 -p tcp --dport 3000 -j DROP
+ip6tables -I DOCKER-USER 1 -i eth0 -p tcp --dport 3000 -j DROP
+```
+
+Los puertos de Docker Swarm (2377 y 7946) sí los cierra `ufw`, porque los abre el propio
+Docker en el sistema y no un contenedor.
+
+### Memoria
+
+Con 8 GB compartidos entre el correo, n8n y la aplicación, los límites de
+`compose.prod.yml` están ajustados a eso (base de datos 1 GB, aplicación 768 MB, túnel
+256 MB) y el servidor lleva 2 GB de intercambio: sin él, un pico de cualquier servicio
+tumba a los demás.
+
 ## 1. Servidor
 
 - El VPS de Contabo, con Docker Engine y el plugin `docker compose`.
