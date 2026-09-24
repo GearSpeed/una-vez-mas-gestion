@@ -24,21 +24,22 @@ services:
       timeout: 3s
       retries: 20
 
-  # El bucket de las imágenes (en producción, Object Storage de Contabo). La primera
-  # vez: `npm run preparar-bucket` crea el bucket y lo deja de lectura pública.
-  # Consola web en http://localhost:9001.
+  # El bucket de las imágenes (en producción, Cloudflare R2). La primera vez:
+  # `npm run preparar-bucket` crea el bucket y lo deja de lectura pública.
+  # Sin consola web: MinIO la quitó de su versión libre; para mirar dentro está
+  # `npm run probar-imagenes` o el propio bucket por HTTP.
   minio:
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    # MinIO empaquetado por Bitnami: las imágenes oficiales dejaron de poder
+    # descargarse sin credenciales. Es el mismo servidor.
+    image: bitnamilegacy/minio:latest
     restart: unless-stopped
-    command: server /data --console-address :9001
     environment:
       MINIO_ROOT_USER: ${S3_ACCESS_KEY:?Define S3_ACCESS_KEY en .env}
       MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?Define S3_SECRET_KEY en .env}
     ports:
       - '127.0.0.1:9000:9000'
-      - '127.0.0.1:9001:9001'
     volumes:
-      - imagenes:/data
+      - imagenes:/bitnami/minio/data
 
 volumes:
   datos:

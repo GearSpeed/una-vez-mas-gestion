@@ -47,6 +47,10 @@ npm run subir-imagenes -- ../una_vez_mas_web_site  # opcional: las fotos del sit
 npm run dev                  # API en :3001 y app en http://localhost:4300
 ```
 
+El MinIO local usa la imagen `bitnamilegacy/minio`: MinIO dejó de publicar imágenes que se
+puedan descargar sin credenciales, y esa copia sí es pública. Es el mismo servidor, y su
+consola web ya no existe (MinIO la quitó de la versión libre).
+
 Si tu Docker Desktop está apagado y usas el motor del sistema, `docker compose` falla con
 «Cannot connect to the Docker daemon». Se arregla una sola vez con
 `docker context use default`, o antepone `DOCKER_HOST=unix:///var/run/docker.sock` a los

@@ -1,7 +1,7 @@
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
 import { resolve } from 'node:path';
-import { MinioContainer } from '@testcontainers/minio';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
+import { GenericContainer, Wait } from 'testcontainers';
 
 // Playwright carga este archivo como CommonJS (web/ no es "type": "module").
 const RAIZ = resolve(__dirname, '../..');
@@ -14,9 +14,12 @@ export const ADMIN = 'admin@prueba.local';
  * front compilado en el puerto 3100. Devuelve la función que apaga todo.
  */
 export default async function preparar(): Promise<() => Promise<void>> {
-  const minio = new MinioContainer('quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z')
-    .withUsername('pruebas')
-    .withPassword('pruebas-secreto')
+  // MinIO empaquetado por Bitnami: las imágenes oficiales ya no se pueden descargar
+  // sin credenciales (ver api/test/preparar-bd.ts).
+  const minio = new GenericContainer('bitnamilegacy/minio:latest')
+    .withEnvironment({ MINIO_ROOT_USER: 'pruebas', MINIO_ROOT_PASSWORD: 'pruebas-secreto' })
+    .withExposedPorts(9000)
+    .withWaitStrategy(Wait.forHttp('/minio/health/live', 9000))
     .start();
   const contenedor = await new PostgreSqlContainer('postgres:18-alpine')
     .withEnvironment({
@@ -35,6 +38,7 @@ export default async function preparar(): Promise<() => Promise<void>> {
     .start();
   const base = `${contenedor.getHost()}:${contenedor.getPort()}/gestion`;
   const s3 = await minio;
+  const urlMinio = `http://${s3.getHost()}:${s3.getMappedPort(9000)}`;
 
   const entorno = {
     ...process.env,
@@ -48,11 +52,11 @@ export default async function preparar(): Promise<() => Promise<void>> {
     PUERTO: '3100',
     WEB_DIST: resolve(RAIZ, 'web/dist/web/browser'),
     LOG_NIVEL: 'warn',
-    S3_ENDPOINT: s3.getConnectionUrl(),
+    S3_ENDPOINT: urlMinio,
     S3_BUCKET: 'imagenes',
-    S3_ACCESS_KEY: s3.getUsername(),
-    S3_SECRET_KEY: s3.getPassword(),
-    IMAGENES_URL_PUBLICA: `${s3.getConnectionUrl()}/imagenes`,
+    S3_ACCESS_KEY: 'pruebas',
+    S3_SECRET_KEY: 'pruebas-secreto',
+    IMAGENES_URL_PUBLICA: `${urlMinio}/imagenes`,
   };
   const api = resolve(RAIZ, 'api/dist');
   execFileSync('node', [resolve(api, 'cli/migrar.js')], { env: entorno, stdio: 'inherit' });

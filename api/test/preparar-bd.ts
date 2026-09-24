@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
-import { MinioContainer } from '@testcontainers/minio';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
+import { GenericContainer, Wait } from 'testcontainers';
 import type { TestProject } from 'vitest/node';
 import { migrar } from '../src/db/migrar.js';
 import { prepararBucketPublico } from '../src/imagenes/preparar-bucket.js';
@@ -26,7 +26,22 @@ declare module 'vitest' {
   }
 }
 
-export const IMAGEN_MINIO = 'quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z';
+/**
+ * MinIO, empaquetado por Bitnami: las imágenes oficiales dejaron de poder
+ * descargarse sin credenciales, y esta copia sí es pública. Es el mismo servidor,
+ * así que se comporta igual (política del bucket incluida).
+ */
+export const IMAGEN_MINIO = 'bitnamilegacy/minio:latest';
+export const USUARIO_MINIO = 'pruebas';
+export const CLAVE_MINIO = 'pruebas-secreto';
+
+/** Un MinIO listo para usar, con la espera a que conteste su chequeo de salud. */
+export function contenedorMinio(): GenericContainer {
+  return new GenericContainer(IMAGEN_MINIO)
+    .withEnvironment({ MINIO_ROOT_USER: USUARIO_MINIO, MINIO_ROOT_PASSWORD: CLAVE_MINIO })
+    .withExposedPorts(9000)
+    .withWaitStrategy(Wait.forHttp('/minio/health/live', 9000));
+}
 
 /**
  * Levanta un PostgreSQL 18 real con el mismo script de roles que producción
@@ -36,10 +51,7 @@ export const IMAGEN_MINIO = 'quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z';
  *   DOCKER_HOST=unix:///var/run/docker.sock npm run test:integracion
  */
 export default async function preparar(proyecto: TestProject) {
-  const minio = new MinioContainer(IMAGEN_MINIO)
-    .withUsername('pruebas')
-    .withPassword('pruebas-secreto')
-    .start();
+  const minio = contenedorMinio().start();
   const contenedor = await new PostgreSqlContainer('postgres:18-alpine')
     .withEnvironment({
       GESTION_OWNER_PASSWORD: 'owner',
@@ -67,10 +79,10 @@ export default async function preparar(proyecto: TestProject) {
 
   const s3 = await minio;
   const bucket: Bucket = {
-    endpoint: s3.getConnectionUrl(),
+    endpoint: `http://${s3.getHost()}:${s3.getMappedPort(9000)}`,
     bucket: 'imagenes',
-    accessKey: s3.getUsername(),
-    secretKey: s3.getPassword(),
+    accessKey: USUARIO_MINIO,
+    secretKey: CLAVE_MINIO,
   };
   await prepararBucketPublico({ ...bucket, region: 'us-east-1' });
   proyecto.provide('bucket', bucket);
