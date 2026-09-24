@@ -19,10 +19,17 @@ docker run --rm -d --name "$CONTENEDOR" \
   -e POSTGRES_PASSWORD="$(openssl rand -hex 16)" \
   --network none postgres:18-alpine > /dev/null
 
-for _ in $(seq 30); do
-  docker exec "$CONTENEDOR" pg_isready -U postgres > /dev/null 2>&1 && break
+# `pg_isready` dice que el puerto contesta, pero el servidor todavía puede estar
+# arrancando: se espera hasta que acepte una consulta de verdad.
+listo=no
+for _ in $(seq 60); do
+  if docker exec "$CONTENEDOR" psql -U postgres -d postgres -c 'select 1' > /dev/null 2>&1; then
+    listo=si
+    break
+  fi
   sleep 1
 done
+[ "$listo" = si ] || { echo "El PostgreSQL de prueba no arrancó." >&2; exit 1; }
 
 docker exec -i "$CONTENEDOR" pg_restore -U postgres -d postgres --no-owner --no-privileges \
   < "$ARCHIVO"
