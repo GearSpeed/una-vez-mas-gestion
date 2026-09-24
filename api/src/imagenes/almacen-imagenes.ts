@@ -1,4 +1,4 @@
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, PutObjectCommand, type S3Client } from '@aws-sdk/client-s3';
 import {
   Inject,
   Injectable,
@@ -7,6 +7,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ENTORNO, type Entorno } from '../config/entorno.js';
+import { crearClienteS3 } from './cliente-s3.js';
 import { claveDeVariante, type ImagenProcesada } from './procesar-imagen.js';
 
 export interface UrlsImagen {
@@ -32,14 +33,12 @@ export class AlmacenImagenes implements OnModuleDestroy {
     this.base = entorno.IMAGENES_URL_PUBLICA ?? '';
     this.cliente =
       entorno.S3_ENDPOINT && entorno.S3_ACCESS_KEY && entorno.S3_SECRET_KEY
-        ? new S3Client({
+        ? crearClienteS3({
             endpoint: entorno.S3_ENDPOINT,
             region: entorno.S3_REGION,
-            forcePathStyle: true,
-            credentials: {
-              accessKeyId: entorno.S3_ACCESS_KEY,
-              secretAccessKey: entorno.S3_SECRET_KEY,
-            },
+            bucket: this.bucket,
+            accessKey: entorno.S3_ACCESS_KEY,
+            secretKey: entorno.S3_SECRET_KEY,
           })
         : null;
   }

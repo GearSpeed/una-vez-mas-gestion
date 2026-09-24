@@ -35,12 +35,12 @@ export const IMAGEN_MINIO = 'bitnamilegacy/minio:latest';
 export const USUARIO_MINIO = 'pruebas';
 export const CLAVE_MINIO = 'pruebas-secreto';
 
-/** Un MinIO listo para usar, con la espera a que conteste su chequeo de salud. */
+/** Un MinIO listo para usar, esperando a que pueda atender de verdad: `ready`, no `live`. */
 export function contenedorMinio(): GenericContainer {
   return new GenericContainer(IMAGEN_MINIO)
     .withEnvironment({ MINIO_ROOT_USER: USUARIO_MINIO, MINIO_ROOT_PASSWORD: CLAVE_MINIO })
     .withExposedPorts(9000)
-    .withWaitStrategy(Wait.forHttp('/minio/health/live', 9000));
+    .withWaitStrategy(Wait.forHttp('/minio/health/ready', 9000));
 }
 
 /**

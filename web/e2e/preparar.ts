@@ -19,7 +19,7 @@ export default async function preparar(): Promise<() => Promise<void>> {
   const minio = new GenericContainer('bitnamilegacy/minio:latest')
     .withEnvironment({ MINIO_ROOT_USER: 'pruebas', MINIO_ROOT_PASSWORD: 'pruebas-secreto' })
     .withExposedPorts(9000)
-    .withWaitStrategy(Wait.forHttp('/minio/health/live', 9000))
+    .withWaitStrategy(Wait.forHttp('/minio/health/ready', 9000))
     .start();
   const contenedor = await new PostgreSqlContainer('postgres:18-alpine')
     .withEnvironment({
