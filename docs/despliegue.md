@@ -76,8 +76,14 @@ http:
       tls: {}
 ```
 
-Y el gemelo en `http`. Desde fuera, esos tres nombres contestan 502 y el panel solo entra
+Y el gemelo en `http`. Desde fuera, esos nombres ya no sirven nada y el panel solo entra
 por `panel.unavezmasmx.com`, con Access.
+
+Dos de esas tres rutas sí se pueden quitar de raíz, y es mejor hacerlo: en el panel,
+**Settings → Server → General → Panel Domain**, se vacía el **Custom Domain** (si quedó
+uno inválido, además deja a Traefik pidiendo un certificado imposible cada pocos minutos)
+y se apaga el interruptor **Serve on IP address**. La del dominio de fábrica no se puede
+quitar: para esa, el archivo de arriba es la única salida.
 
 > No se usa una lista de IPs permitidas: el `entryPoint` de EasyPanel tiene
 > `forwardedHeaders.insecure`, así que cualquiera puede mandar un `X-Forwarded-For` y
