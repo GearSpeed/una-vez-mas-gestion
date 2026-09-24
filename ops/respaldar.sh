@@ -2,27 +2,28 @@
 # Respaldo de la BD de producción. Pensado para el cron del servidor (como root):
 #   15 3 * * *  /srv/una-vez-mas-gestion/ops/respaldar.sh >> /var/log/respaldo-gestion.log 2>&1
 #
-# Guarda un pg_dump (formato custom) en respaldos/, borra los de más de 3 días y
-# sube una copia a Backblaze B2 con rclone, a un remoto `crypt`: el respaldo lleva
-# costos y proveedores, no debe quedar legible ni en la nube ni en el servidor.
+# Guarda un pg_dump (formato custom) en respaldos/, borra los de más de 3 días y sube
+# una copia cifrada con rclone al destino que indique RESPALDOS_REMOTO (un remoto
+# `crypt`): el respaldo lleva costos y proveedores, y no debe quedar legible ni en la
+# nube ni en el servidor.
 set -euo pipefail
 umask 077   # el dump solo lo lee quien corre el respaldo
 cd "$(dirname "$0")/.."
 
+# El .env manda: trae las credenciales de la base (que pide contraseña incluso por el
+# socket local) y, si se define, el destino remoto del respaldo.
+set -a
+. ./.env
+set +a
+
 DESTINO="${RESPALDOS_DIR:-./respaldos}"
-REMOTO="${RESPALDOS_REMOTO:-b2cifrado:gestion}"
+REMOTO="${RESPALDOS_REMOTO:-respaldocifrado:}"
 mkdir -p "$DESTINO"
 chmod 700 "$DESTINO"
 ARCHIVO="$DESTINO/gestion-$(date +%Y-%m-%d_%H%M).dump"
 PARCIAL="$ARCHIVO.parcial"
 
 compose() { docker compose -f compose.prod.yml "$@"; }
-
-# Las credenciales salen del .env del servidor: la base pide contraseña incluso por el
-# socket local (scram-sha-256), así que pg_dump no entra sin ella.
-set -a
-. ./.env
-set +a
 
 # Se escribe a un archivo aparte y solo se promueve si el dump se puede leer
 # completo: si pg_dump se corta a media copia, no queda un respaldo inservible con
