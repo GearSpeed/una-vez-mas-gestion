@@ -30,23 +30,24 @@ por producto **activo y publicado**, ordenado por categoría y nombre:
     "imagen": {
       "url": "https://img.unavezmasmx.com/productos/1/3f9a1c2b7d8e6f50-1200.webp",
       "urlChica": "https://img.unavezmasmx.com/productos/1/3f9a1c2b7d8e6f50-600.webp",
-      "alt": "Galletas de avena con amaranto sobre un plato de barro"
+      "alt": "Galletas de avena con amaranto sobre un plato de barro",
+      "esPlaceholder": false
     }
   }
 ]
 ```
 
-| Campo            | Tipo            | Qué es                                                                    |
-| ---------------- | --------------- | ------------------------------------------------------------------------- |
-| `slug`           | texto           | La llave con el sitio: es el `id` de `products.json` y `/catalogo/:slug`  |
-| `nombre`         | texto           | Nombre del producto                                                       |
-| `categoria`      | texto           | «Galletas», «Borrachitos», «Alegrías»…                                    |
-| `presentacion`   | texto o `null`  | «6 pzas». `null` si no se ha definido                                     |
-| `descripcion`    | texto           | La ficha del producto. **Cadena vacía** si no se ha escrito, nunca `null` |
-| `ingredientes`   | lista de textos | Ingredientes destacados, en orden. Lista vacía si no hay                  |
-| `precio`         | texto o `null`  | Precio en MXN como texto decimal. **`null` = «Consulta precio»**          |
-| `disponibilidad` | texto           | `disponible`, `ultimas_piezas` (5 o menos) o `agotado`                    |
-| `imagen`         | objeto o `null` | `url` (1200 px), `urlChica` (600 px) y `alt`. `null` si no tiene foto     |
+| Campo            | Tipo            | Qué es                                                                          |
+| ---------------- | --------------- | ------------------------------------------------------------------------------- |
+| `slug`           | texto           | La llave con el sitio: es el `id` de `products.json` y `/catalogo/:slug`        |
+| `nombre`         | texto           | Nombre del producto                                                             |
+| `categoria`      | texto           | «Galletas», «Borrachitos», «Alegrías»…                                          |
+| `presentacion`   | texto o `null`  | «6 pzas». `null` si no se ha definido                                           |
+| `descripcion`    | texto           | La ficha del producto. **Cadena vacía** si no se ha escrito, nunca `null`       |
+| `ingredientes`   | lista de textos | Ingredientes destacados, en orden. Lista vacía si no hay                        |
+| `precio`         | texto o `null`  | Precio en MXN como texto decimal. **`null` = «Consulta precio»**                |
+| `disponibilidad` | texto           | `disponible`, `ultimas_piezas` (5 o menos) o `agotado`                          |
+| `imagen`         | objeto          | `url` (1200 px), `urlChica` (600 px), `alt` y `esPlaceholder`. **Nunca `null`** |
 
 El precio viaja como texto (`"30.00"`) para que no se pierdan centavos al convertirlo:
 conviene mostrarlo tal cual, o convertirlo solo al formatear. Es el precio final al
@@ -57,6 +58,13 @@ público, el mismo que cobra el mostrador: no lleva nada encima ni por pagar con
 Los dos pueden venir vacíos (`""` y `[]`): el sitio decide si esconde la sección o pone un
 texto de relleno. Los ingredientes llegan en el orden en que se capturaron, que es el orden
 en el que conviene mostrarlos.
+
+**`imagen` nunca viene vacía.** Si el producto todavía no tiene foto, llega el logo de la
+marca con **`esPlaceholder: true`**, servido por el mismo dominio de imágenes. Así el sitio
+no tiene que resolver el hueco, pero sabe que no es una foto del producto: conviene no
+indexarla como tal, no abrirla en la galería y, si se muestra, dejarla como decorativa
+(`alt=""`). Con foto propia, `esPlaceholder` es `false` y el `alt` es el que escribió quien
+la subió.
 
 **Por qué no va la existencia exacta**: con el número, cualquiera que consulte dos veces al
 día calcula el ritmo de venta del negocio. Cómo mostrar cada estado («Disponible»,
@@ -105,6 +113,7 @@ declararla, de una de estas dos formas:
 | 2026-09-21 | Primera versión: la vista `publico.catalogo` (7 columnas)                                                  |
 | 2026-09-22 | Se agregan `id`, `imagen`, `imagen_chica` e `imagen_alt`                                                   |
 | 2026-09-23 | El contrato pasa a ser HTTP (`/api/publico/catalogo`), con `disponibilidad` en vez de la existencia exacta |
+| 2026-09-25 | Se agregan `descripcion` e `ingredientes`; `imagen` deja de ser `null` y trae `esPlaceholder`              |
 
 ## La vista `publico.catalogo` (uso interno)
 

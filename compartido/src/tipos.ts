@@ -264,7 +264,14 @@ export interface ProductoPublico {
   /** `null` = «Consulta precio». */
   readonly precio: Decimal | null;
   readonly disponibilidad: Disponibilidad;
-  readonly imagen: ImagenProducto | null;
+  /** Nunca falta: si el producto no tiene foto, viene el logo (`esPlaceholder`). */
+  readonly imagen: ImagenPublica;
+}
+
+/** La imagen del catálogo del sitio: siempre hay una, aunque sea de relleno. */
+export interface ImagenPublica extends ImagenProducto {
+  /** `true` cuando el producto todavía no tiene foto y se está sirviendo el logo. */
+  readonly esPlaceholder: boolean;
 }
 
 /** Lo que retiene la entidad por cobrar con un método de pago (hoy: tarjeta, Mercado Pago). */

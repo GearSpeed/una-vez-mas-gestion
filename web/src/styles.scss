@@ -301,3 +301,12 @@ dl.datos {
     object-fit: cover;
   }
 }
+
+/**
+ * El logo que se pone cuando un producto todavía no tiene foto: entero y con aire,
+ * para que no se confunda de un vistazo con una foto de verdad.
+ */
+img.relleno {
+  object-fit: contain;
+  padding: 12%;
+}

@@ -67,7 +67,13 @@ describe('seguridad', () => {
         ingredientes: [],
         precio: '30.00',
         disponibilidad: 'agotado',
-        imagen: null,
+        // Sin foto propia, el sitio recibe el logo, y sabe que es relleno.
+        imagen: {
+          url: expect.stringContaining('marca/logo-1200.webp'),
+          urlChica: expect.stringContaining('marca/logo-600.webp'),
+          alt: 'Logo de Una vez más',
+          esPlaceholder: true,
+        },
       });
       // Ni ids internos, ni conteos, ni costos.
       const llaves = new Set(llavesDe(respuesta.body));

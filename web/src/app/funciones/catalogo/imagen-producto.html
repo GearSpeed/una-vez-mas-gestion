@@ -7,7 +7,7 @@
       } @else if (imagen(); as img) {
         <img [ngSrc]="img.urlChica" [alt]="img.alt" fill sizes="12rem" />
       } @else {
-        <span class="ayuda">Sin imagen</span>
+        <img ngSrc="/logo-producto.webp" alt="" fill sizes="12rem" class="relleno" />
       }
     </div>
 
@@ -47,6 +47,11 @@
           <button mat-button type="button" (click)="quitar()">Quitar imagen</button>
         }
       </div>
+      @if (!imagen() && !archivo()) {
+        <p class="ayuda">
+          <strong>Sin imagen.</strong> Mientras no subas una, en el sitio se ve el logo.
+        </p>
+      }
       <p class="ayuda">
         JPG, PNG o WebP de hasta 10 MB. Se optimiza sola para el sitio y se guarda con el botón
         «Guardar».

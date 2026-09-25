@@ -141,6 +141,24 @@ describe('imágenes de producto', () => {
     expect(fila?.['imagen_chica']).toMatch(/^productos\/1\/[0-9a-f]{16}-600\.webp$/);
   });
 
+  it('sin foto propia, el catálogo del sitio sirve el logo y lo dice', async () => {
+    const respuesta = await request(app.getHttpServer()).get('/api/publico/catalogo');
+    const avena = respuesta.body.find((p: { slug: string }) => p.slug === 'galletas-avena');
+    expect(avena.imagen.esPlaceholder).toBe(true);
+    // Y el logo está de verdad en el bucket: lo publica la API al arrancar.
+    const { tipo, cuerpo } = await descargar(avena.imagen.url);
+    expect(tipo).toBe('image/webp');
+    expect((await sharp(cuerpo).metadata()).width).toBe(1200);
+  });
+
+  it('con foto propia, el catálogo del sitio ya no manda el logo', async () => {
+    await subir(IDS.avena, await foto());
+    const respuesta = await request(app.getHttpServer()).get('/api/publico/catalogo');
+    const avena = respuesta.body.find((p: { slug: string }) => p.slug === 'galletas-avena');
+    expect(avena.imagen).toMatchObject({ alt: ALT, esPlaceholder: false });
+    expect(avena.imagen.url).toContain(`productos/${IDS.avena}/`);
+  });
+
   it('rechaza lo que no es JPG, PNG o WebP', async () => {
     const texto = await subir(IDS.avena, Buffer.from('no soy una foto'), ALT, ADMIN, 'foto.jpg');
     expect(texto.status).toBe(422);

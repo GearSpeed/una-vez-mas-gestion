@@ -66,6 +66,8 @@
                     <span class="miniatura">
                       @if (p.imagen; as img) {
                         <img [ngSrc]="img.urlChica" alt="" fill sizes="3rem" />
+                      } @else {
+                        <img ngSrc="/logo-producto.webp" alt="" fill sizes="3rem" class="relleno" />
                       }
                     </span>
                     <span>

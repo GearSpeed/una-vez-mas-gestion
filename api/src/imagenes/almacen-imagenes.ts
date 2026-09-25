@@ -1,14 +1,18 @@
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { DeleteObjectCommand, PutObjectCommand, type S3Client } from '@aws-sdk/client-s3';
 import {
   Inject,
   Injectable,
   Logger,
   type OnModuleDestroy,
+  type OnModuleInit,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ENTORNO, type Entorno } from '../config/entorno.js';
 import { crearClienteS3 } from './cliente-s3.js';
-import { claveDeVariante, type ImagenProcesada } from './procesar-imagen.js';
+import { ARCHIVO_PLACEHOLDER, CLAVE_PLACEHOLDER } from './placeholder.js';
+import { claveDeVariante, type ImagenProcesada, procesarImagen } from './procesar-imagen.js';
 
 export interface UrlsImagen {
   readonly url: string;
@@ -22,7 +26,7 @@ export interface UrlsImagen {
  * peticiones firmadas.
  */
 @Injectable()
-export class AlmacenImagenes implements OnModuleDestroy {
+export class AlmacenImagenes implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AlmacenImagenes.name);
   private readonly cliente: S3Client | null;
   private readonly bucket: string;
@@ -45,6 +49,22 @@ export class AlmacenImagenes implements OnModuleDestroy {
 
   get configurado(): boolean {
     return this.cliente !== null;
+  }
+
+  /**
+   * Publica el logo de relleno al arrancar. Se sube cada vez, sin preguntar si ya
+   * está: son dos archivos pequeños y así el bucket se repara solo si alguien lo
+   * borró. Si falla, la aplicación arranca igual: sin foto de relleno el sitio se
+   * ve peor, pero nada más.
+   */
+  async onModuleInit(): Promise<void> {
+    if (!this.cliente) return;
+    try {
+      const original = await readFile(resolve(import.meta.dirname, ARCHIVO_PLACEHOLDER));
+      await this.subir(CLAVE_PLACEHOLDER, await procesarImagen(original));
+    } catch (error) {
+      this.logger.warn(`No se pudo publicar el logo de relleno: ${String(error)}`);
+    }
   }
 
   /** Sube las dos variantes bajo `clave`. Son inmutables: la caché puede guardarlas un año. */

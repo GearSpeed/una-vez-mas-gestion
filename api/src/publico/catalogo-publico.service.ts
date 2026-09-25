@@ -1,9 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { PIEZAS_ULTIMAS, type ProductoPublico } from '@uvm/compartido';
+import { type ImagenPublica, PIEZAS_ULTIMAS, type ProductoPublico } from '@uvm/compartido';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { type BaseDatos, DB } from '../db/conexion.js';
 import { categorias, existencias, productos } from '../db/esquema.js';
 import { AlmacenImagenes } from '../imagenes/almacen-imagenes.js';
+import { ALT_PLACEHOLDER, CLAVE_PLACEHOLDER } from '../imagenes/placeholder.js';
 
 /**
  * El catálogo que consume el back del sitio. Es lo único que la API entrega sin
@@ -41,7 +42,17 @@ export class CatalogoPublicoService {
       ...fila,
       disponibilidad:
         piezas <= 0 ? 'agotado' : piezas <= PIEZAS_ULTIMAS ? 'ultimas_piezas' : 'disponible',
-      imagen: imagenClave ? { ...this.almacen.urls(imagenClave), alt: imagenAlt } : null,
+      imagen: this.imagen(imagenClave, imagenAlt),
     }));
+  }
+
+  /**
+   * Un producto sin foto no deja un hueco en el sitio: se sirve el logo, y el
+   * catálogo lo dice, para que el sitio pueda tratarlo como relleno (no indexarlo
+   * como foto del producto, poner `alt=""`…).
+   */
+  private imagen(clave: string | null, alt: string): ImagenPublica {
+    if (clave) return { ...this.almacen.urls(clave), alt, esPlaceholder: false };
+    return { ...this.almacen.urls(CLAVE_PLACEHOLDER), alt: ALT_PLACEHOLDER, esPlaceholder: true };
   }
 }
