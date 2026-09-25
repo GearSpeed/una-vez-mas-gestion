@@ -19,7 +19,9 @@
         <div class="rejilla-campos">
           <mat-form-field>
             <mat-label>Fecha</mat-label>
-            <input matInput type="date" formControlName="fecha" [max]="hoy" />
+            <input matInput [matDatepicker]="calendarioFecha" formControlName="fecha" [max]="hoy" />
+            <mat-datepicker-toggle matIconSuffix [for]="calendarioFecha" />
+            <mat-datepicker #calendarioFecha />
             @if (formulario.controls.fecha.hasError('servidor')) {
               <mat-error>{{ formulario.controls.fecha.getError('servidor') }}</mat-error>
             }

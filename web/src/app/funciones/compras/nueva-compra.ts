@@ -11,6 +11,7 @@ import {
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -33,6 +34,7 @@ import { marcarErroresDelServidor, mensajeDeError } from '../../core/errores';
 import { nuevaClave, numeroONulo } from '../../ui/claves';
 import { Encabezado } from '../../ui/encabezado';
 import { EstadoCarga } from '../../ui/estado-carga';
+import { CALENDARIO_EN_ESPANOL } from '../../ui/intl-calendario';
 
 /**
  * Una compra es un viaje: a quién se le compró, en qué vehículo y a cómo estaba
@@ -49,11 +51,13 @@ import { EstadoCarga } from '../../ui/estado-carga';
     CurrencyPipe,
     DecimalPipe,
     MatButtonModule,
+    MatDatepickerModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
     MatSelectModule,
   ],
+  providers: [CALENDARIO_EN_ESPANOL],
   templateUrl: './nueva-compra.html',
   styleUrl: './nueva-compra.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -6,19 +6,23 @@
       <mat-label>Desde</mat-label>
       <input
         matInput
-        type="date"
+        [matDatepicker]="calendarioDesde"
         [value]="desde()"
-        (change)="desde.set($any($event.target).value)"
+        (dateChange)="desde.set($event.value)"
       />
+      <mat-datepicker-toggle matIconSuffix [for]="calendarioDesde" />
+      <mat-datepicker #calendarioDesde />
     </mat-form-field>
     <mat-form-field>
       <mat-label>Hasta</mat-label>
       <input
         matInput
-        type="date"
+        [matDatepicker]="calendarioHasta"
         [value]="hasta()"
-        (change)="hasta.set($any($event.target).value)"
+        (dateChange)="hasta.set($event.value)"
       />
+      <mat-datepicker-toggle matIconSuffix [for]="calendarioHasta" />
+      <mat-datepicker #calendarioHasta />
     </mat-form-field>
   </div>
 

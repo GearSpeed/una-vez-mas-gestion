@@ -2,6 +2,7 @@ import { CurrencyPipe, DatePipe } from '@angular/common';
 import { httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatPaginatorModule, type PageEvent } from '@angular/material/paginator';
@@ -23,6 +24,7 @@ import { Desplazable } from '../../ui/desplazable';
 import { Encabezado } from '../../ui/encabezado';
 import { EstadoCarga } from '../../ui/estado-carga';
 import { EtiquetaPipe } from '../../ui/etiqueta.pipe';
+import { CALENDARIO_EN_ESPANOL } from '../../ui/intl-calendario';
 
 @Component({
   selector: 'uvm-lista-compras',
@@ -35,12 +37,14 @@ import { EtiquetaPipe } from '../../ui/etiqueta.pipe';
     DatePipe,
     RouterLink,
     MatButtonModule,
+    MatDatepickerModule,
     MatFormFieldModule,
     MatInputModule,
     MatPaginatorModule,
     MatSelectModule,
     MatTableModule,
   ],
+  providers: [CALENDARIO_EN_ESPANOL],
   templateUrl: './lista-compras.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

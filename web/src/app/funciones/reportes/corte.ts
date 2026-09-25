@@ -9,6 +9,7 @@ import {
   linkedSignal,
   signal,
 } from '@angular/core';
+import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -19,6 +20,7 @@ import { Desplazable } from '../../ui/desplazable';
 import { Encabezado } from '../../ui/encabezado';
 import { EstadoCarga } from '../../ui/estado-carga';
 import { EtiquetaPipe } from '../../ui/etiqueta.pipe';
+import { CALENDARIO_EN_ESPANOL } from '../../ui/intl-calendario';
 
 /**
  * El corte de un vendedor: lo que cargó, vendió y devolvió, lo que trae y lo
@@ -34,10 +36,12 @@ import { EtiquetaPipe } from '../../ui/etiqueta.pipe';
     EtiquetaPipe,
     CurrencyPipe,
     DatePipe,
+    MatDatepickerModule,
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
   ],
+  providers: [CALENDARIO_EN_ESPANOL],
   templateUrl: './corte.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
