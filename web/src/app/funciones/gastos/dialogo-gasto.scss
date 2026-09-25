@@ -1,0 +1,22 @@
+.contenido {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.rejilla {
+  display: grid;
+  gap: 0 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+}
+
+fieldset.grupo {
+  border: 0;
+  margin: 0;
+  padding: 0;
+
+  legend {
+    font: var(--mat-sys-label-large);
+    color: var(--mat-sys-on-surface-variant);
+    padding-bottom: 0.5rem;
+  }
+}

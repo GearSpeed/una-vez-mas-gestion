@@ -12,6 +12,7 @@ import { asegurarUbicacionDeVendedor } from '../usuarios/ubicacion-vendedor.js';
 import type { BaseDatos, Transaccion } from './conexion.js';
 import {
   categorias,
+  gastoCategorias,
   productos,
   proveedores,
   rolPermisos,
@@ -26,6 +27,16 @@ const CATEGORIAS = [
   { nombre: 'Galletas', orden: 1 },
   { nombre: 'Borrachitos', orden: 2 },
   { nombre: 'Alegrías', orden: 3 },
+] as const;
+
+/** Categorías de gasto para empezar. El negocio agrega o da de baja las que quiera. */
+const CATEGORIAS_GASTO = [
+  { nombre: 'Empaque', orden: 1 },
+  { nombre: 'Comisiones', orden: 2 },
+  { nombre: 'Servicios', orden: 3 },
+  { nombre: 'Publicidad y eventos', orden: 4 },
+  { nombre: 'Renta', orden: 5 },
+  { nombre: 'Otros', orden: 6 },
 ] as const;
 
 type NombreCategoria = (typeof CATEGORIAS)[number]['nombre'];
@@ -177,6 +188,10 @@ export async function sembrar(db: BaseDatos, opciones: OpcionesSemilla = {}): Pr
       .insert(categorias)
       .values([...CATEGORIAS])
       .onConflictDoNothing({ target: categorias.nombre });
+    await tx
+      .insert(gastoCategorias)
+      .values([...CATEGORIAS_GASTO])
+      .onConflictDoNothing({ target: gastoCategorias.nombre });
     const filasCategoria = await tx
       .select({ id: categorias.id, nombre: categorias.nombre })
       .from(categorias);

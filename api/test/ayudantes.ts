@@ -63,6 +63,7 @@ export async function reiniciarBd(): Promise<void> {
       gestion.venta_detalle, gestion.ventas,
       gestion.compra_detalle, gestion.compras, gestion.traspaso_detalle, gestion.traspasos,
       gestion.ajuste_detalle, gestion.ajustes, gestion.existencias, gestion.productos,
+      gestion.gastos, gestion.gasto_categorias,
       gestion.categorias, gestion.proveedores, gestion.vehiculos, gestion.usuario_roles,
       gestion.ubicaciones, gestion.usuarios, gestion.rol_permisos, gestion.roles
       restart identity cascade`);

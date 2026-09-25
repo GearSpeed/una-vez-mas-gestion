@@ -384,6 +384,33 @@ export interface MovimientoKardex {
   readonly costos?: { readonly costoUnitario: Decimal; readonly costoPromedioResultante: Decimal };
 }
 
+/* ---- Gastos de operación ---- */
+
+/** Un gasto que no es mercancía: bolsas, renta, publicidad, una comisión pagada. */
+export interface Gasto {
+  readonly id: number;
+  readonly folio: string;
+  readonly fecha: string;
+  readonly categoriaId: number;
+  readonly categoria: string;
+  readonly concepto: string;
+  readonly importe: Decimal;
+  readonly metodoPago: MetodoPago;
+  readonly notas: string;
+  readonly registradoPor: string;
+  readonly registradoEn: string;
+  readonly estado: EstadoDocumento;
+  readonly cancelacion: Cancelacion | null;
+}
+
+export interface ListaGastos extends Paginado<Gasto> {
+  readonly resumen: {
+    /** Total de los gastos vigentes del periodo. */
+    readonly importe: Decimal;
+    readonly porCategoria: readonly { readonly categoria: string; readonly importe: Decimal }[];
+  };
+}
+
 /* ---- Reportes ---- */
 
 export interface Tablero {

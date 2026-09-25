@@ -78,6 +78,20 @@
       "when": 1790366569512,
       "tag": "0010_una_venta_varios_pagos",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790374718820,
+      "tag": "0011_gastos_de_operacion",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790374731911,
+      "tag": "0012_permisos_de_gastos",
+      "breakpoints": true
     }
   ]
 }

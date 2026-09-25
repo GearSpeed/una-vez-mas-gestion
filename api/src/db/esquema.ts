@@ -672,6 +672,54 @@ export const bitacora = gestion.table(
 );
 
 /* -----------------------------------------------------------------------------
+   Gastos de operación: todo lo que cuesta el negocio y no es mercancía
+   -------------------------------------------------------------------------- */
+
+/** Las categorías las administra el negocio, como las de producto. */
+export const gastoCategorias = gestion.table('gasto_categorias', {
+  id: id(),
+  nombre: text().notNull().unique(),
+  orden: integer().notNull().default(0),
+  activa: boolean().notNull().default(true),
+});
+
+/**
+ * Un gasto de operación: bolsas, renta, publicidad, el pago de una comisión…
+ * Todo lo que sale del negocio y no es mercancía (esa entra por `compras`, con su
+ * costo y su gasolina).
+ *
+ * No se edita ni se borra: se cancela con motivo, como las compras y las ventas.
+ */
+export const gastos = gestion.table(
+  'gastos',
+  {
+    id: id(),
+    folio: folio('G'),
+    fecha: fecha().notNull(),
+    categoriaId: integer()
+      .notNull()
+      .references(() => gastoCategorias.id),
+    concepto: text().notNull(),
+    importe: dinero().notNull(),
+    /** Con qué se pagó: el mismo catálogo que las ventas. */
+    metodoPago: metodoPago().notNull(),
+    notas: text().notNull().default(''),
+    usuarioId: integer()
+      .notNull()
+      .references(() => usuarios.id),
+    claveIdempotencia: claveIdempotencia('gastos'),
+    registradoEn: ahora(),
+    ...cancelacion(),
+  },
+  (t) => [
+    check('gastos_importe', sql`importe > 0`),
+    check('gastos_cancelacion', sql`(estado = 'cancelado') = (cancelado_en is not null)`),
+    index('gastos_fecha').on(t.fecha),
+    index('gastos_categoria').on(t.categoriaId),
+  ],
+);
+
+/* -----------------------------------------------------------------------------
    Vista: cada línea de venta ya neta de devoluciones y con su parte de comisión.
    La crea a mano la migración 0003; Drizzle solo la consulta.
    -------------------------------------------------------------------------- */

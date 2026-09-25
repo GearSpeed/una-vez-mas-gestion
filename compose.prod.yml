@@ -57,7 +57,10 @@ services:
   # Corre una vez en cada despliegue, como gestion_owner, y termina.
   migraciones:
     <<: [*imagen, *blindaje, *registro]
-    command: ['node', 'api/dist/cli/migrar.js']
+    # Migrar y sembrar: la semilla es idempotente y deja los roles como dice
+    # `ROLES_BASE`, así que un permiso nuevo llega solo al desplegar. Sin esto, una
+    # pantalla nueva queda invisible hasta que alguien corra la semilla a mano.
+    command: ['sh', '-c', 'node api/dist/cli/migrar.js && node api/dist/cli/semilla.js']
     networks: [datos]
     read_only: true
     tmpfs: ['/tmp:size=32m,mode=1777']

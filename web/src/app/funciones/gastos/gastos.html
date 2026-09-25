@@ -1,0 +1,198 @@
+<div class="pagina">
+  <uvm-encabezado titulo="Gastos">
+    @if (puedeRegistrar()) {
+      <button mat-flat-button type="button" (click)="nuevo()" [disabled]="!categorias.value()">
+        Nuevo gasto
+      </button>
+    }
+  </uvm-encabezado>
+
+  <mat-tab-group mat-stretch-tabs="false" animationDuration="0ms">
+    <mat-tab label="Gastos">
+      <div class="filtros pestana" role="search" aria-label="Filtrar gastos">
+        <mat-form-field>
+          <mat-label>Desde</mat-label>
+          <input
+            matInput
+            [matDatepicker]="calendarioDesde"
+            [value]="desde()"
+            (dateChange)="filtrar(() => desde.set($event.value))"
+          />
+          <mat-datepicker-toggle matIconSuffix [for]="calendarioDesde" />
+          <mat-datepicker #calendarioDesde />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Hasta</mat-label>
+          <input
+            matInput
+            [matDatepicker]="calendarioHasta"
+            [value]="hasta()"
+            (dateChange)="filtrar(() => hasta.set($event.value))"
+          />
+          <mat-datepicker-toggle matIconSuffix [for]="calendarioHasta" />
+          <mat-datepicker #calendarioHasta />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Categoría</mat-label>
+          <mat-select
+            [canSelectNullableOptions]="true"
+            [value]="categoriaId()"
+            (valueChange)="filtrar(() => categoriaId.set($event))"
+          >
+            <mat-option [value]="null">Todas</mat-option>
+            @for (c of categorias.value() ?? []; track c.id) {
+              <mat-option [value]="c.id">{{ c.nombre }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Estado</mat-label>
+          <mat-select
+            [canSelectNullableOptions]="true"
+            [value]="estado()"
+            (valueChange)="filtrar(() => estado.set($event))"
+          >
+            <mat-option [value]="null">Todos</mat-option>
+            <mat-option value="vigente">Vigentes</mat-option>
+            <mat-option value="cancelado">Cancelados</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <uvm-estado-carga
+        [cargando]="gastos.isLoading()"
+        [error]="gastos.error()"
+        (reintentar)="gastos.reload()"
+      />
+
+      @if (gastos.value(); as lista) {
+        <section class="tarjeta resumen" aria-labelledby="titulo-resumen">
+          <h2 id="titulo-resumen" class="visualmente-oculto">Resumen del periodo</h2>
+          <p>
+            <strong>{{ lista.resumen.importe | currency }}</strong> en gastos del periodo.
+          </p>
+          @if (lista.resumen.porCategoria.length) {
+            <p class="ayuda">
+              @for (c of lista.resumen.porCategoria; track c.categoria; let ultimo = $last) {
+                {{ c.categoria }}: {{ c.importe | currency }}{{ ultimo ? '' : ' · ' }}
+              }
+            </p>
+          }
+        </section>
+
+        <div uvmDesplazable="Gastos">
+          <table mat-table [dataSource]="lista.filas" class="tabla">
+            <ng-container matColumnDef="folio">
+              <th mat-header-cell *matHeaderCellDef>Folio</th>
+              <td mat-cell *matCellDef="let g">{{ g.folio }}</td>
+            </ng-container>
+            <ng-container matColumnDef="fecha">
+              <th mat-header-cell *matHeaderCellDef>Fecha</th>
+              <td mat-cell *matCellDef="let g">{{ g.fecha | date: 'mediumDate' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="categoria">
+              <th mat-header-cell *matHeaderCellDef>Categoría</th>
+              <td mat-cell *matCellDef="let g">{{ g.categoria }}</td>
+            </ng-container>
+            <ng-container matColumnDef="concepto">
+              <th mat-header-cell *matHeaderCellDef>Concepto</th>
+              <td mat-cell *matCellDef="let g">
+                {{ g.concepto }}
+                @if (g.notas) {
+                  <span class="ayuda bloque">{{ g.notas }}</span>
+                }
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="metodoPago">
+              <th mat-header-cell *matHeaderCellDef>Pago</th>
+              <td mat-cell *matCellDef="let g">{{ g.metodoPago | etiqueta: 'metodo' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="importe">
+              <th mat-header-cell *matHeaderCellDef class="numero">Importe</th>
+              <td mat-cell *matCellDef="let g" class="numero">{{ g.importe | currency }}</td>
+            </ng-container>
+            <ng-container matColumnDef="estado">
+              <th mat-header-cell *matHeaderCellDef>Estado</th>
+              <td mat-cell *matCellDef="let g">
+                <span class="estado" [class.alerta]="g.estado === 'cancelado'">{{
+                  g.estado | etiqueta: 'estado'
+                }}</span>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="acciones">
+              <th mat-header-cell *matHeaderCellDef></th>
+              <td mat-cell *matCellDef="let g">
+                @if (g.estado === 'vigente') {
+                  <button
+                    mat-button
+                    type="button"
+                    (click)="cancelar(g)"
+                    [attr.aria-label]="'Cancelar el gasto ' + g.folio"
+                  >
+                    Cancelar
+                  </button>
+                }
+              </td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="columnas()"></tr>
+            <tr mat-row *matRowDef="let fila; columns: columnas()"></tr>
+            <tr class="mat-row" *matNoDataRow>
+              <td class="mat-cell" [attr.colspan]="columnas().length">
+                No hay gastos en este periodo.
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        @if (lista.total > lista.porPagina) {
+          <mat-paginator
+            [length]="lista.total"
+            [pageSize]="lista.porPagina"
+            [pageIndex]="lista.pagina - 1"
+            [hidePageSize]="true"
+            (page)="cambiarPagina($event)"
+            aria-label="Páginas de gastos"
+          />
+        }
+      }
+    </mat-tab>
+
+    <mat-tab label="Categorías">
+      <div class="pestana">
+        <ul class="categorias">
+          @for (c of categorias.value() ?? []; track c.id) {
+            <li class="tarjeta">
+              <span>{{ c.nombre }}</span>
+              @if (puedeRegistrar()) {
+                <mat-slide-toggle
+                  [checked]="c.activa"
+                  (change)="cambiarCategoria(c, $event.checked)"
+                >
+                  Activa
+                </mat-slide-toggle>
+              } @else {
+                <span class="estado">{{ c.activa ? 'Activa' : 'Inactiva' }}</span>
+              }
+            </li>
+          }
+        </ul>
+        @if (puedeRegistrar()) {
+          <form
+            class="acciones"
+            [formGroup]="formularioCategoria"
+            (ngSubmit)="agregarCategoria()"
+            novalidate
+          >
+            <mat-form-field>
+              <mat-label>Nueva categoría</mat-label>
+              <input matInput formControlName="nombre" maxlength="60" />
+            </mat-form-field>
+            <button mat-stroked-button type="submit" [disabled]="formularioCategoria.invalid">
+              Agregar
+            </button>
+          </form>
+        }
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</div>

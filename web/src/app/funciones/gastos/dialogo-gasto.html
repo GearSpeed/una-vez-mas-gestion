@@ -1,0 +1,82 @@
+<h2 mat-dialog-title>Nuevo gasto</h2>
+<form [formGroup]="formulario" (ngSubmit)="guardar()" novalidate>
+  <mat-dialog-content class="contenido">
+    <div class="rejilla">
+      <mat-form-field>
+        <mat-label>Fecha</mat-label>
+        <input matInput [matDatepicker]="calendario" formControlName="fecha" [max]="hoy" />
+        <mat-datepicker-toggle matIconSuffix [for]="calendario" />
+        <mat-datepicker #calendario />
+      </mat-form-field>
+
+      <mat-form-field>
+        <mat-label>Categoría</mat-label>
+        <mat-select formControlName="categoriaId">
+          @for (c of datos.categorias; track c.id) {
+            @if (c.activa) {
+              <mat-option [value]="c.id">{{ c.nombre }}</mat-option>
+            }
+          }
+        </mat-select>
+        @if (formulario.controls.categoriaId.hasError('required')) {
+          <mat-error>Elige la categoría.</mat-error>
+        }
+      </mat-form-field>
+    </div>
+
+    <mat-form-field>
+      <mat-label>Concepto</mat-label>
+      <input matInput formControlName="concepto" maxlength="200" placeholder="Bolsas de celofán" />
+      @if (formulario.controls.concepto.hasError('required')) {
+        <mat-error>Escribe qué se compró o se pagó.</mat-error>
+      } @else if (formulario.controls.concepto.hasError('servidor')) {
+        <mat-error>{{ formulario.controls.concepto.getError('servidor') }}</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field>
+      <mat-label>Importe</mat-label>
+      <span matTextPrefix>$&nbsp;</span>
+      <input
+        matInput
+        type="number"
+        inputmode="decimal"
+        min="0.01"
+        step="0.01"
+        formControlName="importe"
+      />
+      @if (formulario.controls.importe.invalid && formulario.controls.importe.touched) {
+        <mat-error>Escribe cuánto se pagó.</mat-error>
+      }
+    </mat-form-field>
+
+    <fieldset class="grupo">
+      <legend>Con qué se pagó</legend>
+      <mat-button-toggle-group
+        [value]="metodoPago()"
+        (change)="metodoPago.set($event.value)"
+        aria-label="Método de pago"
+        [hideSingleSelectionIndicator]="true"
+      >
+        @for (m of metodos; track m) {
+          <mat-button-toggle [value]="m">{{ m | etiqueta: 'metodo' }}</mat-button-toggle>
+        }
+      </mat-button-toggle-group>
+    </fieldset>
+
+    <mat-form-field>
+      <mat-label>Notas (opcional)</mat-label>
+      <input matInput formControlName="notas" maxlength="500" />
+    </mat-form-field>
+
+    @if (error()) {
+      <p class="error-texto" role="alert">{{ error() }}</p>
+    }
+  </mat-dialog-content>
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" mat-dialog-close>Cancelar</button>
+    <button mat-flat-button type="submit" [disabled]="guardando()">
+      {{ guardando() ? 'Guardando…' : 'Registrar gasto' }}
+    </button>
+  </mat-dialog-actions>
+</form>

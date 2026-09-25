@@ -426,6 +426,35 @@ test('las notas de un traspaso se leen desde la lista y desde el kardex', async 
   await expect(dialogo.getByText(notas)).toBeVisible();
 });
 
+test('un gasto de operación se registra y se puede cancelar', async ({ page }, info) => {
+  const concepto = `Bolsas de celofán ${info.project.name}`;
+  await entrarComo(page, 'admin');
+  await page.goto('/gastos');
+  await esperarCarga(page);
+
+  await page.getByRole('button', { name: 'Nuevo gasto' }).click();
+  const dialogo = page.getByRole('dialog');
+  await dialogo.getByRole('combobox', { name: 'Categoría' }).click();
+  await page.getByRole('option', { name: 'Empaque' }).click();
+  await dialogo.getByLabel('Concepto').fill(concepto);
+  await dialogo.getByLabel('Importe').fill('240.50');
+  await dialogo.getByRole('button', { name: 'Registrar gasto' }).click();
+  await expect(page.getByText(/Gasto G-\d{6} registrado por \$240\.50/)).toBeVisible();
+
+  const fila = page.getByRole('row', { name: new RegExp(concepto) });
+  await expect(fila).toContainText('Empaque');
+  await expect(fila).toContainText('$240.50');
+  await expect(fila).toContainText('Vigente');
+
+  // Se cancela con motivo: deja de sumar, pero el registro se queda.
+  await fila.getByRole('button', { name: /^Cancelar el gasto/ }).click();
+  const motivo = page.getByRole('dialog');
+  await motivo.getByLabel('Motivo').fill('Se capturó dos veces');
+  await motivo.getByRole('button', { name: 'Cancelar el gasto' }).click();
+  await expect(page.getByText(/El gasto G-\d{6} quedó cancelado/)).toBeVisible();
+  await expect(page.getByRole('row', { name: new RegExp(concepto) })).toContainText('Cancelado');
+});
+
 test('el menú lateral se abre y se cierra con su icono', async ({ page }, info) => {
   const celular = info.project.name === 'celular';
   await entrarComo(page, 'ana');

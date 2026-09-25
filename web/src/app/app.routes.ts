@@ -102,6 +102,12 @@ export const routes: Routes = [
           import('./funciones/proveedores/proveedores').then((m) => m.Proveedores),
       },
       {
+        path: 'gastos',
+        title: 'Gastos',
+        canMatch: [requierePermiso('gastos.ver')],
+        loadComponent: () => import('./funciones/gastos/gastos').then((m) => m.Gastos),
+      },
+      {
         path: 'reportes',
         title: 'Reportes',
         canMatch: [requierePermiso('reportes.ver')],

@@ -306,6 +306,24 @@ export const esquemaNuevaVenta = z
   .superRefine((venta, ctx) => sinProductosRepetidos(venta.lineas, 'lineas', ctx));
 
 /* -----------------------------------------------------------------------------
+   Gastos de operación
+   -------------------------------------------------------------------------- */
+
+/** Las categorías de gasto tienen la misma forma que las de producto. */
+export const esquemaCategoriaGasto = esquemaCategoria;
+
+export const esquemaGasto = z.object({
+  claveIdempotencia: clave,
+  fecha: esquemaFecha.optional(),
+  categoriaId: esquemaId,
+  /** Qué se compró o se pagó: «Bolsas de celofán», «Comisión de Ana de septiembre». */
+  concepto: requerido(200),
+  importe: dinero,
+  metodoPago: z.enum(METODOS_PAGO),
+  notas,
+});
+
+/* -----------------------------------------------------------------------------
    Usuarios y ubicaciones
    -------------------------------------------------------------------------- */
 
@@ -342,6 +360,12 @@ export const esquemaFiltroVentas = esquemaPeriodo.extend({
   pagina,
 });
 
+export const esquemaFiltroGastos = esquemaPeriodo.extend({
+  categoriaId: idEnQuery,
+  estado: z.enum(ESTADOS_DOCUMENTO).optional(),
+  pagina,
+});
+
 export const esquemaFiltroCompras = esquemaPeriodo.extend({
   proveedorId: idEnQuery,
   estado: z.enum(ESTADOS_DOCUMENTO).optional(),
@@ -371,6 +395,8 @@ export const esquemaFiltroCorte = esquemaPeriodo.extend({ ubicacionId: idEnQuery
    -------------------------------------------------------------------------- */
 
 export type DatosCategoria = z.output<typeof esquemaCategoria>;
+export type DatosGasto = z.output<typeof esquemaGasto>;
+export type FiltroGastos = z.output<typeof esquemaFiltroGastos>;
 export type DatosProducto = z.output<typeof esquemaProducto>;
 export type DatosImagenProducto = z.output<typeof esquemaImagenProducto>;
 export type DatosProveedor = z.output<typeof esquemaProveedor>;

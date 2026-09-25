@@ -56,6 +56,7 @@ export function menuPara(sesion: Sesion, puede: Puede): EntradaMenu[] {
       ruta: '/proveedores',
       icono: 'storefront',
     },
+    puede('gastos.ver') && { etiqueta: 'Gastos', ruta: '/gastos', icono: 'payments' },
     puede('reportes.ver') && { etiqueta: 'Reportes', ruta: '/reportes', icono: 'monitoring' },
     puede('usuarios.gestionar') && { etiqueta: 'Usuarios', ruta: '/usuarios', icono: 'group' },
   ];

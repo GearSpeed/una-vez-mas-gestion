@@ -17,6 +17,7 @@ const PANTALLAS: readonly { ruta: string; usuario: keyof typeof USUARIOS }[] = [
   { ruta: '/inventario/kardex?productoId=1', usuario: 'almacen' },
   { ruta: '/productos', usuario: 'admin' },
   { ruta: '/proveedores', usuario: 'admin' },
+  { ruta: '/gastos', usuario: 'admin' },
   { ruta: '/reportes', usuario: 'consulta' },
   { ruta: '/usuarios', usuario: 'admin' },
 ];
@@ -33,6 +34,7 @@ for (const { ruta, usuario } of PANTALLAS) {
 /** Los diálogos también: se abren y se revisan con axe. */
 const DIALOGOS: readonly { ruta: string; boton: string }[] = [
   { ruta: '/productos', boton: 'Nuevo producto' },
+  { ruta: '/gastos', boton: 'Nuevo gasto' },
   { ruta: '/usuarios', boton: 'Nuevo usuario' },
   { ruta: '/proveedores', boton: 'Nuevo proveedor' },
 ];
