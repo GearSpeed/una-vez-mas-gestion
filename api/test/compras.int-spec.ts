@@ -152,7 +152,7 @@ describe('compras', () => {
       await como(app, ANA).post('/ventas', {
         claveIdempotencia: clave(),
         canal: 'whatsapp',
-        metodoPago: 'efectivo',
+        pagos: [{ metodoPago: 'efectivo', importe: '30.00' }],
         lineas: [{ productoId: IDS.tejocote, cantidad: 1 }],
       });
 

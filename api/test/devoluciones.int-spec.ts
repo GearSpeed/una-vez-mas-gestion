@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import { multiplicar } from '@uvm/compartido';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   ADMIN,
@@ -15,10 +16,18 @@ import {
   reiniciarBd,
 } from './ayudantes.js';
 
-const venta = (cantidad: number, extra: object = {}) => ({
+/** El tejocote de las pruebas cuesta $30: el cobro sale de ahí. */
+const venta = (
+  cantidad: number,
+  {
+    metodoPago = 'efectivo',
+    importe = multiplicar('30.00', cantidad),
+    ...extra
+  }: Record<string, unknown> & { metodoPago?: string; importe?: string } = {},
+) => ({
   claveIdempotencia: clave(),
   canal: 'presencial',
-  metodoPago: 'efectivo',
+  pagos: [{ metodoPago, importe }],
   lineas: [{ productoId: IDS.tejocote, cantidad }],
   ...extra,
 });
@@ -102,6 +111,33 @@ describe('comisión de tarjeta y devoluciones', () => {
       expect(corte.body.cobros).toMatchObject({ tarjeta: '120.00', efectivo: '30.00' });
       expect(corte.body.comisiones).toBe('4.87');
       expect(corte.body.totalVendido).toBe('150.00');
+    });
+
+    it('en una venta mixta el dinero regresa como se pagó y el corte cuadra', async () => {
+      const vendida = await como(app, ANA).post('/ventas', {
+        ...venta(4),
+        pagos: [
+          { metodoPago: 'efectivo', importe: '90.00' },
+          { metodoPago: 'tarjeta', importe: '30.00' },
+        ],
+      });
+      expect(vendida.body.comision).toBe('1.22');
+
+      // Se devuelve 1 de 4 piezas: $30, que regresan en la misma proporción
+      // (75 % efectivo, 25 % tarjeta) → $22.50 y $7.50.
+      const devuelta = await como(app, ANA).post(
+        `/ventas/${vendida.body.id}/devoluciones`,
+        devolucion([{ productoId: IDS.tejocote, cantidad: 1 }]),
+      );
+      expect(devuelta.status).toBe(201);
+      expect(devuelta.body.reembolsado).toBe('30.00');
+
+      const corte = await como(app, ANA).get('/reportes/corte');
+      expect(corte.body.cobros).toMatchObject({ efectivo: '90.00', tarjeta: '30.00' });
+      expect(corte.body.reembolsos).toMatchObject({ efectivo: '22.50', tarjeta: '7.50' });
+      expect(corte.body.totalVendido).toBe('90.00');
+      // Mercado Pago regresa la cuarta parte de su comisión: $1.22 → $0.31.
+      expect(corte.body.comisiones).toBe('0.91');
     });
 
     it('la utilidad por producto descuenta la comisión', async () => {
@@ -195,7 +231,7 @@ describe('comisión de tarjeta y devoluciones', () => {
 
     it('prorratea el descuento y varias devoluciones suman exacto la línea', async () => {
       const vendida = await como(app, ADMIN).post('/ventas', {
-        ...venta(3),
+        ...venta(3, { importe: '85.00' }),
         ubicacionId: IDS.ana,
         lineas: [{ productoId: IDS.tejocote, cantidad: 3, descuento: 5 }],
       });

@@ -64,6 +64,20 @@
       "when": 1790352461646,
       "tag": "0008_catalogo_con_ficha",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790366531550,
+      "tag": "0009_pagos_de_venta",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790366569512,
+      "tag": "0010_una_venta_varios_pagos",
+      "breakpoints": true
     }
   ]
 }

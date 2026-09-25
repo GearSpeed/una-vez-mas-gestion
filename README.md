@@ -117,9 +117,13 @@ probar lo que ve cada rol. Ese modo se niega a arrancar si `NODE_ENV=production`
   método con que pagó; los centavos se reparten para que al devolver todo cuadre con lo
   cobrado. Por cada producto se elige si **vuelve a la venta** (entra a la ubicación de la
   venta con el costo que se guardó) o **llegó dañado** (no entra y su costo es pérdida).
+- **Cobro repartido**: una venta se puede cobrar con varias formas de pago a la vez (una
+  parte en efectivo y otra con tarjeta, por ejemplo). Cada parte queda registrada con su
+  importe, así el corte cuadra con lo que hay en la caja y en la terminal. Al devolver, el
+  dinero regresa en la misma proporción en que se pagó.
 - **Comisión de tarjeta** (Mercado Pago): tasa + IVA sobre la tasa, hoy 3.50 % + 16 % =
-  4.06 %. La absorbe el negocio: el cliente paga el precio normal y la venta guarda lo que
-  se retiene; la utilidad ya la descuenta. El admin cambia la tasa en Productos → «Cobro
+  4.06 %, **sobre la parte cobrada con tarjeta**. La absorbe el negocio: el cliente paga el
+  precio normal y la venta guarda lo que se retiene; la utilidad ya la descuenta. El admin cambia la tasa en Productos → «Cobro
   con tarjeta» y aplica solo a ventas nuevas. Al devolver, el cliente recibe íntegro lo
   que pagó y Mercado Pago regresa la parte proporcional de su comisión (si se devuelve
   todo, la comisión completa), siempre que el reembolso se haga desde el cobro original

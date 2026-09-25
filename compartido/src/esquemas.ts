@@ -277,7 +277,19 @@ export const esquemaNuevaVenta = z
     /** Solo quien tiene `ventas.cualquier_ubicacion` puede elegirla. */
     ubicacionId: esquemaId.optional(),
     canal: z.enum(CANALES_VENTA),
-    metodoPago: z.enum(METODOS_PAGO),
+    /**
+     * Cómo pagó: un renglón por método. Lo normal es uno solo; si el cliente paga
+     * una parte en efectivo y otra con tarjeta, van dos. Que la suma cuadre con el
+     * total lo revisa la API, que es quien conoce los precios.
+     */
+    pagos: z
+      .array(z.object({ metodoPago: z.enum(METODOS_PAGO), importe: dinero }))
+      .min(1, 'Falta decir cómo pagó')
+      .max(METODOS_PAGO.length)
+      .refine(
+        (pagos) => new Set(pagos.map((p) => p.metodoPago)).size === pagos.length,
+        'No repitas el mismo método de pago',
+      ),
     notas,
     lineas: z
       .array(

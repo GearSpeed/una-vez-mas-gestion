@@ -320,6 +320,34 @@ export function comisionDevuelta(devolucion: ComisionDeDevolucion): Decimal {
   );
 }
 
+/**
+ * Reparte `total` entre varias partes, en proporción a sus `pesos`, **sin perder ni
+ * inventar centavos**: la suma de lo repartido es exactamente `total`.
+ *
+ * Se usa para devolver dinero de una venta cobrada con varios métodos: si pagó $60
+ * en efectivo y $40 con tarjeta, un reembolso de $33.33 sale $20.00 y $13.33, no
+ * $20.00 y $13.32. Va sobre el acumulado, como `reembolsoDeLinea`, para que el
+ * redondeo no se vaya juntando renglón tras renglón.
+ *
+ * Si todos los pesos son cero (una venta de $0), todo se va a la primera parte.
+ */
+export function repartirProporcional(total: Decimal, pesos: readonly Decimal[]): Decimal[] {
+  if (pesos.length === 0) return [];
+  const suma = pesos.reduce((acumulado, peso) => acumulado.plus(peso), big(0));
+  if (suma.lte(0)) {
+    return pesos.map((_, i) => fijar(i === 0 ? big(total) : big(0), DECIMALES_DINERO));
+  }
+  let pesoAcumulado = big(0);
+  let repartido = big(0);
+  return pesos.map((peso) => {
+    pesoAcumulado = pesoAcumulado.plus(peso);
+    const hastaAqui = big(fijar(big(total).times(pesoAcumulado).div(suma), DECIMALES_DINERO));
+    const parte = hastaAqui.minus(repartido);
+    repartido = hastaAqui;
+    return fijar(parte, DECIMALES_DINERO);
+  });
+}
+
 /* -----------------------------------------------------------------------------
    Utilidades
    -------------------------------------------------------------------------- */

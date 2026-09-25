@@ -82,15 +82,46 @@ describe('esquemaNuevaCompra', () => {
   });
 });
 
+const ventaDePrueba = (extra: object) => ({
+  claveIdempotencia: CLAVE,
+  canal: 'whatsapp',
+  pagos: [{ metodoPago: 'efectivo', importe: '60.00' }],
+  lineas: [{ productoId: 1, cantidad: 2 }],
+  ...extra,
+});
+
 describe('esquemaNuevaVenta', () => {
   it('pone el descuento en cero si no viene', () => {
-    const venta = esquemaNuevaVenta.parse({
-      claveIdempotencia: CLAVE,
-      canal: 'whatsapp',
-      metodoPago: 'efectivo',
-      lineas: [{ productoId: 1, cantidad: 2 }],
-    });
-    expect(venta.lineas[0]?.descuento).toBe('0');
+    const resultado = esquemaNuevaVenta.parse(ventaDePrueba({}));
+    expect(resultado.lineas[0]?.descuento).toBe('0');
+  });
+
+  it('acepta que el cobro se reparta entre varias formas de pago', () => {
+    const resultado = esquemaNuevaVenta.parse(
+      ventaDePrueba({
+        pagos: [
+          { metodoPago: 'efectivo', importe: '40' },
+          { metodoPago: 'tarjeta', importe: 20 },
+        ],
+      }),
+    );
+    expect(resultado.pagos).toEqual([
+      { metodoPago: 'efectivo', importe: '40' },
+      { metodoPago: 'tarjeta', importe: '20' },
+    ]);
+  });
+
+  it('no deja repetir el método ni quedarse sin pagos', () => {
+    const repetido = esquemaNuevaVenta.safeParse(
+      ventaDePrueba({
+        pagos: [
+          { metodoPago: 'efectivo', importe: '30' },
+          { metodoPago: 'efectivo', importe: '30' },
+        ],
+      }),
+    );
+    expect(repetido.success).toBe(false);
+    expect(esquemaNuevaVenta.safeParse(ventaDePrueba({ pagos: [] })).success).toBe(false);
   });
 });
 

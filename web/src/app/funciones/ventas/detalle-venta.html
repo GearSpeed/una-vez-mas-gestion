@@ -43,8 +43,16 @@
         <dd>{{ v.canal | etiqueta: 'canal' }}</dd>
       </div>
       <div>
-        <dt>Pago</dt>
-        <dd>{{ v.metodoPago | etiqueta: 'metodo' }}</dd>
+        <dt>{{ v.pagos.length > 1 ? 'Pagos' : 'Pago' }}</dt>
+        <dd>
+          @for (p of v.pagos; track p.metodoPago; let ultimo = $last) {
+            {{ p.metodoPago | etiqueta: 'metodo' }}
+            @if (v.pagos.length > 1) {
+              {{ ' ' }}{{ p.importe | currency }}
+            }
+            {{ ultimo ? '' : ' · ' }}
+          }
+        </dd>
       </div>
       @if (v.notas) {
         <div>

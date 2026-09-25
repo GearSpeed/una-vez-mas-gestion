@@ -19,7 +19,7 @@ import {
 const nuevaVenta = () => ({
   claveIdempotencia: clave(),
   canal: 'presencial',
-  metodoPago: 'efectivo',
+  pagos: [{ metodoPago: 'efectivo', importe: '30.00' }],
   lineas: [{ productoId: IDS.tejocote, cantidad: 1 }],
 });
 
@@ -177,7 +177,7 @@ describe('seguridad', () => {
       const vendida = await como(app, ANA).post('/ventas', {
         claveIdempotencia: clave(),
         canal: 'presencial',
-        metodoPago: 'efectivo',
+        pagos: [{ metodoPago: 'efectivo', importe: '30.00' }],
         lineas: [{ productoId: IDS.tejocote, cantidad: 1 }],
       });
       expect(vendida.status).toBe(201);

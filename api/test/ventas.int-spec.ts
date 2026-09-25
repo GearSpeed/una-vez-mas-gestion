@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import { multiplicar } from '@uvm/compartido';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   ADMIN,
@@ -15,10 +16,18 @@ import {
   reiniciarBd,
 } from './ayudantes.js';
 
-const venta = (cantidad: number, extra: object = {}) => ({
+/** El tejocote de las pruebas cuesta $30: el cobro sale de ahí. */
+const venta = (
+  cantidad: number,
+  {
+    metodoPago = 'efectivo',
+    importe = multiplicar('30.00', cantidad),
+    ...extra
+  }: Record<string, unknown> & { metodoPago?: string; importe?: string } = {},
+) => ({
   claveIdempotencia: clave(),
   canal: 'whatsapp',
-  metodoPago: 'efectivo',
+  pagos: [{ metodoPago, importe }],
   lineas: [{ productoId: IDS.tejocote, cantidad }],
   ...extra,
 });
@@ -63,6 +72,59 @@ describe('ventas', () => {
       (f: { productoId: number }) => f.productoId === IDS.tejocote,
     );
     expect(tejocote.cantidad).toBe(2);
+  });
+
+  it('una venta se cobra con varias formas de pago', async () => {
+    const respuesta = await como(app, ANA).post('/ventas', {
+      ...venta(4),
+      pagos: [
+        { metodoPago: 'efectivo', importe: '70.00' },
+        { metodoPago: 'tarjeta', importe: '50.00' },
+      ],
+    });
+    expect(respuesta.status).toBe(201);
+    expect(respuesta.body.total).toBe('120.00');
+    expect(respuesta.body.pagos).toEqual([
+      { metodoPago: 'efectivo', importe: '70.00', comision: '0.00' },
+      // La comisión sale SOLO de los $50 de tarjeta: 50 × 3.50 % = 1.75, +16 % = 2.03.
+      { metodoPago: 'tarjeta', importe: '50.00', comision: '2.03' },
+    ]);
+    expect(respuesta.body.comision).toBe('2.03');
+  });
+
+  it('el cobro tiene que sumar exactamente el total', async () => {
+    const falta = await como(app, ANA).post('/ventas', {
+      ...venta(4),
+      pagos: [{ metodoPago: 'efectivo', importe: '100.00' }],
+    });
+    expect(falta.status).toBe(422);
+    expect(falta.body.campos.pagos).toMatch(/\$120\.00 y los pagos suman \$100\.00/);
+
+    const sobra = await como(app, ANA).post('/ventas', {
+      ...venta(4),
+      pagos: [
+        { metodoPago: 'efectivo', importe: '100.00' },
+        { metodoPago: 'transferencia', importe: '30.00' },
+      ],
+    });
+    expect(sobra.status).toBe(422);
+
+    // Y nada de esto dejó rastro: la mercancía sigue completa.
+    const suya = await como(app, ANA).get('/inventario/existencias');
+    expect(
+      suya.body.filas.find((f: { productoId: number }) => f.productoId === IDS.tejocote).cantidad,
+    ).toBe(6);
+  });
+
+  it('no se puede repetir el mismo método de pago', async () => {
+    const respuesta = await como(app, ANA).post('/ventas', {
+      ...venta(4),
+      pagos: [
+        { metodoPago: 'efectivo', importe: '60.00' },
+        { metodoPago: 'efectivo', importe: '60.00' },
+      ],
+    });
+    expect(respuesta.status).toBe(422);
   });
 
   it('a un vendedor nunca le llegan costos', async () => {
@@ -118,7 +180,7 @@ describe('ventas', () => {
 
   it('dar descuento requiere permiso', async () => {
     const conDescuento = {
-      ...venta(2),
+      ...venta(2, { importe: '55.00' }),
       lineas: [{ productoId: IDS.tejocote, cantidad: 2, descuento: 5 }],
     };
     expect((await como(app, ANA).post('/ventas', conDescuento)).status).toBe(403);

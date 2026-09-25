@@ -21,11 +21,16 @@ import {
   coincideBusqueda,
   type ComisionPago,
   comisionDeCobro,
+  comparar,
+  type Decimal,
   type Existencia,
   type ExistenciasRespuesta,
   importeLinea,
   METODOS_PAGO,
   type MetodoPago,
+  redondear,
+  restar,
+  sumar,
   totalVenta,
   type Ubicacion,
   type VentaDetalle,
@@ -142,12 +147,47 @@ export class NuevaVenta {
   protected readonly canal = signal<CanalVenta>('whatsapp');
   protected readonly metodoPago = signal<MetodoPago>('efectivo');
 
-  /** Lo que retiene Mercado Pago si se cobra con tarjeta (lo absorbe el negocio). */
+  /**
+   * El pago repartido entre métodos: el cliente paga una parte en efectivo y otra
+   * con tarjeta. Apagado, la venta se cobra completa con el método elegido, que es
+   * lo de siempre y sigue siendo un solo toque.
+   */
+  protected readonly dividido = signal(false);
+  protected readonly importes = signal<Partial<Record<MetodoPago, string>>>({});
+
+  protected readonly pagos = computed<{ metodoPago: MetodoPago; importe: Decimal }[]>(() => {
+    if (!this.dividido()) return [{ metodoPago: this.metodoPago(), importe: this.total() }];
+    return METODOS_PAGO.flatMap((metodo) => {
+      const importe = this.importes()[metodo];
+      return importe && comparar(redondear(importe), '0') > 0
+        ? [{ metodoPago: metodo, importe: redondear(importe) }]
+        : [];
+    });
+  });
+
+  /** Lo que falta por cobrar (o lo que sobra, en negativo). */
+  protected readonly falta = computed(() =>
+    restar(this.total(), sumar(this.pagos().map((pago) => pago.importe))),
+  );
+  protected readonly cuadra = computed(() => comparar(this.falta(), '0') === 0);
+
+  /** Lo que retiene Mercado Pago de la parte cobrada con tarjeta (lo absorbe el negocio). */
   private readonly tarifas = httpResource<ComisionPago[]>(() => '/api/comisiones');
   protected readonly comision = computed(() => {
-    const tarifa = this.tarifas.value()?.find((t) => t.metodoPago === this.metodoPago());
-    if (!tarifa || this.lineas().length === 0) return null;
-    return { ...comisionDeCobro(this.total(), tarifa), tasaEfectiva: tarifa.tasaEfectiva };
+    const tarifas = this.tarifas.value();
+    if (!tarifas || this.lineas().length === 0) return null;
+    const conTarifa = this.pagos().flatMap((pago) => {
+      const tarifa = tarifas.find((t) => t.metodoPago === pago.metodoPago);
+      return tarifa ? [{ cobro: comisionDeCobro(pago.importe, tarifa), tarifa }] : [];
+    });
+    if (conTarifa.length === 0) return null;
+    const total = sumar(conTarifa.map(({ cobro }) => cobro.total));
+    return {
+      total,
+      neto: restar(sumar(this.pagos().map((p) => p.importe)), total),
+      /** Con un solo método con comisión se puede decir la tasa; con varios, no. */
+      tasaEfectiva: conTarifa.length === 1 ? (conTarifa[0]?.tarifa.tasaEfectiva ?? null) : null,
+    };
   });
   protected readonly notas = signal('');
   protected readonly enviando = signal(false);
@@ -186,8 +226,18 @@ export class NuevaVenta {
     this.carrito.set(new Map());
   }
 
+  protected cambiarImporte(metodo: MetodoPago, importe: string): void {
+    this.importes.update((actuales) => ({ ...actuales, [metodo]: importe }));
+  }
+
+  /** Al dividir, se arranca con todo en el método que ya estaba elegido. */
+  protected dividir(activo: boolean): void {
+    this.dividido.set(activo);
+    this.importes.set(activo ? { [this.metodoPago()]: this.total() } : {});
+  }
+
   protected async registrar(): Promise<void> {
-    if (this.enviando() || this.lineas().length === 0) return;
+    if (this.enviando() || this.lineas().length === 0 || !this.cuadra()) return;
     this.enviando.set(true);
     this.error.set(null);
     try {
@@ -195,7 +245,7 @@ export class NuevaVenta {
         claveIdempotencia: this.clave,
         ubicacionId: this.eligeUbicacion() ? (this.ubicacionId() ?? undefined) : undefined,
         canal: this.canal(),
-        metodoPago: this.metodoPago(),
+        pagos: this.pagos(),
         notas: this.notas(),
         lineas: this.lineas().map((l) => ({
           productoId: l.productoId,
@@ -207,6 +257,7 @@ export class NuevaVenta {
       this.clave = nuevaClave();
       this.carrito.set(new Map());
       this.notas.set('');
+      this.dividir(false);
       this.existencias.reload();
     } catch (error) {
       this.error.set(mensajeDeError(error));

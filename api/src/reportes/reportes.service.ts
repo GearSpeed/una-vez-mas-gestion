@@ -32,9 +32,10 @@ import { alias } from 'drizzle-orm/pg-core';
 import type { UsuarioSesion } from '../acceso/usuario-sesion.js';
 import { conCostos } from '../comun/costos.js';
 import { type BaseDatos, DB } from '../db/conexion.js';
-import { reembolsadoDeVenta } from '../db/consultas.js';
+import { formaDePagoDeVenta, reembolsadoDeVenta } from '../db/consultas.js';
 import {
   compras,
+  devolucionPagos,
   devoluciones,
   existencias,
   movimientos,
@@ -43,6 +44,7 @@ import {
   ubicaciones,
   usuarios,
   ventaLineasNetas,
+  ventaPagos,
   ventas,
 } from '../db/esquema.js';
 
@@ -182,8 +184,8 @@ export class ReportesService {
         etiqueta: sql<string>`${ventas.canal}::text`,
       },
       metodo: {
-        clave: sql<string>`${ventas.metodoPago}::text`,
-        etiqueta: sql<string>`${ventas.metodoPago}::text`,
+        clave: formaDePagoDeVenta,
+        etiqueta: formaDePagoDeVenta,
       },
     }[filtro.agrupar];
 
@@ -283,7 +285,7 @@ export class ReportesService {
     const { desde, hasta } = periodo(filtro, 'hoy');
     const ubicacion = await this.ubicacionDelCorte(usuario, filtro.ubicacionId);
 
-    const [movidos, actuales, cobros, reembolsos] = await Promise.all([
+    const [movidos, actuales, cobros, reembolsos, devueltas] = await Promise.all([
       this.db
         .select({
           productoId: movimientos.productoId,
@@ -305,13 +307,16 @@ export class ReportesService {
         .select({ productoId: existencias.productoId, cantidad: existencias.cantidad })
         .from(existencias)
         .where(eq(existencias.ubicacionId, ubicacion.id)),
+      // Por método, del pago y no de la venta: una venta mixta deja su efectivo en
+      // efectivo y su tarjeta en tarjeta, que es como tiene que cuadrar la caja.
       this.db
         .select({
-          metodo: ventas.metodoPago,
-          importe: sum(ventas.total),
-          comision: sum(ventas.comision),
+          metodo: ventaPagos.metodoPago,
+          importe: sum(ventaPagos.importe),
+          comision: sum(ventaPagos.comision),
         })
-        .from(ventas)
+        .from(ventaPagos)
+        .innerJoin(ventas, eq(ventas.id, ventaPagos.ventaId))
         .where(
           and(
             eq(ventas.ubicacionId, ubicacion.id),
@@ -320,16 +325,16 @@ export class ReportesService {
             lte(ventas.fecha, hasta),
           ),
         )
-        .groupBy(ventas.metodoPago),
+        .groupBy(ventaPagos.metodoPago),
       // El dinero regresado a clientes, y la comisión que regresa la entidad, cuentan el
       // día de la devolución.
       this.db
         .select({
-          metodo: ventas.metodoPago,
-          importe: sum(devoluciones.reembolso),
-          comisionDevuelta: sum(devoluciones.comisionDevuelta),
+          metodo: devolucionPagos.metodoPago,
+          importe: sum(devolucionPagos.importe),
         })
-        .from(devoluciones)
+        .from(devolucionPagos)
+        .innerJoin(devoluciones, eq(devoluciones.id, devolucionPagos.devolucionId))
         .innerJoin(ventas, eq(ventas.id, devoluciones.ventaId))
         .where(
           and(
@@ -338,7 +343,20 @@ export class ReportesService {
             lte(devoluciones.fecha, hasta),
           ),
         )
-        .groupBy(ventas.metodoPago),
+        .groupBy(devolucionPagos.metodoPago),
+      // La comisión que regresó Mercado Pago va aparte: es de la devolución, no de
+      // un método.
+      this.db
+        .select({ comisionDevuelta: sum(devoluciones.comisionDevuelta) })
+        .from(devoluciones)
+        .innerJoin(ventas, eq(ventas.id, devoluciones.ventaId))
+        .where(
+          and(
+            eq(ventas.ubicacionId, ubicacion.id),
+            gte(devoluciones.fecha, desde),
+            lte(devoluciones.fecha, hasta),
+          ),
+        ),
     ]);
 
     const trae = new Map(actuales.map((fila) => [fila.productoId, fila.cantidad]));
@@ -390,7 +408,7 @@ export class ReportesService {
       reembolsos: regresado,
       comisiones: restar(
         sumar(cobros.map((fila) => fila.comision ?? '0')),
-        sumar(reembolsos.map((fila) => fila.comisionDevuelta ?? '0')),
+        devueltas[0]?.comisionDevuelta ?? '0',
       ),
       totalVendido: restar(sumar(Object.values(importes)), sumar(Object.values(regresado))),
     };

@@ -157,7 +157,7 @@ describe('NuevaVenta', () => {
     expect(peticion.request.method).toBe('POST');
     expect(peticion.request.body).toMatchObject({
       canal: 'whatsapp',
-      metodoPago: 'efectivo',
+      pagos: [{ metodoPago: 'efectivo', importe: '60.00' }],
       ubicacionId: undefined,
       lineas: [{ productoId: 10, cantidad: 2, descuento: '0' }],
     });
@@ -169,6 +169,49 @@ describe('NuevaVenta', () => {
     http.expectOne('/api/inventario/existencias').flush(EXISTENCIAS);
     await fixture.whenStable();
     expect(pantalla.querySelector('.total')?.textContent).toContain('0 piezas');
+  });
+
+  it('divide el cobro entre dos formas de pago y no deja registrar hasta que cuadre', async () => {
+    boton('Agregar una pieza de Galletas de Mermelada de Tejocote')?.click();
+    boton('Agregar una pieza de Galletas de Mermelada de Tejocote')?.click();
+    await fixture.whenStable();
+
+    const dividir = [...pantalla.querySelectorAll<HTMLButtonElement>('button.dividir')][0];
+    dividir?.click();
+    await fixture.whenStable();
+    // Arranca con todo en efectivo: ya cuadra.
+    expect(pantalla.querySelector('.falta')?.textContent).toContain('cuadra');
+
+    const importe = (etiqueta: string) =>
+      [...pantalla.querySelectorAll<HTMLElement>('.reparto mat-form-field')]
+        .find((campo) => campo.textContent?.includes(etiqueta))
+        ?.querySelector('input');
+    const efectivo = importe('Efectivo');
+    efectivo!.value = '40';
+    efectivo!.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+
+    // Faltan $20 y el botón no deja registrar.
+    expect(pantalla.querySelector('.falta')?.textContent).toContain('$20.00');
+    expect(pantalla.querySelector<HTMLButtonElement>('button.registrar')?.disabled).toBe(true);
+
+    const tarjeta = importe('Tarjeta');
+    tarjeta!.value = '20';
+    tarjeta!.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    expect(pantalla.querySelector('.falta')?.textContent).toContain('cuadra');
+    // La comisión se cobra solo sobre los $20 de la tarjeta: $0.70 + IVA = $0.81.
+    expect(pantalla.querySelector('.comision')?.textContent).toContain('$0.81');
+
+    pantalla.querySelector<HTMLButtonElement>('button.registrar')?.click();
+    const peticion = http.expectOne('/api/ventas');
+    expect(peticion.request.body.pagos).toEqual([
+      { metodoPago: 'efectivo', importe: '40.00' },
+      { metodoPago: 'tarjeta', importe: '20.00' },
+    ]);
+    peticion.flush({ folio: 'V-000002', total: '60.00' });
+    await asentar();
+    http.expectOne('/api/inventario/existencias').flush(EXISTENCIAS);
   });
 
   it('si la API la rechaza, muestra el motivo', async () => {

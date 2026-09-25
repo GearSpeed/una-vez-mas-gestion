@@ -106,7 +106,15 @@
         </ng-container>
         <ng-container matColumnDef="metodoPago">
           <th mat-header-cell *matHeaderCellDef>Pago</th>
-          <td mat-cell *matCellDef="let v">{{ v.metodoPago | etiqueta: 'metodo' }}</td>
+          <td mat-cell *matCellDef="let v">
+            @for (p of v.pagos; track p.metodoPago; let ultimo = $last) {
+              {{ p.metodoPago | etiqueta: 'metodo' }}
+              @if (v.pagos.length > 1) {
+                <span class="ayuda"> {{ p.importe | currency }}</span>
+              }
+              {{ ultimo ? '' : ' · ' }}
+            }
+          </td>
         </ng-container>
         <ng-container matColumnDef="piezas">
           <th mat-header-cell *matHeaderCellDef class="numero">Piezas</th>

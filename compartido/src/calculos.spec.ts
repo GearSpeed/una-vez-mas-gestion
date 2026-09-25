@@ -11,6 +11,9 @@ import {
   promedioTrasEntrada,
   promedioTrasRetiro,
   reembolsoDeLinea,
+  repartirProporcional,
+  redondear,
+  sumar,
   tasaEfectiva,
   totalVenta,
   trasladoPorPieza,
@@ -235,5 +238,45 @@ describe('reembolso de una devolución', () => {
       cantidad: 1,
     });
     expect([primera, segunda, tercera]).toEqual(['28.33', '28.34', '28.33']);
+  });
+});
+
+describe('repartir dinero entre varios métodos de pago', () => {
+  it('reparte en proporción a lo pagado', () => {
+    expect(repartirProporcional('100.00', ['60.00', '40.00'])).toEqual(['60.00', '40.00']);
+    expect(repartirProporcional('50.00', ['60.00', '40.00'])).toEqual(['30.00', '20.00']);
+  });
+
+  /** Lo que no se puede perder: la suma de las partes es el total, al centavo. */
+  it('no pierde ni inventa centavos cuando no divide exacto', () => {
+    const partes = repartirProporcional('33.33', ['10.00', '10.00', '10.00']);
+    expect(partes).toEqual(['11.11', '11.11', '11.11']);
+
+    // El centavo que sobra cae donde el acumulado lo alcanza, no siempre al final.
+    const desparejas = repartirProporcional('100.00', ['1.00', '1.00', '1.00']);
+    expect(desparejas).toEqual(['33.33', '33.34', '33.33']);
+    expect(sumar(desparejas)).toBe('100.00');
+
+    // Lo que de verdad importa: nunca falta ni sobra, con cualquier reparto.
+    for (const total of ['0.01', '7.77', '33.33', '1234.56']) {
+      for (const pesos of [
+        ['1', '2'],
+        ['60', '40'],
+        ['1', '1', '1'],
+        ['10', '3', '7', '5'],
+      ]) {
+        expect(sumar(repartirProporcional(total, pesos))).toBe(redondear(total));
+      }
+    }
+  });
+
+  it('con un solo método le toca todo', () => {
+    expect(repartirProporcional('87.65', ['87.65'])).toEqual(['87.65']);
+  });
+
+  it('una venta de cero no rompe el reparto', () => {
+    expect(repartirProporcional('0.00', ['0.00', '0.00'])).toEqual(['0.00', '0.00']);
+    expect(repartirProporcional('10.00', ['0.00', '0.00'])).toEqual(['10.00', '0.00']);
+    expect(repartirProporcional('10.00', [])).toEqual([]);
   });
 });

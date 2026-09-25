@@ -19,7 +19,10 @@ import {
   type MetodoPago,
   type NuevaDevolucion,
   type NuevaVenta,
+  type PagoDeVenta,
+  redondear,
   reembolsoDeLinea,
+  repartirProporcional,
   restar,
   sumar,
   totalVenta,
@@ -36,12 +39,14 @@ import { type BaseDatos, DB } from '../db/conexion.js';
 import { comisionNetaDeVenta, reembolsadoDeVenta } from '../db/consultas.js';
 import {
   devolucionDetalle,
+  devolucionPagos,
   devoluciones,
   productos,
   ubicaciones,
   usuarios,
   ventaDetalle,
   ventaLineasNetas,
+  ventaPagos,
   ventas,
 } from '../db/esquema.js';
 import { MovimientosService } from '../inventario/movimientos.service.js';
@@ -108,7 +113,23 @@ export class VentasService {
           });
 
           const total = totalVenta(lineas);
-          const tasa = await this.comisiones.tasaDe(tx, datos.metodoPago);
+          // Lo que se cobró tiene que ser exactamente lo que cuesta: ni un peso de
+          // más (no somos caja de ahorro) ni de menos (no se fía).
+          const cobrado = sumar(datos.pagos.map((pago) => pago.importe));
+          if (comparar(cobrado, total) !== 0) {
+            throw campoInvalido('pagos', `La venta es de $${total} y los pagos suman $${cobrado}.`);
+          }
+          // Cada parte paga la comisión de su método: si pagó mitad con tarjeta,
+          // Mercado Pago solo retiene sobre esa mitad.
+          const pagos: { metodoPago: MetodoPago; importe: string; comision: string }[] = [];
+          for (const pago of datos.pagos) {
+            const tasa = await this.comisiones.tasaDe(tx, pago.metodoPago);
+            pagos.push({
+              ...pago,
+              comision: tasa ? comisionDeCobro(pago.importe, tasa).total : '0',
+            });
+          }
+
           const [venta] = await tx
             .insert(ventas)
             .values({
@@ -116,15 +137,15 @@ export class VentasService {
               ubicacionId,
               vendedorId: usuario.id,
               canal: datos.canal,
-              metodoPago: datos.metodoPago,
               piezas: lineas.reduce((suma, l) => suma + l.cantidad, 0),
               total,
-              comision: tasa ? comisionDeCobro(total, tasa).total : '0',
+              comision: sumar(pagos.map((pago) => pago.comision)),
               notas: datos.notas,
               claveIdempotencia: datos.claveIdempotencia,
             })
             .returning({ id: ventas.id });
           if (!venta) throw new Error('No se registró la venta');
+          await tx.insert(ventaPagos).values(pagos.map((pago) => ({ ...pago, ventaId: venta.id })));
 
           const aplicados = await this.movimientos.aplicar(
             tx,
@@ -268,6 +289,25 @@ export class VentasService {
             .returning({ id: devoluciones.id, folio: devoluciones.folio });
           if (!devolucion) throw new Error('No se registró la devolución');
 
+          // El dinero regresa en la misma proporción en que se pagó.
+          const comoPago = await tx
+            .select({ metodoPago: ventaPagos.metodoPago, importe: ventaPagos.importe })
+            .from(ventaPagos)
+            .where(eq(ventaPagos.ventaId, ventaId))
+            .orderBy(asc(ventaPagos.id));
+          const partes = repartirProporcional(
+            reembolso,
+            comoPago.map((pago) => pago.importe),
+          );
+          const regreso = comoPago
+            .map((pago, i) => ({
+              devolucionId: devolucion.id,
+              metodoPago: pago.metodoPago,
+              importe: partes[i] ?? '0',
+            }))
+            .filter((fila) => comparar(fila.importe, '0') > 0);
+          if (regreso.length > 0) await tx.insert(devolucionPagos).values(regreso);
+
           await tx.insert(devolucionDetalle).values(
             lineas.map((l) => ({
               devolucionId: devolucion.id,
@@ -385,7 +425,7 @@ export class VentasService {
     const donde = and(...condiciones);
     const vigentes = and(donde, eq(ventas.estado, 'vigente'));
 
-    const [filas, [conteo], porMetodo] = await Promise.all([
+    const [filas, [conteo], [totales], cobros, regresos] = await Promise.all([
       this.db
         .select({
           id: ventas.id,
@@ -394,7 +434,6 @@ export class VentasService {
           ubicacion: ubicaciones.nombre,
           vendedor: vendedor.nombre,
           canal: ventas.canal,
-          metodoPago: ventas.metodoPago,
           piezas: ventas.piezas,
           total: ventas.total,
           comision: sql<string>`${comisionNetaDeVenta}::numeric(12, 2)`,
@@ -411,36 +450,74 @@ export class VentasService {
       this.db.select({ total: count() }).from(ventas).where(donde),
       this.db
         .select({
-          metodo: ventas.metodoPago,
-          cobrado: sql<string>`coalesce(sum(${ventas.total}), 0)`,
-          reembolsado: sql<string>`coalesce(sum(${reembolsadoDeVenta}), 0)`,
-          comisiones: sql<string>`coalesce(sum(${comisionNetaDeVenta}), 0)`,
           ventas: count(),
+          reembolsos: sql<string>`coalesce(sum(${reembolsadoDeVenta}), 0)`,
+          comisiones: sql<string>`coalesce(sum(${comisionNetaDeVenta}), 0)`,
         })
         .from(ventas)
+        .where(vigentes),
+      // El dinero por método sale de los pagos, no de la venta: una venta mixta
+      // pone su parte en cada uno.
+      this.db
+        .select({
+          metodo: ventaPagos.metodoPago,
+          importe: sql<string>`coalesce(sum(${ventaPagos.importe}), 0)`,
+        })
+        .from(ventaPagos)
+        .innerJoin(ventas, eq(ventas.id, ventaPagos.ventaId))
         .where(vigentes)
-        .groupBy(ventas.metodoPago),
+        .groupBy(ventaPagos.metodoPago),
+      this.db
+        .select({
+          metodo: devolucionPagos.metodoPago,
+          importe: sql<string>`coalesce(sum(${devolucionPagos.importe}), 0)`,
+        })
+        .from(devolucionPagos)
+        .innerJoin(devoluciones, eq(devoluciones.id, devolucionPagos.devolucionId))
+        .innerJoin(ventas, eq(ventas.id, devoluciones.ventaId))
+        .where(vigentes)
+        .groupBy(devolucionPagos.metodoPago),
     ]);
 
-    const importes = Object.fromEntries(METODOS_PAGO.map((m) => [m, '0.00'])) as Record<
-      MetodoPago,
-      string
-    >;
-    for (const fila of porMetodo) importes[fila.metodo] = restar(fila.cobrado, fila.reembolsado);
+    const importes = porMetodo(cobros);
+    const regresado = porMetodo(regresos);
+    const pagos = await this.pagosDe(filas.map((fila) => fila.id));
 
     return {
-      filas,
+      filas: filas.map((fila) => ({ ...fila, pagos: pagos.get(fila.id) ?? [] })),
       total: conteo?.total ?? 0,
       pagina: filtro.pagina,
       porPagina: POR_PAGINA,
       resumen: {
-        importe: sumar(Object.values(importes)),
-        ventas: porMetodo.reduce((suma, fila) => suma + fila.ventas, 0),
-        porMetodo: importes,
-        reembolsos: sumar(porMetodo.map((f) => f.reembolsado)),
-        comisiones: sumar(porMetodo.map((f) => f.comisiones)),
+        importe: restar(sumar(Object.values(importes)), sumar(Object.values(regresado))),
+        ventas: totales?.ventas ?? 0,
+        porMetodo: Object.fromEntries(
+          METODOS_PAGO.map((metodo) => [metodo, restar(importes[metodo], regresado[metodo])]),
+        ) as Record<MetodoPago, string>,
+        reembolsos: redondear(totales?.reembolsos ?? '0'),
+        comisiones: redondear(totales?.comisiones ?? '0'),
       },
     };
+  }
+
+  /** Los pagos de varias ventas, agrupados por venta. */
+  private async pagosDe(ventaIds: readonly number[]): Promise<Map<number, PagoDeVenta[]>> {
+    const porVenta = new Map<number, PagoDeVenta[]>();
+    if (ventaIds.length === 0) return porVenta;
+    const filas = await this.db
+      .select({
+        ventaId: ventaPagos.ventaId,
+        metodoPago: ventaPagos.metodoPago,
+        importe: ventaPagos.importe,
+        comision: ventaPagos.comision,
+      })
+      .from(ventaPagos)
+      .where(inArray(ventaPagos.ventaId, [...ventaIds]))
+      .orderBy(asc(ventaPagos.id));
+    for (const { ventaId, ...pago } of filas) {
+      porVenta.set(ventaId, [...(porVenta.get(ventaId) ?? []), pago]);
+    }
+    return porVenta;
   }
 
   async detalle(usuario: UsuarioSesion, id: number): Promise<VentaDetalle> {
@@ -454,7 +531,6 @@ export class VentasService {
         vendedorId: ventas.vendedorId,
         vendedor: vendedor.nombre,
         canal: ventas.canal,
-        metodoPago: ventas.metodoPago,
         piezas: ventas.piezas,
         total: ventas.total,
         comision: sql<string>`${comisionNetaDeVenta}::numeric(12, 2)`,
@@ -475,7 +551,7 @@ export class VentasService {
       throw new NotFoundException('La venta no existe.');
     }
 
-    const [lineas, devolucionesDeVenta] = await Promise.all([
+    const [lineas, devolucionesDeVenta, pagos] = await Promise.all([
       this.db
         .select({
           productoId: ventaDetalle.productoId,
@@ -495,6 +571,7 @@ export class VentasService {
         .where(eq(ventaDetalle.ventaId, id))
         .orderBy(asc(ventaDetalle.id)),
       this.devolucionesDe(id),
+      this.pagosDe([id]),
     ]);
 
     const { canceladoEn, canceladoPor: por, motivoCancelacion, registradoEn, ...resto } = venta;
@@ -504,6 +581,7 @@ export class VentasService {
       usuario,
       {
         ...resto,
+        pagos: pagos.get(id) ?? [],
         reembolsado,
         registradoEn: registradoEn.toISOString(),
         cancelacion: canceladoEn
@@ -599,4 +677,16 @@ export class VentasService {
 
 function campoInvalido(campo: string, mensaje: string): UnprocessableEntityException {
   return new UnprocessableEntityException({ mensaje, campos: { [campo]: mensaje } });
+}
+
+/** Un importe por método, con todos los métodos presentes aunque no se hayan usado. */
+function porMetodo(
+  filas: readonly { metodo: MetodoPago; importe: string }[],
+): Record<MetodoPago, string> {
+  const importes = Object.fromEntries(METODOS_PAGO.map((m) => [m, '0.00'])) as Record<
+    MetodoPago,
+    string
+  >;
+  for (const fila of filas) importes[fila.metodo] = redondear(fila.importe);
+  return importes;
 }

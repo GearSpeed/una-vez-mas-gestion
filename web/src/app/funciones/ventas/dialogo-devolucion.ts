@@ -7,7 +7,14 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { comisionDevuelta, reembolsoDeLinea, sumar, type VentaDetalle } from '@uvm/compartido';
+import {
+  comisionDevuelta,
+  ETIQUETAS_METODO_PAGO,
+  reembolsoDeLinea,
+  repartirProporcional,
+  sumar,
+  type VentaDetalle,
+} from '@uvm/compartido';
 import { startWith } from 'rxjs';
 import { ApiService } from '../../core/api';
 import { marcarErroresDelServidor, mensajeDeError } from '../../core/errores';
@@ -83,6 +90,20 @@ export class DialogoDevolucion {
       }),
     ),
   );
+
+  /**
+   * Cómo se le regresa el dinero cuando la venta se pagó con varias formas: en la
+   * misma proporción en que pagó, que es lo que hace la API.
+   */
+  protected readonly reparto = computed(() => {
+    const partes = repartirProporcional(
+      this.reembolso(),
+      this.venta.pagos.map((pago) => pago.importe),
+    );
+    return this.venta.pagos
+      .map((pago, i) => `${ETIQUETAS_METODO_PAGO[pago.metodoPago]} $${partes[i] ?? '0.00'}`)
+      .join(' · ');
+  });
 
   /** Lo que retuvo Mercado Pago al cobrar y lo que ya regresó en devoluciones anteriores. */
   private readonly comisionDevueltaAntes = sumar(

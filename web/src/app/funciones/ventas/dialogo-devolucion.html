@@ -2,9 +2,11 @@
 <form [formGroup]="formulario" (ngSubmit)="guardar()" novalidate>
   <mat-dialog-content class="contenido">
     <p class="ayuda">
-      Al cliente se le regresa íntegro lo que pagó por esas piezas ({{
-        venta.metodoPago | etiqueta: 'metodo'
-      }}, como pagó).
+      Al cliente se le regresa íntegro lo que pagó por esas piezas, y en la misma forma en que pagó
+      @if (venta.pagos.length > 1) {
+        <span> : {{ reparto() }}</span>
+      }
+      .
     </p>
     @if (conComision) {
       <p class="aviso-tarjeta">

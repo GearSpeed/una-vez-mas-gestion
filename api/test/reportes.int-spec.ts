@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import { multiplicar } from '@uvm/compartido';
 import { fechaDeHoy } from '@uvm/compartido';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -45,7 +46,7 @@ describe('reportes', () => {
       como(app, ANA).post('/ventas', {
         claveIdempotencia: clave(),
         canal: 'whatsapp',
-        metodoPago,
+        pagos: [{ metodoPago, importe: multiplicar('30.00', cantidad) }],
         lineas: [{ productoId: IDS.tejocote, cantidad }],
       });
     await vende(3, 'efectivo');

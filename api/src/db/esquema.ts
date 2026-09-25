@@ -427,7 +427,6 @@ export const ventas = gestion.table(
       .notNull()
       .references(() => usuarios.id),
     canal: canalVenta().notNull(),
-    metodoPago: metodoPago().notNull(),
     piezas: integer().notNull(),
     /** Lo que pagó el cliente. */
     total: dinero().notNull(),
@@ -477,6 +476,31 @@ export const ventaDetalle = gestion.table(
       'venta_detalle_descuento',
       sql`descuento >= 0 and descuento <= cantidad * precio_unitario`,
     ),
+  ],
+);
+
+/**
+ * Cómo se cobró cada venta. Un renglón por método: lo normal es uno, y son varios
+ * cuando el cliente paga una parte en efectivo y otra con tarjeta. La suma de los
+ * importes es el total de la venta, y la suma de las comisiones, `ventas.comision`.
+ */
+export const ventaPagos = gestion.table(
+  'venta_pagos',
+  {
+    id: id(),
+    ventaId: integer()
+      .notNull()
+      .references(() => ventas.id),
+    metodoPago: metodoPago().notNull(),
+    importe: dinero().notNull(),
+    /** Lo que retuvo la entidad por esta parte del cobro (hoy solo la tarjeta). */
+    comision: dinero().notNull().default('0'),
+  },
+  (t) => [
+    unique('venta_pagos_metodo').on(t.ventaId, t.metodoPago),
+    check('venta_pagos_importe', sql`importe > 0`),
+    check('venta_pagos_comision', sql`comision >= 0 and comision <= importe`),
+    index('venta_pagos_venta').on(t.ventaId),
   ],
 );
 
@@ -536,6 +560,28 @@ export const devolucionDetalle = gestion.table(
     check('devolucion_detalle_cantidad', sql`cantidad > 0`),
     check('devolucion_detalle_reembolso', sql`reembolso >= 0`),
     index('devolucion_detalle_linea').on(t.ventaDetalleId),
+  ],
+);
+
+/**
+ * Cómo regresó el dinero de una devolución: en la misma proporción en que se pagó
+ * la venta. Se guarda en vez de recalcularse, porque el corte de la vendedora tiene
+ * que cuadrar con lo que de verdad salió de la caja y de la terminal.
+ */
+export const devolucionPagos = gestion.table(
+  'devolucion_pagos',
+  {
+    id: id(),
+    devolucionId: integer()
+      .notNull()
+      .references(() => devoluciones.id),
+    metodoPago: metodoPago().notNull(),
+    importe: dinero().notNull(),
+  },
+  (t) => [
+    unique('devolucion_pagos_metodo').on(t.devolucionId, t.metodoPago),
+    check('devolucion_pagos_importe', sql`importe >= 0`),
+    index('devolucion_pagos_devolucion').on(t.devolucionId),
   ],
 );
 

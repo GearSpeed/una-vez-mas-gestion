@@ -190,6 +190,14 @@ export interface CompraDetalle extends CompraResumen {
   readonly lineas: readonly LineaCompraDetalle[];
 }
 
+/** Una parte del cobro de una venta: cuánto se pagó con ese método. */
+export interface PagoDeVenta {
+  readonly metodoPago: MetodoPago;
+  readonly importe: Decimal;
+  /** Lo que retuvo la entidad por esta parte (solo tarjeta, hoy). */
+  readonly comision: Decimal;
+}
+
 export interface VentaResumen {
   readonly id: number;
   readonly folio: string;
@@ -197,7 +205,8 @@ export interface VentaResumen {
   readonly ubicacion: string;
   readonly vendedor: string;
   readonly canal: CanalVenta;
-  readonly metodoPago: MetodoPago;
+  /** Cómo pagó: un renglón por método. Uno solo en la mayoría de las ventas. */
+  readonly pagos: readonly PagoDeVenta[];
   readonly piezas: number;
   /** Lo que pagó el cliente. */
   readonly total: Decimal;

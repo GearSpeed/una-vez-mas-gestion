@@ -141,16 +141,51 @@
 
       <fieldset class="grupo">
         <legend>Cómo pagó</legend>
-        <mat-button-toggle-group
-          [value]="metodoPago()"
-          (change)="metodoPago.set($event.value)"
-          aria-label="Método de pago"
-          [hideSingleSelectionIndicator]="true"
-        >
-          @for (m of metodos; track m) {
-            <mat-button-toggle [value]="m">{{ m | etiqueta: 'metodo' }}</mat-button-toggle>
-          }
-        </mat-button-toggle-group>
+        @if (!dividido()) {
+          <mat-button-toggle-group
+            [value]="metodoPago()"
+            (change)="metodoPago.set($event.value)"
+            aria-label="Método de pago"
+            [hideSingleSelectionIndicator]="true"
+          >
+            @for (m of metodos; track m) {
+              <mat-button-toggle [value]="m">{{ m | etiqueta: 'metodo' }}</mat-button-toggle>
+            }
+          </mat-button-toggle-group>
+          <button mat-button type="button" class="dividir" (click)="dividir(true)">
+            Pagó con dos formas
+          </button>
+        } @else {
+          <div class="reparto">
+            @for (m of metodos; track m) {
+              <mat-form-field>
+                <mat-label>{{ m | etiqueta: 'metodo' }}</mat-label>
+                <span matTextPrefix>$&nbsp;</span>
+                <input
+                  matInput
+                  type="number"
+                  inputmode="decimal"
+                  min="0"
+                  step="0.01"
+                  [value]="importes()[m] ?? ''"
+                  (input)="cambiarImporte(m, $any($event.target).value)"
+                />
+              </mat-form-field>
+            }
+          </div>
+          <p class="falta" aria-live="polite">
+            @if (cuadra()) {
+              El pago cuadra con el total.
+            } @else if (falta().startsWith('-')) {
+              <strong>Sobran {{ falta().slice(1) | currency }}</strong> de lo que cuesta.
+            } @else {
+              <strong>Faltan {{ falta() | currency }}</strong> por cobrar.
+            }
+          </p>
+          <button mat-button type="button" class="dividir" (click)="dividir(false)">
+            Pagó con una sola forma
+          </button>
+        }
       </fieldset>
 
       <mat-form-field>
@@ -170,8 +205,11 @@
 
       @if (comision(); as c) {
         <p class="ayuda comision" aria-live="polite">
-          Mercado Pago retiene {{ c.total | currency }} ({{ c.tasaEfectiva | percent: '1.2-2' }});
-          te llegan {{ c.neto | currency }}.
+          Mercado Pago retiene {{ c.total | currency }}
+          @if (c.tasaEfectiva) {
+            <span> ({{ c.tasaEfectiva | percent: '1.2-2' }})</span>
+          }
+          ; te llegan {{ c.neto | currency }}.
         </p>
       }
 
@@ -184,7 +222,7 @@
         type="button"
         class="registrar"
         (click)="registrar()"
-        [disabled]="lineas().length === 0 || enviando()"
+        [disabled]="lineas().length === 0 || !cuadra() || enviando()"
       >
         {{ enviando() ? 'Registrando…' : 'Registrar venta' }}
       </button>

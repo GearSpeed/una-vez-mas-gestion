@@ -1,4 +1,5 @@
 import { expect, type APIRequestContext, test } from '@playwright/test';
+import { restar } from '@uvm/compartido';
 import sharp from 'sharp';
 import { entrarComo, esperarCarga, sinViolaciones, USUARIOS } from './ayudantes';
 
@@ -115,6 +116,61 @@ test('precio, compra, carga y venta de punta a punta', async ({ page, request })
   await expect(page.getByText(/Devolución D-\d{6}: se reembolsan \$28\.00/)).toBeVisible();
   await expect(page.getByText('Mercado Pago regresó $1.14 de su comisión.')).toBeVisible();
   expect(await piezasDeAna(request, producto)).toBe(antes + 4);
+});
+
+test('una venta se cobra con efectivo y tarjeta a la vez', async ({ page, request }) => {
+  // Se apoya en la venta de arriba: ahí quedó mercancía cargada a Ana.
+  const producto = 'Galletas de Coco';
+  // Escritorio y celular comparten la BD, así que se mide lo que suma esta venta.
+  const cobrosDeAna = async (): Promise<Record<string, string>> =>
+    (
+      (await (
+        await request.get('/api/reportes/corte', { headers: { 'X-Dev-Correo': USUARIOS.ana } })
+      ).json()) as { cobros: Record<string, string> }
+    ).cobros;
+  const cobrosAntes = await cobrosDeAna();
+
+  await entrarComo(page, 'ana');
+  await page.goto('/ventas/nueva');
+  await esperarCarga(page);
+  const mas = page.getByRole('button', { name: `Agregar una pieza de ${producto}` });
+  await mas.click();
+  await mas.click();
+  await expect(page.getByText('2 piezas ·')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Pagó con dos formas' }).click();
+  const importe = (metodo: string) =>
+    page.locator('.reparto mat-form-field', { hasText: metodo }).locator('input');
+  await importe('Efectivo').fill('36');
+  await expect(page.getByText(/Faltan \$20\.00/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Registrar venta' })).toBeDisabled();
+
+  await importe('Tarjeta').fill('20');
+  await expect(page.getByText(/El pago cuadra/)).toBeVisible();
+  // La comisión sale solo de los $20 de tarjeta: $0.70 + IVA = $0.81.
+  await expect(page.getByText(/retiene \$0\.81/)).toBeVisible();
+
+  await page.getByRole('button', { name: 'Registrar venta' }).click();
+  const aviso = page.getByText(/Venta V-\d{6} registrada por \$56\.00/);
+  await expect(aviso).toBeVisible();
+  const folio = /V-\d{6}/.exec((await aviso.textContent()) ?? '')?.[0] ?? '';
+
+  // En su lista se ven las dos formas con su importe.
+  await page.goto('/ventas');
+  await esperarCarga(page);
+  const fila = page.getByRole('row', { name: new RegExp(folio) });
+  await expect(fila).toContainText('Efectivo');
+  await expect(fila).toContainText('Tarjeta');
+
+  // Y el corte lo separa: cada peso queda contado donde entró, que es lo que tiene
+  // que cuadrar con lo que trae en la bolsa y con lo que reporta la terminal.
+  const despues = await cobrosDeAna();
+  expect(restar(despues['efectivo'] ?? '0', cobrosAntes['efectivo'] ?? '0')).toBe('36.00');
+  expect(restar(despues['tarjeta'] ?? '0', cobrosAntes['tarjeta'] ?? '0')).toBe('20.00');
+
+  await page.goto('/corte');
+  await esperarCarga(page);
+  await expect(page.locator('section.tarjeta').first()).toContainText('Efectivo: $');
 });
 
 test('un vendedor no ve pantallas de otros roles', async ({ page }) => {
