@@ -1,0 +1,77 @@
+<h2 mat-dialog-title>
+  {{ datos.clase === 'traspaso' ? 'Traspaso' : 'Ajuste' }} {{ documento.value()?.folio }}
+</h2>
+<mat-dialog-content>
+  <uvm-estado-carga
+    [cargando]="documento.isLoading()"
+    [error]="documento.error()"
+    (reintentar)="documento.reload()"
+  />
+
+  @if (documento.value(); as d) {
+    <dl class="datos">
+      <div>
+        <dt>Fecha</dt>
+        <dd>{{ d.fecha | date: 'longDate' }}</dd>
+      </div>
+      @if (traspaso(); as t) {
+        <div>
+          <dt>De</dt>
+          <dd>{{ t.origen }}</dd>
+        </div>
+        <div>
+          <dt>A</dt>
+          <dd>{{ t.destino }}</dd>
+        </div>
+      }
+      @if (ajuste(); as a) {
+        <div>
+          <dt>Ubicación</dt>
+          <dd>{{ a.ubicacion }}</dd>
+        </div>
+        <div>
+          <dt>Motivo</dt>
+          <dd>{{ a.motivo | etiqueta: 'motivo' }}</dd>
+        </div>
+      }
+      <div>
+        <dt>Registró</dt>
+        <dd>{{ d.registradoPor }}</dd>
+      </div>
+    </dl>
+
+    <section aria-labelledby="titulo-notas">
+      <h3 id="titulo-notas">Notas</h3>
+      <p [class.ayuda]="!d.notas">{{ d.notas || 'Sin notas.' }}</p>
+    </section>
+
+    <section aria-labelledby="titulo-piezas">
+      <h3 id="titulo-piezas">Piezas</h3>
+      <table class="tabla-simple">
+        <thead>
+          <tr>
+            <th scope="col">Producto</th>
+            <th scope="col" class="numero">Piezas</th>
+            @if (ajuste()?.lineas?.[0]?.costos) {
+              <th scope="col" class="numero">Costo</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (l of d.lineas; track l.productoId) {
+            <tr>
+              <th scope="row">{{ l.producto }}</th>
+              <td class="numero">{{ l.cantidad > 0 ? '+' : '' }}{{ l.cantidad }}</td>
+              @if ($any(l).costos; as c) {
+                <td class="numero">{{ c.costoUnitario | currency: 'MXN' : 'symbol' : '1.2-4' }}</td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  }
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-button type="button" mat-dialog-close>Cerrar</button>
+</mat-dialog-actions>

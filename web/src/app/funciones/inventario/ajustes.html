@@ -218,17 +218,28 @@
     <h2 id="titulo-recientes">Últimos ajustes</h2>
     <ul class="recientes">
       @for (a of recientes.value() ?? []; track a.id) {
-        <li class="tarjeta">
-          <strong>{{ a.folio }}</strong> · {{ a.fecha | date: 'mediumDate' }} ·
-          {{ a.motivo | etiqueta: 'motivo' }} ·
-          {{ a.ubicacion }}
-          <span class="ayuda">
-            ({{ a.registradoPor }})
-            @for (l of a.lineas; track l.productoId; let ultimo = $last) {
-              {{ l.cantidad > 0 ? '+' : '' }}{{ l.cantidad }} {{ l.producto
-              }}{{ ultimo ? '' : ', ' }}
+        <li>
+          <button
+            type="button"
+            class="tarjeta tarjeta-boton"
+            (click)="abrir(a.id)"
+            [attr.aria-label]="'Ver el ajuste ' + a.folio"
+          >
+            <span>
+              <strong>{{ a.folio }}</strong> · {{ a.fecha | date: 'mediumDate' }} ·
+              {{ a.motivo | etiqueta: 'motivo' }} · {{ a.ubicacion }}
+            </span>
+            <span class="ayuda">
+              ({{ a.registradoPor }})
+              @for (l of a.lineas; track l.productoId; let ultimo = $last) {
+                {{ l.cantidad > 0 ? '+' : '' }}{{ l.cantidad }} {{ l.producto
+                }}{{ ultimo ? '' : ', ' }}
+              }
+            </span>
+            @if (a.notas) {
+              <span class="ayuda notas">«{{ a.notas }}»</span>
             }
-          </span>
+          </button>
         </li>
       } @empty {
         <li class="ayuda">Todavía no hay ajustes.</li>

@@ -119,6 +119,11 @@ export class ExistenciasService {
           ubicacion: ubicaciones.nombre,
           usuario: usuarios.nombre,
           documento: sql<string>`coalesce(${compras.folio}, ${ventas.folio}, ${traspasos.folio}, ${ajustes.folio}, ${devoluciones.folio})`,
+          // Con qué abrir el documento desde el kardex. Una devolución se ve dentro
+          // de su venta, así que ahí va el id de la venta, no el de la devolución.
+          documentoId: sql<
+            number | null
+          >`coalesce(${compras.id}, ${ventas.id}, ${traspasos.id}, ${ajustes.id}, ${devoluciones.ventaId})`,
         })
         .from(movimientos)
         .innerJoin(ubicaciones, eq(ubicaciones.id, movimientos.ubicacionId))
@@ -145,6 +150,7 @@ export class ExistenciasService {
             registradoEn: fila.registradoEn.toISOString(),
             tipo: fila.tipo,
             documento: fila.documento,
+            documentoId: fila.documentoId,
             ubicacion: fila.ubicacion,
             cantidad: fila.cantidad,
             existenciaResultante: fila.existenciaResultante,

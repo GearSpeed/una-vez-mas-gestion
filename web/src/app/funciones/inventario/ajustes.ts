@@ -11,6 +11,7 @@ import {
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -32,6 +33,7 @@ import { Desplazable } from '../../ui/desplazable';
 import { Encabezado } from '../../ui/encabezado';
 import { EstadoCarga } from '../../ui/estado-carga';
 import { EtiquetaPipe } from '../../ui/etiqueta.pipe';
+import { type DatosDialogoDocumento, DialogoDocumento } from './dialogo-documento';
 
 /**
  * Ajustes (mermas, caducidad, dañados, muestras) y conteo físico: se captura
@@ -61,6 +63,7 @@ import { EtiquetaPipe } from '../../ui/etiqueta.pipe';
 export class Ajustes {
   private readonly fb = inject(FormBuilder).nonNullable;
   private readonly api = inject(ApiService);
+  private readonly dialogo = inject(MatDialog);
   private readonly avisos = inject(AvisosService);
 
   protected readonly motivos = MOTIVOS_AJUSTE.filter((m) => m !== 'conteo');
@@ -212,6 +215,16 @@ export class Ajustes {
       sentido: this.fb.control<'sale' | 'entra'>('sale'),
       cantidad: this.fb.control<number | null>(null, [Validators.required, Validators.min(1)]),
       costoUnitario: this.fb.control<number | null>(null, Validators.min(0)),
+    });
+  }
+
+  /** El documento completo, con sus notas: el porqué del movimiento. */
+  protected abrir(id: number): void {
+    const datos: DatosDialogoDocumento = { clase: 'ajuste', id };
+    this.dialogo.open<DialogoDocumento, DatosDialogoDocumento>(DialogoDocumento, {
+      data: datos,
+      width: '36rem',
+      maxWidth: '95vw',
     });
   }
 }

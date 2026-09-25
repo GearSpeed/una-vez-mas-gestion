@@ -146,6 +146,32 @@ describe('inventario', () => {
     ).toBeDefined();
   });
 
+  it('cada movimiento del kardex trae con qué abrir su documento', async () => {
+    const traspaso = await como(app, ALMACEN).post('/inventario/traspasos', {
+      claveIdempotencia: clave(),
+      origenId: IDS.almacen,
+      destinoId: IDS.ana,
+      lineas: [{ productoId: IDS.canela, cantidad: 2 }],
+      notas: 'Para la feria del sábado',
+    });
+    expect(traspaso.status).toBe(201);
+
+    const kardex = await como(app, ADMIN).get(`/inventario/kardex?productoId=${IDS.canela}`);
+    const [entrada, salida, compra] = kardex.body.filas;
+    // Las dos patas del traspaso apuntan al mismo documento.
+    expect(entrada.documentoId).toBe(traspaso.body.id);
+    expect(salida.documentoId).toBe(traspaso.body.id);
+    expect(compra.tipo).toBe('compra');
+    expect(compra.documentoId).toBeGreaterThan(0);
+
+    // Y con ese id se abre el traspaso, con sus notas.
+    const detalle = await como(app, ALMACEN).get(`/inventario/traspasos/${entrada.documentoId}`);
+    expect(detalle.body).toMatchObject({
+      folio: traspaso.body.folio,
+      notas: 'Para la feria del sábado',
+    });
+  });
+
   it('un vendedor solo ve su ubicación y no ve el kardex', async () => {
     expect(
       (await como(app, ANA).get(`/inventario/existencias?ubicacionId=${IDS.almacen}`)).status,

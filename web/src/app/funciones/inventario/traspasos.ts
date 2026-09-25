@@ -11,6 +11,7 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -23,6 +24,7 @@ import { marcarErroresDelServidor, mensajeDeError } from '../../core/errores';
 import { nuevaClave } from '../../ui/claves';
 import { Encabezado } from '../../ui/encabezado';
 import { EstadoCarga } from '../../ui/estado-carga';
+import { type DatosDialogoDocumento, DialogoDocumento } from './dialogo-documento';
 
 /** Cargar mercancía a un vendedor o recibir lo que regresa. El costo no cambia. */
 @Component({
@@ -45,6 +47,7 @@ import { EstadoCarga } from '../../ui/estado-carga';
 export class Traspasos {
   private readonly fb = inject(FormBuilder).nonNullable;
   private readonly api = inject(ApiService);
+  private readonly dialogo = inject(MatDialog);
   private readonly avisos = inject(AvisosService);
 
   protected readonly ubicaciones = httpResource<Ubicacion[]>(() => '/api/ubicaciones');
@@ -159,6 +162,16 @@ export class Traspasos {
     return this.fb.group({
       productoId: this.fb.control<number | null>(null, Validators.required),
       cantidad: this.fb.control<number | null>(null, [Validators.required, Validators.min(1)]),
+    });
+  }
+
+  /** El documento completo, con sus notas: el porqué del movimiento. */
+  protected abrir(id: number): void {
+    const datos: DatosDialogoDocumento = { clase: 'traspaso', id };
+    this.dialogo.open<DialogoDocumento, DatosDialogoDocumento>(DialogoDocumento, {
+      data: datos,
+      width: '36rem',
+      maxWidth: '95vw',
     });
   }
 }

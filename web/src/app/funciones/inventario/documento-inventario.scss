@@ -63,3 +63,22 @@
   border: 1px solid var(--mat-sys-outline);
   border-radius: 0.5rem;
 }
+
+/** Una tarjeta que además se abre: es un botón, para que el teclado también llegue. */
+.tarjeta-boton {
+  display: grid;
+  gap: 0.25rem;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--mat-sys-surface-container);
+  }
+
+  .notas {
+    font-style: italic;
+  }
+}

@@ -117,15 +117,27 @@
     />
     <ul class="recientes">
       @for (t of recientes.value() ?? []; track t.id) {
-        <li class="tarjeta">
-          <strong>{{ t.folio }}</strong> · {{ t.fecha | date: 'mediumDate' }} · {{ t.origen }} →
-          {{ t.destino }}
-          <span class="ayuda">
-            ({{ t.registradoPor }})
-            @for (l of t.lineas; track l.productoId; let ultimo = $last) {
-              {{ l.cantidad }} {{ l.producto }}{{ ultimo ? '' : ', ' }}
+        <li>
+          <button
+            type="button"
+            class="tarjeta tarjeta-boton"
+            (click)="abrir(t.id)"
+            [attr.aria-label]="'Ver el traspaso ' + t.folio"
+          >
+            <span>
+              <strong>{{ t.folio }}</strong> · {{ t.fecha | date: 'mediumDate' }} · {{ t.origen }} →
+              {{ t.destino }}
+            </span>
+            <span class="ayuda">
+              ({{ t.registradoPor }})
+              @for (l of t.lineas; track l.productoId; let ultimo = $last) {
+                {{ l.cantidad }} {{ l.producto }}{{ ultimo ? '' : ', ' }}
+              }
+            </span>
+            @if (t.notas) {
+              <span class="ayuda notas">«{{ t.notas }}»</span>
             }
-          </span>
+          </button>
         </li>
       } @empty {
         <li class="ayuda">Todavía no hay traspasos.</li>

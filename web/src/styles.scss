@@ -177,6 +177,17 @@ h2 {
   }
 }
 
+/** Un texto que abre algo dentro de una tabla: se ve como liga y se usa con teclado. */
+.boton-enlace {
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  color: var(--mat-sys-primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 tr.fila-enlace {
   cursor: pointer;
 

@@ -323,6 +323,53 @@ test('el texto alternativo se guarda aunque la foto llegue después', async ({ p
   await expect(page.getByRole('dialog').getByLabel('Texto alternativo')).toHaveValue(alt);
 });
 
+test('las notas de un traspaso se leen desde la lista y desde el kardex', async ({
+  page,
+}, info) => {
+  // El mismo producto del recorrido de arriba: es el que tiene piezas en el almacén.
+  const producto = 'Galletas de Coco';
+  const notas = `Para la feria del sábado ${info.project.name}`;
+  await entrarComo(page, 'almacen');
+  await page.goto('/inventario/traspasos');
+  await esperarCarga(page);
+  await page.getByRole('combobox', { name: 'Sale de' }).click();
+  await page.getByRole('option', { name: 'Almacén' }).click();
+  await page.getByRole('combobox', { name: 'Entra a' }).click();
+  await page.getByRole('option', { name: 'Ana' }).click();
+  await page.getByRole('combobox', { name: 'Producto' }).click();
+  await page.getByRole('option', { name: new RegExp(producto) }).click();
+  await page.getByLabel('Piezas').fill('2');
+  await page.getByLabel('Notas (opcional)').fill(notas);
+  await page.getByRole('button', { name: 'Registrar traspaso' }).click();
+
+  // La tarjeta de la lista abre el documento completo, con sus notas.
+  const tarjeta = page
+    .getByRole('button', { name: /^Ver el traspaso T-/ })
+    .filter({ hasText: notas })
+    .first();
+  await expect(tarjeta).toBeVisible();
+  const folio = ((await tarjeta.getAttribute('aria-label')) ?? '').replace('Ver el traspaso ', '');
+  await tarjeta.click();
+  let dialogo = page.getByRole('dialog');
+  await expect(dialogo.getByRole('heading', { name: `Traspaso ${folio}` })).toBeVisible();
+  await expect(dialogo.getByText(notas)).toBeVisible();
+  await sinViolaciones(page);
+  await dialogo.getByRole('button', { name: 'Cerrar' }).click();
+  await expect(dialogo).toHaveCount(0);
+
+  // Y desde el kardex se llega al mismo documento.
+  await page.goto('/inventario/kardex');
+  await esperarCarga(page);
+  await page.getByRole('combobox', { name: 'Producto' }).click();
+  await page.getByRole('option', { name: new RegExp(producto) }).click();
+  await page
+    .getByRole('button', { name: `Ver ${folio}` })
+    .first()
+    .click();
+  dialogo = page.getByRole('dialog');
+  await expect(dialogo.getByText(notas)).toBeVisible();
+});
+
 test('el menú lateral se abre y se cierra con su icono', async ({ page }, info) => {
   const celular = info.project.name === 'celular';
   await entrarComo(page, 'ana');

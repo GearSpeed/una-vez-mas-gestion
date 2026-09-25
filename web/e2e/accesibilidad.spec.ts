@@ -48,6 +48,15 @@ for (const { ruta, boton } of DIALOGOS) {
   });
 }
 
+test('el calendario de un filtro de fechas pasa axe', async ({ page }) => {
+  await entrarComo(page, 'admin');
+  await page.goto('/ventas');
+  await esperarCarga(page);
+  await page.getByRole('button', { name: 'Abrir el calendario' }).first().click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await sinViolaciones(page);
+});
+
 test('la pestaña «Cobro con tarjeta» pasa axe', async ({ page }) => {
   await entrarComo(page, 'admin');
   await page.goto('/productos');

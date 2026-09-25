@@ -366,6 +366,8 @@ export interface MovimientoKardex {
   readonly registradoEn: string;
   readonly tipo: TipoMovimiento;
   readonly documento: string;
+  /** El documento que lo causó, para abrirlo desde el kardex. */
+  readonly documentoId: number | null;
   readonly ubicacion: string;
   readonly cantidad: number;
   readonly existenciaResultante: number;

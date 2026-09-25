@@ -85,7 +85,20 @@
             <tr>
               <td>{{ m.fecha | date: 'mediumDate' }}</td>
               <td>{{ m.tipo | etiqueta: 'movimiento' }}</td>
-              <td>{{ m.documento }}</td>
+              <td>
+                @if (m.documentoId) {
+                  <button
+                    type="button"
+                    class="boton-enlace"
+                    (click)="abrir(m)"
+                    [attr.aria-label]="'Ver ' + m.documento"
+                  >
+                    {{ m.documento }}
+                  </button>
+                } @else {
+                  {{ m.documento }}
+                }
+              </td>
               <td>{{ m.ubicacion }}</td>
               <td class="numero">{{ m.cantidad > 0 ? '+' : '' }}{{ m.cantidad }}</td>
               <td class="numero">{{ m.existenciaResultante }}</td>
