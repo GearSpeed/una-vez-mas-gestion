@@ -245,9 +245,13 @@ test('la foto de un producto se sube al bucket y se ve con su ID', async ({ page
   );
 });
 
-test('un producto nuevo se da de alta con su foto en un solo guardado', async ({ page }, info) => {
+test('un producto nuevo se da de alta con su ficha y su foto en un solo guardado', async ({
+  page,
+  request,
+}, info) => {
   const nombre = `Conserva de Durazno ${info.project.name}`;
   const alt = `Frasco de conserva de durazno ${info.project.name}`;
+  const descripcion = 'Duraznos en almíbar ligero, en frasco de vidrio.';
   await entrarComo(page, 'admin');
   await page.goto('/productos');
   await esperarCarga(page);
@@ -257,22 +261,41 @@ test('un producto nuevo se da de alta con su foto en un solo guardado', async ({
   await dialogo.getByLabel('Nombre').fill(nombre);
   await dialogo.getByRole('combobox', { name: 'Categoría' }).click();
   await page.getByRole('option', { name: 'Galletas' }).click();
+  await dialogo.getByLabel('Descripción').fill(descripcion);
+
+  const ingredientes = dialogo.locator('input[placeholder^="avena"]');
+  for (const ingrediente of ['durazno', 'azúcar mascabado']) {
+    await ingredientes.fill(ingrediente);
+    await ingredientes.press('Enter');
+    await expect(dialogo.getByRole('button', { name: `Quitar ${ingrediente}` })).toBeVisible();
+  }
+
   await dialogo.locator('input[type="file"]').setInputFiles({
     name: `nuevo-${info.project.name}.jpg`,
     mimeType: 'image/jpeg',
     buffer: await foto('#7a8c3f'),
   });
   await dialogo.getByLabel('Texto alternativo').fill(alt);
+  await dialogo.getByLabel('Publicado en el sitio').check();
   await dialogo.getByRole('button', { name: 'Guardar' }).click();
   await expect(page.getByText(`${nombre} guardado.`)).toBeVisible();
   await expect(dialogo).toHaveCount(0);
 
-  // Se guardó con foto y texto, sin pasos intermedios.
+  // Ficha y foto quedaron guardadas, sin pasos intermedios.
   await page.getByLabel('Buscar por nombre o ID').fill(nombre);
   await page.getByRole('button', { name: `Editar ${nombre}` }).click();
   const reabierto = page.getByRole('dialog');
   await expect(reabierto.getByLabel('Texto alternativo')).toHaveValue(alt);
+  await expect(reabierto.getByLabel('Descripción')).toHaveValue(descripcion);
+  await expect(reabierto.getByRole('button', { name: 'Quitar durazno' })).toBeVisible();
   await expect(reabierto.getByRole('img', { name: alt })).toHaveAttribute('src', /-600\.webp/);
+
+  // Y es lo que el sitio lee, sin identidad.
+  const catalogo = await (await request.get('/api/publico/catalogo')).json();
+  expect(catalogo.find((p: { nombre: string }) => p.nombre === nombre)).toMatchObject({
+    descripcion,
+    ingredientes: ['durazno', 'azúcar mascabado'],
+  });
 });
 
 test('el menú lateral se abre y se cierra con su icono', async ({ page }, info) => {

@@ -245,6 +245,8 @@ export class ProductosService {
         categoria: categorias.nombre,
         variedad: productos.variedad,
         presentacion: productos.presentacion,
+        descripcion: productos.descripcion,
+        ingredientes: productos.ingredientes,
         precioVenta: productos.precioVenta,
         gananciaObjetivo: productos.gananciaObjetivo,
         costoPromedio: productos.costoPromedio,

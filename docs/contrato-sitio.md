@@ -23,6 +23,8 @@ por producto **activo y publicado**, ordenado por categoría y nombre:
     "nombre": "Galletas de Avena",
     "categoria": "Galletas",
     "presentacion": "6 pzas",
+    "descripcion": "Galletas suaves de avena con amaranto, horneadas el mismo día.",
+    "ingredientes": ["avena", "amaranto", "miel de agave"],
     "precio": "30.00",
     "disponibilidad": "disponible",
     "imagen": {
@@ -34,18 +36,27 @@ por producto **activo y publicado**, ordenado por categoría y nombre:
 ]
 ```
 
-| Campo            | Tipo            | Qué es                                                                   |
-| ---------------- | --------------- | ------------------------------------------------------------------------ |
-| `slug`           | texto           | La llave con el sitio: es el `id` de `products.json` y `/catalogo/:slug` |
-| `nombre`         | texto           | Nombre del producto                                                      |
-| `categoria`      | texto           | «Galletas», «Borrachitos», «Alegrías»…                                   |
-| `presentacion`   | texto o `null`  | «6 pzas». `null` si no se ha definido                                    |
-| `precio`         | texto o `null`  | Precio en MXN como texto decimal. **`null` = «Consulta precio»**         |
-| `disponibilidad` | texto           | `disponible`, `ultimas_piezas` (5 o menos) o `agotado`                   |
-| `imagen`         | objeto o `null` | `url` (1200 px), `urlChica` (600 px) y `alt`. `null` si no tiene foto    |
+| Campo            | Tipo            | Qué es                                                                    |
+| ---------------- | --------------- | ------------------------------------------------------------------------- |
+| `slug`           | texto           | La llave con el sitio: es el `id` de `products.json` y `/catalogo/:slug`  |
+| `nombre`         | texto           | Nombre del producto                                                       |
+| `categoria`      | texto           | «Galletas», «Borrachitos», «Alegrías»…                                    |
+| `presentacion`   | texto o `null`  | «6 pzas». `null` si no se ha definido                                     |
+| `descripcion`    | texto           | La ficha del producto. **Cadena vacía** si no se ha escrito, nunca `null` |
+| `ingredientes`   | lista de textos | Ingredientes destacados, en orden. Lista vacía si no hay                  |
+| `precio`         | texto o `null`  | Precio en MXN como texto decimal. **`null` = «Consulta precio»**          |
+| `disponibilidad` | texto           | `disponible`, `ultimas_piezas` (5 o menos) o `agotado`                    |
+| `imagen`         | objeto o `null` | `url` (1200 px), `urlChica` (600 px) y `alt`. `null` si no tiene foto     |
 
 El precio viaja como texto (`"30.00"`) para que no se pierdan centavos al convertirlo:
-conviene mostrarlo tal cual, o convertirlo solo al formatear.
+conviene mostrarlo tal cual, o convertirlo solo al formatear. Es el precio final al
+público, el mismo que cobra el mostrador: no lleva nada encima ni por pagar con tarjeta
+—esa comisión la absorbe el negocio— ni por ningún otro concepto.
+
+`descripcion` e `ingredientes` son la ficha del producto, y se capturan en la aplicación.
+Los dos pueden venir vacíos (`""` y `[]`): el sitio decide si esconde la sección o pone un
+texto de relleno. Los ingredientes llegan en el orden en que se capturaron, que es el orden
+en el que conviene mostrarlos.
 
 **Por qué no va la existencia exacta**: con el número, cualquiera que consulte dos veces al
 día calcula el ritmo de venta del negocio. Cómo mostrar cada estado («Disponible»,

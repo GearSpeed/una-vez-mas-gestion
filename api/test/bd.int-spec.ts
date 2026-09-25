@@ -57,6 +57,8 @@ describe('la base de datos', () => {
           imagen_chica: null,
           imagen_alt: null,
           disponibilidad: 'disponible',
+          descripcion: '',
+          ingredientes: [],
         },
       ]);
     });

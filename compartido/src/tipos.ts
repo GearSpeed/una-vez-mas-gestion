@@ -88,6 +88,10 @@ export interface Producto {
   readonly categoria: string;
   readonly variedad: string;
   readonly presentacion: string | null;
+  /** La ficha del sitio: un párrafo. Vacía si no se ha escrito. */
+  readonly descripcion: string;
+  /** Ingredientes destacados, en orden. Vacío si no se han capturado. */
+  readonly ingredientes: readonly string[];
   readonly precioVenta: Decimal | null;
   readonly stockMinimo: number;
   readonly activo: boolean;
@@ -253,6 +257,10 @@ export interface ProductoPublico {
   readonly nombre: string;
   readonly categoria: string;
   readonly presentacion: string | null;
+  /** La ficha del producto. Cadena vacía si no se ha escrito. */
+  readonly descripcion: string;
+  /** Ingredientes destacados, en orden. Arreglo vacío si no hay. */
+  readonly ingredientes: readonly string[];
   /** `null` = «Consulta precio». */
   readonly precio: Decimal | null;
   readonly disponibilidad: Disponibilidad;

@@ -63,6 +63,8 @@ describe('seguridad', () => {
         nombre: 'Galletas de Avena',
         categoria: 'Galletas',
         presentacion: '6 pzas',
+        descripcion: '',
+        ingredientes: [],
         precio: '30.00',
         disponibilidad: 'agotado',
         imagen: null,

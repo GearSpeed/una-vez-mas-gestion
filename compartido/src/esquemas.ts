@@ -80,6 +80,13 @@ export const esquemaProducto = z.object({
   categoriaId: esquemaId,
   variedad: texto(80).default(''),
   presentacion: z.preprocess(vacioANulo, texto(80).nullable()).default(null),
+  /** La ficha que muestra el sitio. Vacía: el sitio no la pinta. */
+  descripcion: texto(1000).default(''),
+  /** Ingredientes destacados, en el orden en que se capturaron. */
+  ingredientes: z
+    .array(texto(40).min(1, 'Escribe el ingrediente'))
+    .max(12, 'Como máximo 12 ingredientes')
+    .default([]),
   /** `null` = todavía sin precio: el sitio dice "Consulta precio" y no se puede vender. */
   precioVenta: decimalOpcional(2),
   /** Proporción sobre el costo: 0.8 = 80 %. */

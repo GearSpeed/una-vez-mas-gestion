@@ -24,6 +24,8 @@ export class CatalogoPublicoService {
         nombre: productos.nombre,
         categoria: categorias.nombre,
         presentacion: productos.presentacion,
+        descripcion: productos.descripcion,
+        ingredientes: productos.ingredientes,
         precio: productos.precioVenta,
         imagenClave: productos.imagenClave,
         imagenAlt: productos.imagenAlt,

@@ -11,8 +11,10 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatChipsModule, type MatChipInputEvent } from '@angular/material/chips';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { type Categoria, indicadoresPrecio, type Producto, slugDe } from '@uvm/compartido';
@@ -21,6 +23,10 @@ import { ApiService } from '../../core/api';
 import { marcarErroresDelServidor, mensajeDeError } from '../../core/errores';
 import { numeroONulo } from '../../ui/claves';
 import { ImagenProducto } from './imagen-producto';
+
+/** Lo que cabe en una etiqueta de ingrediente, y cuántas. Igual que en `compartido`. */
+const MAXIMO_INGREDIENTES = 12;
+const MAXIMO_LARGO_INGREDIENTE = 40;
 
 export interface DatosDialogoProducto {
   readonly producto: Producto | null;
@@ -40,8 +46,10 @@ export interface DatosDialogoProducto {
     PercentPipe,
     MatButtonModule,
     MatCheckboxModule,
+    MatChipsModule,
     MatDialogModule,
     MatFormFieldModule,
+    MatIconModule,
     MatInputModule,
     MatSelectModule,
   ],
@@ -75,6 +83,7 @@ export class DialogoProducto {
     ),
     variedad: [this.producto?.variedad ?? ''],
     presentacion: [this.producto?.presentacion ?? ''],
+    descripcion: [this.producto?.descripcion ?? '', Validators.maxLength(1000)],
     precioVenta: this.fb.control<number | null>(
       numeroONulo(this.producto?.precioVenta),
       Validators.min(0),
@@ -121,6 +130,22 @@ export class DialogoProducto {
   protected readonly guardando = signal(false);
   protected readonly error = signal<string | null>(null);
 
+  /** Los ingredientes destacados van como lista, no como campo de texto. */
+  protected readonly ingredientes = signal<string[]>([...(this.producto?.ingredientes ?? [])]);
+
+  protected agregarIngrediente(evento: MatChipInputEvent): void {
+    const nombre = evento.value.trim().slice(0, MAXIMO_LARGO_INGREDIENTE);
+    evento.chipInput.clear();
+    if (!nombre) return;
+    const lista = this.ingredientes();
+    if (lista.length >= MAXIMO_INGREDIENTES || lista.includes(nombre)) return;
+    this.ingredientes.set([...lista, nombre]);
+  }
+
+  protected quitarIngrediente(nombre: string): void {
+    this.ingredientes.update((lista) => lista.filter((i) => i !== nombre));
+  }
+
   protected cerrar(): void {
     this.referencia.close(this.guardado() ?? undefined);
   }
@@ -141,6 +166,7 @@ export class DialogoProducto {
     const cuerpo = {
       ...valor,
       presentacion: valor.presentacion || null,
+      ingredientes: this.ingredientes(),
       gananciaObjetivo:
         gananciaPorcentaje === null ? null : Number((gananciaPorcentaje / 100).toFixed(4)),
     };

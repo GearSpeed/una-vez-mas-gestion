@@ -50,6 +50,20 @@
       "when": 1790179221468,
       "tag": "0006_endurecer_permisos_y_vistas",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790352441641,
+      "tag": "0007_ficha_de_producto",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790352461646,
+      "tag": "0008_catalogo_con_ficha",
+      "breakpoints": true
     }
   ]
 }

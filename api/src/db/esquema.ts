@@ -157,6 +157,10 @@ export const productos = gestion.table(
       .references(() => categorias.id),
     variedad: text().notNull().default(''),
     presentacion: text(),
+    /** Ficha del sitio: un párrafo sobre el producto. Vacío: el sitio no la muestra. */
+    descripcion: text().notNull().default(''),
+    /** Ingredientes destacados, en orden. Los pinta el sitio como etiquetas. */
+    ingredientes: text().array().notNull().default([]),
     /** `null`: sin precio todavía. No se puede vender y el sitio dice "Consulta precio". */
     precioVenta: dinero(),
     /** Proporción sobre el costo: 0.8000 = 80 %. */
