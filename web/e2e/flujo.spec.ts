@@ -174,12 +174,20 @@ test('el slug de un producto nuevo se genera solo y no se puede editar', async (
   await expect(page.getByRole('dialog').getByRole('textbox', { name: /slug/i })).toHaveCount(0);
 });
 
+/** Una foto de prueba, del tamaño de las que salen de un celular. */
+function foto(color: string): Promise<Buffer> {
+  return sharp({ create: { width: 1600, height: 1200, channels: 3, background: color } })
+    .jpeg()
+    .toBuffer();
+}
+
 test('la foto de un producto se sube al bucket y se ve con su ID', async ({ page }, info) => {
   // Escritorio y celular comparten la BD: cada uno usa su producto.
   const { producto, id } =
     info.project.name === 'celular'
       ? { producto: 'Galletas de Avena', id: 1 }
       : { producto: 'Galletas de Nuez', id: 4 };
+  const alt = `${producto} sobre una charola`;
   await entrarComo(page, 'admin');
   await page.goto('/productos');
   await esperarCarga(page);
@@ -190,25 +198,29 @@ test('la foto de un producto se sube al bucket y se ve con su ID', async ({ page
   await expect(page.getByRole('rowheader', { name: new RegExp(producto) })).toBeVisible();
 
   await page.getByRole('button', { name: `Editar ${producto}` }).click();
-  const dialogo = page.getByRole('dialog');
+  let dialogo = page.getByRole('dialog');
   await expect(dialogo.getByText('ID', { exact: true })).toBeVisible();
   await expect(dialogo.getByText('Sin imagen')).toBeVisible();
 
-  const foto = await sharp({
-    create: { width: 1600, height: 1200, channels: 3, background: '#b5793a' },
-  })
-    .jpeg()
-    .toBuffer();
+  // La foto y su texto se guardan con el mismo botón que el resto del producto.
   await dialogo.locator('input[type="file"]').setInputFiles({
     name: `foto-${info.project.name}.jpg`,
     mimeType: 'image/jpeg',
-    buffer: foto,
+    buffer: await foto('#b5793a'),
   });
-  await dialogo.getByLabel('Texto alternativo').fill(`${producto} sobre una charola`);
-  await dialogo.getByRole('button', { name: 'Subir imagen' }).click();
+  await dialogo.getByLabel('Texto alternativo').fill(alt);
+  await dialogo.getByRole('button', { name: 'Guardar' }).click();
+  await expect(page.getByText(`${producto} guardado.`)).toBeVisible();
+  await expect(dialogo).toHaveCount(0);
 
-  const imagen = dialogo.getByRole('img', { name: `${producto} sobre una charola` });
-  await expect(imagen).toBeVisible();
+  const miniatura = page.locator('tbody tr').first().locator('.miniatura img');
+  await expect(miniatura).toHaveAttribute('src', /-600\.webp/);
+
+  // Al reabrirlo está la foto, con su texto: quedó guardado de verdad.
+  await page.getByRole('button', { name: `Editar ${producto}` }).click();
+  dialogo = page.getByRole('dialog');
+  await expect(dialogo.getByLabel('Texto alternativo')).toHaveValue(alt);
+  const imagen = dialogo.getByRole('img', { name: alt });
   await expect(imagen).toHaveAttribute(
     'src',
     new RegExp(`/imagenes/productos/${id}/[0-9a-f]{16}-600\\.webp`),
@@ -217,10 +229,50 @@ test('la foto de un producto se sube al bucket y se ve con su ID', async ({ page
   expect(await imagen.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(600);
   await sinViolaciones(page);
 
-  await dialogo.getByRole('button', { name: 'Cerrar' }).click();
+  // Y se puede cambiar por otra.
+  const antes = await imagen.getAttribute('src');
+  await dialogo.locator('input[type="file"]').setInputFiles({
+    name: `otra-${info.project.name}.jpg`,
+    mimeType: 'image/jpeg',
+    buffer: await foto('#3c6ec8'),
+  });
+  await dialogo.getByRole('button', { name: 'Guardar' }).click();
   await expect(dialogo).toHaveCount(0);
-  const miniatura = page.locator('tbody tr').first().locator('.miniatura img');
-  await expect(miniatura).toHaveAttribute('src', /-600\.webp/);
+  await page.getByRole('button', { name: `Editar ${producto}` }).click();
+  await expect(page.getByRole('dialog').getByRole('img', { name: alt })).not.toHaveAttribute(
+    'src',
+    antes ?? '',
+  );
+});
+
+test('un producto nuevo se da de alta con su foto en un solo guardado', async ({ page }, info) => {
+  const nombre = `Conserva de Durazno ${info.project.name}`;
+  const alt = `Frasco de conserva de durazno ${info.project.name}`;
+  await entrarComo(page, 'admin');
+  await page.goto('/productos');
+  await esperarCarga(page);
+
+  await page.getByRole('button', { name: 'Nuevo producto' }).click();
+  const dialogo = page.getByRole('dialog');
+  await dialogo.getByLabel('Nombre').fill(nombre);
+  await dialogo.getByRole('combobox', { name: 'Categoría' }).click();
+  await page.getByRole('option', { name: 'Galletas' }).click();
+  await dialogo.locator('input[type="file"]').setInputFiles({
+    name: `nuevo-${info.project.name}.jpg`,
+    mimeType: 'image/jpeg',
+    buffer: await foto('#7a8c3f'),
+  });
+  await dialogo.getByLabel('Texto alternativo').fill(alt);
+  await dialogo.getByRole('button', { name: 'Guardar' }).click();
+  await expect(page.getByText(`${nombre} guardado.`)).toBeVisible();
+  await expect(dialogo).toHaveCount(0);
+
+  // Se guardó con foto y texto, sin pasos intermedios.
+  await page.getByLabel('Buscar por nombre o ID').fill(nombre);
+  await page.getByRole('button', { name: `Editar ${nombre}` }).click();
+  const reabierto = page.getByRole('dialog');
+  await expect(reabierto.getByLabel('Texto alternativo')).toHaveValue(alt);
+  await expect(reabierto.getByRole('img', { name: alt })).toHaveAttribute('src', /-600\.webp/);
 });
 
 test('el menú lateral se abre y se cierra con su icono', async ({ page }, info) => {

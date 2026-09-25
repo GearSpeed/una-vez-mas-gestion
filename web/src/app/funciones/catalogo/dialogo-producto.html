@@ -115,11 +115,7 @@
       }
     </fieldset>
 
-    @if (producto) {
-      <uvm-imagen-producto [producto]="producto" (cambio)="imagenCambiada.set($event)" />
-    } @else {
-      <p class="ayuda">Guarda el producto para agregar su imagen.</p>
-    }
+    <uvm-imagen-producto [producto]="base()" (cambio)="guardado.set($event)" />
 
     <div class="casillas">
       <mat-checkbox formControlName="activo">Activo (se puede comprar y vender)</mat-checkbox>
@@ -132,7 +128,7 @@
   </mat-dialog-content>
   <mat-dialog-actions align="end">
     <button mat-button type="button" (click)="cerrar()">
-      {{ imagenCambiada() ? 'Cerrar' : 'Cancelar' }}
+      {{ guardado() ? 'Cerrar' : 'Cancelar' }}
     </button>
     <button mat-flat-button type="submit" [disabled]="guardando()">
       {{ guardando() ? 'Guardando…' : 'Guardar' }}

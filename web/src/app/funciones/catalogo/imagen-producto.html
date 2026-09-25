@@ -35,27 +35,22 @@
       }
 
       <div class="acciones">
+        <button mat-stroked-button type="button" (click)="elegir()">
+          {{ imagen() || archivo() ? 'Cambiar imagen' : 'Elegir imagen' }}
+        </button>
         @if (archivo(); as a) {
           <span class="ayuda nombre-archivo">{{ a.name }}</span>
-          <button mat-flat-button type="button" (click)="subir()" [disabled]="progreso() !== null">
-            {{ progreso() !== null ? 'Subiendo…' : 'Subir imagen' }}
-          </button>
           <button mat-button type="button" (click)="descartar()" [disabled]="progreso() !== null">
             Descartar
           </button>
-        } @else {
-          <button mat-stroked-button type="button" (click)="elegir()">
-            {{ imagen() ? 'Cambiar imagen' : 'Elegir imagen' }}
-          </button>
-          @if (imagen()) {
-            @if (alt.dirty) {
-              <button mat-button type="button" (click)="guardarAlt()">Guardar texto</button>
-            }
-            <button mat-button type="button" (click)="quitar()">Quitar imagen</button>
-          }
+        } @else if (imagen()) {
+          <button mat-button type="button" (click)="quitar()">Quitar imagen</button>
         }
       </div>
-      <p class="ayuda">JPG, PNG o WebP de hasta 10 MB. Se optimiza sola para el sitio.</p>
+      <p class="ayuda">
+        JPG, PNG o WebP de hasta 10 MB. Se optimiza sola para el sitio y se guarda con el botón
+        «Guardar».
+      </p>
       @if (error()) {
         <p class="error-texto" role="alert">{{ error() }}</p>
       }

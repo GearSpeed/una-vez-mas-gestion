@@ -27,8 +27,11 @@ const TIPOS = ['image/jpeg', 'image/png', 'image/webp'];
 const PESO_MAXIMO = 10 * 1024 * 1024;
 
 /**
- * La foto del producto: la misma que sirve el sitio desde el bucket. Se elige un
- * archivo, se escribe su texto alternativo y se sube; la API la optimiza.
+ * La foto del producto: la misma que sirve el sitio desde el bucket.
+ *
+ * Aquí solo se elige el archivo y se escribe su texto alternativo; quien graba es el
+ * diálogo del producto con su botón «Guardar» (`guardarEn`), porque al dar de alta
+ * todavía no existe el id al que subirla.
  */
 @Component({
   selector: 'uvm-imagen-producto',
@@ -45,17 +48,18 @@ const PESO_MAXIMO = 10 * 1024 * 1024;
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ImagenProducto implements OnInit {
-  readonly producto = input.required<Producto>();
-  /** El producto con su imagen nueva (o sin imagen), para refrescar la lista. */
+  /** `null` mientras el producto no existe (alta). */
+  readonly producto = input<Producto | null>(null);
+  /** El producto ya sin su imagen, cuando se quita: la lista se actualiza. */
   readonly cambio = output<Producto>();
 
   private readonly http = inject(HttpClient);
   private readonly api = inject(ApiService);
   private readonly selector = viewChild.required<ElementRef<HTMLInputElement>>('selector');
 
-  /** La que tiene ahora (se actualiza al subir o quitar, sin cerrar el diálogo). */
+  /** La que quedó guardada durante esta edición (al quitarla o al subirla). */
   private readonly actual = signal<Producto | null>(null);
-  protected readonly imagen = computed(() => (this.actual() ?? this.producto()).imagen);
+  protected readonly imagen = computed(() => (this.actual() ?? this.producto())?.imagen ?? null);
 
   protected readonly archivo = signal<File | null>(null);
   protected readonly vistaPrevia = signal<string | null>(null);
@@ -72,7 +76,35 @@ export class ImagenProducto implements OnInit {
   }
 
   ngOnInit(): void {
-    this.alt.setValue(this.producto().imagen?.alt ?? '');
+    this.alt.setValue(this.producto()?.imagen?.alt ?? '');
+  }
+
+  /**
+   * ¿Se puede guardar? Si hay foto (elegida o ya guardada), su texto alternativo es
+   * obligatorio: sin él, quien no puede ver la imagen se queda sin saber qué es.
+   */
+  valido(): boolean {
+    if (!this.archivo() && !this.imagen()) return true;
+    this.alt.markAsTouched();
+    return this.alt.valid;
+  }
+
+  /**
+   * Graba lo que quedó pendiente en el producto `id`: sube el archivo elegido, o
+   * cambia solo el texto si es lo único que se tocó. Devuelve el producto ya
+   * actualizado, o `null` si no había nada que hacer.
+   */
+  async guardarEn(id: number): Promise<Producto | null> {
+    const archivo = this.archivo();
+    if (archivo) return this.subir(id, archivo);
+    if (this.imagen() && this.alt.dirty) {
+      return this.listo(
+        await this.api.put<Producto>(`/productos/${id}/imagen`, {
+          alt: this.alt.value,
+        }),
+      );
+    }
+    return null;
   }
 
   protected elegir(): void {
@@ -104,10 +136,22 @@ export class ImagenProducto implements OnInit {
     this.error.set(null);
   }
 
-  protected async subir(): Promise<void> {
-    const archivo = this.archivo();
-    this.alt.markAsTouched();
-    if (!archivo || this.alt.invalid || this.progreso() !== null) return;
+  /** Quitar sí es inmediato: es destructivo y se pide a propósito. */
+  protected async quitar(): Promise<void> {
+    const producto = this.actual() ?? this.producto();
+    if (!producto) return;
+    this.error.set(null);
+    try {
+      const sinImagen = await this.api.delete<Producto>(`/productos/${producto.id}/imagen`);
+      this.listo(sinImagen);
+      this.cambio.emit(sinImagen);
+      this.alt.reset();
+    } catch (error) {
+      this.error.set(mensajeDeError(error));
+    }
+  }
+
+  private async subir(id: number, archivo: File): Promise<Producto> {
     const formulario = new FormData();
     formulario.append('alt', this.alt.value);
     formulario.append('archivo', archivo);
@@ -116,7 +160,7 @@ export class ImagenProducto implements OnInit {
     try {
       const respuesta = await lastValueFrom(
         this.http
-          .post<Producto>(`/api/productos/${this.producto().id}/imagen`, formulario, {
+          .post<Producto>(`/api/productos/${id}/imagen`, formulario, {
             reportProgress: true,
             observe: 'events',
           })
@@ -128,46 +172,20 @@ export class ImagenProducto implements OnInit {
             }),
           ),
       );
-      if (respuesta.type === HttpEventType.Response && respuesta.body) {
-        this.listo(respuesta.body);
-        this.descartar();
+      if (respuesta.type !== HttpEventType.Response || !respuesta.body) {
+        throw new Error('El servidor no devolvió el producto');
       }
-    } catch (error) {
-      this.error.set(mensajeDeError(error));
+      this.descartar();
+      return this.listo(respuesta.body);
     } finally {
       this.progreso.set(null);
     }
   }
 
-  protected async guardarAlt(): Promise<void> {
-    this.alt.markAsTouched();
-    if (this.alt.invalid || this.progreso() !== null) return;
-    this.error.set(null);
-    try {
-      this.listo(
-        await this.api.put<Producto>(`/productos/${this.producto().id}/imagen`, {
-          alt: this.alt.value,
-        }),
-      );
-    } catch (error) {
-      this.error.set(mensajeDeError(error));
-    }
-  }
-
-  protected async quitar(): Promise<void> {
-    this.error.set(null);
-    try {
-      this.listo(await this.api.delete<Producto>(`/productos/${this.producto().id}/imagen`));
-      this.alt.reset();
-    } catch (error) {
-      this.error.set(mensajeDeError(error));
-    }
-  }
-
-  private listo(producto: Producto): void {
+  private listo(producto: Producto): Producto {
     this.actual.set(producto);
     this.alt.markAsPristine();
-    this.cambio.emit(producto);
+    return producto;
   }
 
   private soltarVistaPrevia(): void {
