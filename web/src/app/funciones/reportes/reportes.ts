@@ -13,6 +13,7 @@ import {
   fechaDeHoy,
   type FilaReporteCompras,
   type FilaReporteVentas,
+  type EstadoResultados,
   type FilaUtilidad,
   inicioDeMes,
   sumar,
@@ -56,6 +57,7 @@ const AGRUPACIONES: readonly { valor: AgruparVentasPor; etiqueta: string }[] = [
   ],
   providers: [CALENDARIO_EN_ESPANOL],
   templateUrl: './reportes.html',
+  styleUrl: './reportes.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Reportes {
@@ -76,6 +78,11 @@ export class Reportes {
   );
   protected readonly utilidad = httpResource<FilaUtilidad[]>(() =>
     this.verCostos() ? conParametros('/reportes/utilidad', this.periodo()) : undefined,
+  );
+
+  /** El resultado del periodo: de lo vendido a lo que de verdad quedó. */
+  protected readonly resultado = httpResource<EstadoResultados>(() =>
+    this.verCostos() ? conParametros('/reportes/resultado', this.periodo()) : undefined,
   );
   protected readonly compras = httpResource<FilaReporteCompras[]>(() =>
     conParametros('/reportes/compras', this.periodo()),

@@ -446,7 +446,18 @@ test('un gasto de operación se registra y se puede cancelar', async ({ page }, 
   await expect(fila).toContainText('$240.50');
   await expect(fila).toContainText('Vigente');
 
+  // Y aparece como renglón propio en el resultado del periodo.
+  await page.goto('/reportes');
+  await esperarCarga(page);
+  await page.getByRole('tab', { name: 'Resultado del periodo' }).click();
+  const resultado = page.locator('.resultado');
+  await expect(resultado).toContainText('Empaque');
+  await expect(resultado).toContainText('$240.50');
+  await expect(resultado).toContainText('Utilidad operativa');
+
   // Se cancela con motivo: deja de sumar, pero el registro se queda.
+  await page.goto('/gastos');
+  await esperarCarga(page);
   await fila.getByRole('button', { name: /^Cancelar el gasto/ }).click();
   const motivo = page.getByRole('dialog');
   await motivo.getByLabel('Motivo').fill('Se capturó dos veces');

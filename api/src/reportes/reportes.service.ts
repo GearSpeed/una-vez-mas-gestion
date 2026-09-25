@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import {
   type Corte,
+  type EstadoResultados,
   ETIQUETAS_CANAL,
   ETIQUETAS_METODO_PAGO,
   type CanalVenta,
@@ -27,15 +28,17 @@ import {
   sumar,
   type Tablero,
 } from '@uvm/compartido';
-import { and, asc, count, desc, eq, gte, inArray, lte, sql, type SQL, sum } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, gte, inArray, lte, sql, type SQL, sum } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { UsuarioSesion } from '../acceso/usuario-sesion.js';
 import { conCostos } from '../comun/costos.js';
 import { type BaseDatos, DB } from '../db/conexion.js';
-import { formaDePagoDeVenta, reembolsadoDeVenta } from '../db/consultas.js';
+import { comisionNetaDeVenta, formaDePagoDeVenta, reembolsadoDeVenta } from '../db/consultas.js';
 import {
   compras,
   devolucionPagos,
+  gastoCategorias,
+  gastos,
   devoluciones,
   existencias,
   movimientos,
@@ -285,7 +288,8 @@ export class ReportesService {
     const { desde, hasta } = periodo(filtro, 'hoy');
     const ubicacion = await this.ubicacionDelCorte(usuario, filtro.ubicacionId);
 
-    const [movidos, actuales, cobros, reembolsos, devueltas] = await Promise.all([
+    const netoPorVenta = this.netoPorVenta();
+    const [movidos, actuales, cobros, reembolsos, delVendedor, devueltas] = await Promise.all([
       this.db
         .select({
           productoId: movimientos.productoId,
@@ -344,6 +348,24 @@ export class ReportesService {
           ),
         )
         .groupBy(devolucionPagos.metodoPago),
+      // Lo que gana quien vendió por estas ventas, con la tasa de cada una.
+      this.db
+        .with(netoPorVenta)
+        .select({
+          comision: sql<string>`coalesce(
+            sum(round(${netoPorVenta.importe} * ${ventas.comisionVendedorTasa}, 2)), 0
+          )`,
+        })
+        .from(ventas)
+        .innerJoin(netoPorVenta, eq(netoPorVenta.ventaId, ventas.id))
+        .where(
+          and(
+            eq(ventas.ubicacionId, ubicacion.id),
+            eq(ventas.estado, 'vigente'),
+            gte(ventas.fecha, desde),
+            lte(ventas.fecha, hasta),
+          ),
+        ),
       // La comisión que regresó Mercado Pago va aparte: es de la devolución, no de
       // un método.
       this.db
@@ -410,8 +432,115 @@ export class ReportesService {
         sumar(cobros.map((fila) => fila.comision ?? '0')),
         devueltas[0]?.comisionDevuelta ?? '0',
       ),
+      comisionVendedor: redondear(delVendedor[0]?.comision ?? '0'),
       totalVendido: restar(sumar(Object.values(importes)), sumar(Object.values(regresado))),
     };
+  }
+
+  /**
+   * El resultado del periodo: de lo que se vendió a lo que de verdad quedó.
+   *
+   * Las ventas netas y su costo salen de `venta_lineas_netas`, que descuenta las
+   * devoluciones de la venta aunque hayan ocurrido después: para un corte mensual
+   * eso es lo correcto —la venta no fue— aunque el corte diario de la vendedora las
+   * cuente el día que se devolvieron.
+   */
+  async resultado(filtro: Periodo): Promise<EstadoResultados> {
+    const { desde, hasta } = periodo(filtro);
+    const delPeriodo = and(
+      eq(ventas.estado, 'vigente'),
+      gte(ventas.fecha, desde),
+      lte(ventas.fecha, hasta),
+    );
+    const netoPorVenta = this.netoPorVenta();
+
+    const [[venta], [tarjeta], porCategoria, comisiones, [inventario]] = await Promise.all([
+      this.db
+        .select({
+          ventasNetas: sql<string>`coalesce(sum(${ventaLineasNetas.importeNeto}), 0)`,
+          costo: sql<string>`coalesce(sum(${ventaLineasNetas.costoNeto}), 0)`,
+        })
+        .from(ventaLineasNetas)
+        .innerJoin(ventas, eq(ventas.id, ventaLineasNetas.ventaId))
+        .where(delPeriodo),
+      this.db
+        .select({ comision: sql<string>`coalesce(sum(${comisionNetaDeVenta}), 0)` })
+        .from(ventas)
+        .where(delPeriodo),
+      this.db
+        .select({
+          categoria: gastoCategorias.nombre,
+          importe: sql<string>`coalesce(sum(${gastos.importe}), 0)::numeric(12, 2)`,
+        })
+        .from(gastos)
+        .innerJoin(gastoCategorias, eq(gastoCategorias.id, gastos.categoriaId))
+        .where(
+          and(eq(gastos.estado, 'vigente'), gte(gastos.fecha, desde), lte(gastos.fecha, hasta)),
+        )
+        .groupBy(gastoCategorias.nombre)
+        .orderBy(desc(sql`sum(${gastos.importe})`)),
+      // Cada venta con su propia tasa: la que tenía el día que se hizo.
+      this.db
+        .with(netoPorVenta)
+        .select({
+          vendedor: vendedor.nombre,
+          tasa: ventas.comisionVendedorTasa,
+          ventasNetas: sql<string>`coalesce(sum(${netoPorVenta.importe}), 0)::numeric(12, 2)`,
+          comision: sql<string>`coalesce(
+            sum(round(${netoPorVenta.importe} * ${ventas.comisionVendedorTasa}, 2)), 0
+          )::numeric(12, 2)`,
+        })
+        .from(ventas)
+        .innerJoin(netoPorVenta, eq(netoPorVenta.ventaId, ventas.id))
+        .innerJoin(vendedor, eq(vendedor.id, ventas.vendedorId))
+        .where(and(delPeriodo, gt(ventas.comisionVendedorTasa, '0')))
+        .groupBy(vendedor.nombre, ventas.comisionVendedorTasa)
+        // Con tasa estable el orden no cambia entre consultas: primero la más alta.
+        .orderBy(asc(vendedor.nombre), desc(ventas.comisionVendedorTasa)),
+      this.db
+        .select({
+          valor: sql<string>`coalesce(sum(${existencias.cantidad} * ${productos.costoPromedio}), 0)`,
+        })
+        .from(existencias)
+        .innerJoin(productos, eq(productos.id, existencias.productoId)),
+    ]);
+
+    const ventasNetas = redondear(venta?.ventasNetas ?? '0');
+    const costoVendido = redondear(venta?.costo ?? '0');
+    const utilidadBruta = restar(ventasNetas, costoVendido);
+    const comisionTarjeta = redondear(tarjeta?.comision ?? '0');
+    const totalGastos = sumar(porCategoria.map((fila) => fila.importe));
+
+    return {
+      desde,
+      hasta,
+      ventasNetas,
+      costoVendido,
+      utilidadBruta,
+      comisionTarjeta,
+      gastos: porCategoria,
+      totalGastos,
+      utilidadOperativa: restar(restar(utilidadBruta, comisionTarjeta), totalGastos),
+      comisionesPorPagar: comisiones,
+      valorInventario: redondear(inventario?.valor ?? '0'),
+    };
+  }
+
+  /**
+   * Lo que quedó neto de cada venta, ya descontadas sus devoluciones. Va como CTE y
+   * no como subconsulta correlacionada: dentro de una subconsulta, un `id` suelto
+   * se resuelve contra la tabla de adentro y la cuenta sale mal sin avisar.
+   */
+  private netoPorVenta() {
+    return this.db.$with('neto_por_venta').as(
+      this.db
+        .select({
+          ventaId: ventaLineasNetas.ventaId,
+          importe: sql<string>`sum(${ventaLineasNetas.importeNeto})`.as('importe'),
+        })
+        .from(ventaLineasNetas)
+        .groupBy(ventaLineasNetas.ventaId),
+    );
   }
 
   async compras(filtro: Periodo): Promise<FilaReporteCompras[]> {

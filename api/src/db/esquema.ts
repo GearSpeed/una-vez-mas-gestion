@@ -75,10 +75,19 @@ export const usuarios = gestion.table(
     correo: text().notNull().unique(),
     nombre: text().notNull(),
     activo: boolean().notNull().default(true),
+    /**
+     * Lo que gana por vender, como proporción de lo que vende: 0.1500 = 15 %.
+     * Cero para quien no vende por comisión. Cambiarla no toca lo ya vendido: cada
+     * venta se queda con la tasa que tenía ese día.
+     */
+    comisionVenta: numeric({ precision: 6, scale: 4 }).notNull().default('0'),
     creadoEn: ahora(),
     ultimoAcceso: timestamp({ withTimezone: true }),
   },
-  () => [check('usuarios_correo_minusculas', sql`correo = lower(correo)`)],
+  () => [
+    check('usuarios_correo_minusculas', sql`correo = lower(correo)`),
+    check('usuarios_comision_venta', sql`comision_venta >= 0 and comision_venta <= 1`),
+  ],
 );
 
 export const roles = gestion.table('roles', {
@@ -427,6 +436,8 @@ export const ventas = gestion.table(
       .notNull()
       .references(() => usuarios.id),
     canal: canalVenta().notNull(),
+    /** La tasa de comisión del vendedor ese día. El importe se calcula sobre lo neto. */
+    comisionVendedorTasa: numeric({ precision: 6, scale: 4 }).notNull().default('0'),
     piezas: integer().notNull(),
     /** Lo que pagó el cliente. */
     total: dinero().notNull(),

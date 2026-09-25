@@ -1,6 +1,7 @@
 import { Controller, Get, Query, type StreamableFile } from '@nestjs/common';
 import {
   type Corte,
+  type EstadoResultados,
   esquemaFiltroCorte,
   esquemaFiltroReporteVentas,
   esquemaFormato,
@@ -9,6 +10,7 @@ import {
   type FilaReporteVentas,
   type FilaUtilidad,
   type FiltroCorte,
+  type Periodo,
   type Tablero,
 } from '@uvm/compartido';
 import type { z } from 'zod';
@@ -84,6 +86,13 @@ export class ReportesController {
     @Query(new Validar(esquemaFiltroCorte)) filtro: FiltroCorte,
   ): Promise<Corte> {
     return this.reportes.corte(usuario, filtro);
+  }
+
+  /** El resultado del periodo: de lo vendido a lo que de verdad quedó. */
+  @Get('resultado')
+  @RequierePermiso('costos.ver')
+  resultado(@Query(new Validar(esquemaPeriodo)) filtro: Periodo): Promise<EstadoResultados> {
+    return this.reportes.resultado(filtro);
   }
 
   @Get('compras')

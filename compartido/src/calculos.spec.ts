@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   calcularCompra,
   comisionDeCobro,
+  comisionDeVendedor,
   comisionDevuelta,
   costoTraslado,
   descuentoValido,
@@ -278,5 +279,27 @@ describe('repartir dinero entre varios métodos de pago', () => {
     expect(repartirProporcional('0.00', ['0.00', '0.00'])).toEqual(['0.00', '0.00']);
     expect(repartirProporcional('10.00', ['0.00', '0.00'])).toEqual(['10.00', '0.00']);
     expect(repartirProporcional('10.00', [])).toEqual([]);
+  });
+});
+
+describe('comisión de quien vende', () => {
+  it('es su tasa sobre lo que vendió', () => {
+    expect(comisionDeVendedor('1000.00', '0.1500')).toBe('150.00');
+    expect(comisionDeVendedor('56.00', '0.1000')).toBe('5.60');
+  });
+
+  it('sin tasa no gana comisión', () => {
+    expect(comisionDeVendedor('1000.00', '0')).toBe('0.00');
+  });
+
+  /** Lo neto ya trae descontada la devolución: la comisión baja sola. */
+  it('sobre lo neto, la devolución la baja sin tocar nada más', () => {
+    expect(comisionDeVendedor('120.00', '0.1500')).toBe('18.00');
+    expect(comisionDeVendedor('90.00', '0.1500')).toBe('13.50');
+  });
+
+  it('redondea al centavo', () => {
+    expect(comisionDeVendedor('33.33', '0.1500')).toBe('5.00');
+    expect(comisionDeVendedor('28.75', '0.1234')).toBe('3.55');
   });
 });

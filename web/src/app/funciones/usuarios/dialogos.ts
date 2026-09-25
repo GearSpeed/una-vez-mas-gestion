@@ -64,6 +64,20 @@ const IMPORTS = [
             <p class="error-texto" role="alert">Elige al menos un rol.</p>
           }
         </fieldset>
+        <mat-form-field class="comision">
+          <mat-label>Comisión por vender</mat-label>
+          <input
+            matInput
+            type="number"
+            inputmode="decimal"
+            min="0"
+            max="100"
+            step="1"
+            formControlName="comisionPorcentaje"
+          />
+          <span matTextSuffix>&nbsp;%</span>
+          <mat-hint>De lo que venda, ya neto de devoluciones. Cero si no es por comisión.</mat-hint>
+        </mat-form-field>
         <mat-checkbox formControlName="activo">Activo (puede entrar)</mat-checkbox>
         <p class="ayuda">
           Recuerda: la persona también debe estar en la política de Cloudflare Access para poder
@@ -91,6 +105,9 @@ const IMPORTS = [
       display: grid;
       gap: 0.25rem;
     }
+    .comision {
+      max-width: 16rem;
+    }
     legend {
       font: var(--mat-sys-title-medium);
       padding-bottom: 0.25rem;
@@ -108,6 +125,11 @@ export class DialogoUsuario {
     nombre: [this.usuario?.nombre ?? '', Validators.required],
     correo: [this.usuario?.correo ?? '', [Validators.required, Validators.email]],
     activo: [this.usuario?.activo ?? true],
+    /** En pantalla va en %; la API lo guarda como proporción (15 → 0.15). */
+    comisionPorcentaje: this.fb.control<number>(Number(this.usuario?.comisionVenta ?? '0') * 100, [
+      Validators.min(0),
+      Validators.max(100),
+    ]),
   });
   protected readonly elegidos = signal<ReadonlySet<string>>(new Set(this.usuario?.roles ?? []));
   protected readonly sinRoles = signal(false);
@@ -130,7 +152,12 @@ export class DialogoUsuario {
     if (this.formulario.invalid || this.sinRoles() || this.guardando()) return;
     this.guardando.set(true);
     this.error.set(null);
-    const cuerpo = { ...this.formulario.getRawValue(), roles: [...this.elegidos()] };
+    const { comisionPorcentaje, ...valor } = this.formulario.getRawValue();
+    const cuerpo = {
+      ...valor,
+      roles: [...this.elegidos()],
+      comisionVenta: ((comisionPorcentaje || 0) / 100).toFixed(4),
+    };
     try {
       const guardado = this.usuario
         ? await this.api.put<Usuario>(`/usuarios/${this.usuario.id}`, cuerpo)

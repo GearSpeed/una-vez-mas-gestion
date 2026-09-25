@@ -128,6 +128,17 @@ probar lo que ve cada rol. Ese modo se niega a arrancar si `NODE_ENV=production`
   que pagó y Mercado Pago regresa la parte proporcional de su comisión (si se devuelve
   todo, la comisión completa), siempre que el reembolso se haga desde el cobro original
   («Devolver dinero» en la app de Mercado Pago), no como transferencia nueva.
+- **Gastos de operación**: lo que cuesta el negocio y no es mercancía (bolsas, servicios,
+  publicidad). Se registran con su categoría y no se editan: se cancelan con motivo. Son lo
+  que separa la utilidad bruta de la ganancia de verdad.
+- **Comisión de quien vende**: un porcentaje de lo que vende, configurable por persona
+  (Usuarios). Se calcula sobre lo **neto de devoluciones**, así que una devolución la baja
+  sola, y cada venta guarda la tasa que tenía ese día: cambiarla no reescribe lo pasado. La
+  vendedora la ve en su corte. Es lo que **se le debe**; cuando se le paga, se registra como
+  gasto y cuenta en el mes en que se pagó.
+- **Resultado del periodo** (Reportes): ventas netas − costo = utilidad bruta, menos la
+  comisión de tarjeta y los gastos = utilidad operativa. Aparte, lo que se le debe a quien
+  vende y el dinero atado en mercancía, que es ganancia que todavía no es efectivo.
 - **Ajustes**: si restan, al costo promedio; si suman, al costo que se indique. El
   **conteo físico** registra lo que hay y ajusta solo las diferencias.
 - **Imágenes**: una foto por producto, la misma que muestra el sitio. Se sube desde el

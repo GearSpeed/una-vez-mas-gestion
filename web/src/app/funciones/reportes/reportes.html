@@ -106,6 +106,84 @@
     </mat-tab>
 
     @if (verCostos()) {
+      <mat-tab label="Resultado del periodo">
+        <div class="pestana">
+          <uvm-estado-carga
+            [cargando]="resultado.isLoading()"
+            [error]="resultado.error()"
+            (reintentar)="resultado.reload()"
+          />
+          @if (resultado.value(); as r) {
+            <dl class="resultado">
+              <div>
+                <dt>Ventas netas</dt>
+                <dd>{{ r.ventasNetas | currency }}</dd>
+              </div>
+              <div>
+                <dt>− Costo de la mercancía</dt>
+                <dd>{{ r.costoVendido | currency }}</dd>
+              </div>
+              <div class="subtotal">
+                <dt>Utilidad bruta</dt>
+                <dd>{{ r.utilidadBruta | currency }}</dd>
+              </div>
+              <div>
+                <dt>− Comisión de Mercado Pago</dt>
+                <dd>{{ r.comisionTarjeta | currency }}</dd>
+              </div>
+              @for (g of r.gastos; track g.categoria) {
+                <div>
+                  <dt>− {{ g.categoria }}</dt>
+                  <dd>{{ g.importe | currency }}</dd>
+                </div>
+              } @empty {
+                <div>
+                  <dt>− Gastos</dt>
+                  <dd>{{ r.totalGastos | currency }}</dd>
+                </div>
+              }
+              <div class="total">
+                <dt>Utilidad operativa</dt>
+                <dd>{{ r.utilidadOperativa | currency }}</dd>
+              </div>
+            </dl>
+
+            @if (r.comisionesPorPagar.length) {
+              <section class="tarjeta" aria-labelledby="titulo-comisiones">
+                <h3 id="titulo-comisiones">Comisiones por pagar</h3>
+                <p class="ayuda">
+                  Todavía no son gasto: cuando se paguen, se registran en Gastos y cuentan en el mes
+                  en que se pagaron.
+                </p>
+                <ul class="lista-simple">
+                  @for (c of r.comisionesPorPagar; track c.vendedor) {
+                    <li>
+                      <strong>{{ c.vendedor }}</strong
+                      >: {{ c.comision | currency }}
+                      <span class="ayuda">
+                        ({{ c.tasa | percent: '1.0-2' }} de {{ c.ventasNetas | currency }})
+                      </span>
+                    </li>
+                  }
+                </ul>
+              </section>
+            }
+
+            <section class="tarjeta" aria-labelledby="titulo-inventario">
+              <h3 id="titulo-inventario">Dinero en mercancía</h3>
+              <p>
+                <strong>{{ r.valorInventario | currency }}</strong> a costo, en el almacén y con las
+                vendedoras.
+              </p>
+              <p class="ayuda">
+                Es ganancia que todavía no es efectivo: se vuelve dinero cuando se venda. Por eso la
+                utilidad del mes no es lo que se puede sacar de la caja.
+              </p>
+            </section>
+          }
+        </div>
+      </mat-tab>
+
       <mat-tab label="Utilidad por producto">
         <div class="pestana acciones">
           <button mat-stroked-button type="button" (click)="exportar('utilidad')">

@@ -130,6 +130,13 @@ export class VentasService {
             });
           }
 
+          // La tasa de comisión se congela aquí: cambiarla mañana no reescribe lo
+          // vendido hoy, igual que el costo y la tarifa de la tarjeta.
+          const [quienVende] = await tx
+            .select({ comisionVenta: usuarios.comisionVenta })
+            .from(usuarios)
+            .where(eq(usuarios.id, usuario.id));
+
           const [venta] = await tx
             .insert(ventas)
             .values({
@@ -137,6 +144,7 @@ export class VentasService {
               ubicacionId,
               vendedorId: usuario.id,
               canal: datos.canal,
+              comisionVendedorTasa: quienVende?.comisionVenta ?? '0',
               piezas: lineas.reduce((suma, l) => suma + l.cantidad, 0),
               total,
               comision: sumar(pagos.map((pago) => pago.comision)),

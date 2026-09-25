@@ -92,6 +92,13 @@
       "when": 1790374731911,
       "tag": "0012_permisos_de_gastos",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790375638297,
+      "tag": "0013_comision_de_vendedor",
+      "breakpoints": true
     }
   ]
 }

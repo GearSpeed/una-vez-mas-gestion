@@ -69,6 +69,11 @@
       @if (c.comisiones !== '0.00') {
         <p class="ayuda">Retiene Mercado Pago: {{ c.comisiones | currency }}</p>
       }
+      @if (c.comisionVendedor !== '0.00') {
+        <p class="comision-vendedor">
+          De estas ventas te tocan <strong>{{ c.comisionVendedor | currency }}</strong> de comisión.
+        </p>
+      }
     </section>
 
     <div uvmDesplazable="Mercancía del corte">

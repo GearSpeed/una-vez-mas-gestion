@@ -50,6 +50,7 @@ export class UsuariosService {
         correo: usuarios.correo,
         nombre: usuarios.nombre,
         activo: usuarios.activo,
+        comisionVenta: usuarios.comisionVenta,
         ultimoAcceso: usuarios.ultimoAcceso,
         ubicacionId: ubicaciones.id,
         ubicacionNombre: ubicaciones.nombre,
@@ -71,6 +72,7 @@ export class UsuariosService {
       correo: fila.correo,
       nombre: fila.nombre,
       activo: fila.activo,
+      comisionVenta: fila.comisionVenta,
       roles: fila.roles,
       ubicacion:
         fila.ubicacionId !== null && fila.ubicacionNombre !== null && fila.ubicacionTipo !== null
@@ -84,7 +86,12 @@ export class UsuariosService {
     const id = await this.db.transaction(async (tx) => {
       const [creado] = await tx
         .insert(usuarios)
-        .values({ correo: datos.correo, nombre: datos.nombre, activo: datos.activo })
+        .values({
+          correo: datos.correo,
+          nombre: datos.nombre,
+          activo: datos.activo,
+          comisionVenta: datos.comisionVenta,
+        })
         .returning({ id: usuarios.id });
       if (!creado) throw new Error('No se creó el usuario');
       await this.asignarRoles(tx, creado.id, datos.roles);
@@ -134,7 +141,12 @@ export class UsuariosService {
 
       await tx
         .update(usuarios)
-        .set({ correo: datos.correo, nombre: datos.nombre, activo: datos.activo })
+        .set({
+          correo: datos.correo,
+          nombre: datos.nombre,
+          activo: datos.activo,
+          comisionVenta: datos.comisionVenta,
+        })
         .where(eq(usuarios.id, id));
       await tx.delete(usuarioRoles).where(eq(usuarioRoles.usuarioId, id));
       await this.asignarRoles(tx, id, datos.roles, datos.activo);

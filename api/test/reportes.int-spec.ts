@@ -59,6 +59,42 @@ describe('reportes', () => {
     });
   });
 
+  const comisionDeAna = async (tasa: string) => {
+    const ana = (await como(app, ADMIN).get('/usuarios')).body.find(
+      (u: { correo: string }) => u.correo === ANA,
+    );
+    await como(app, ADMIN).put(`/usuarios/${ana.id}`, { ...ana, comisionVenta: tasa });
+  };
+
+  const vender = (cantidad: number) =>
+    como(app, ANA).post('/ventas', {
+      claveIdempotencia: clave(),
+      canal: 'whatsapp',
+      pagos: [{ metodoPago: 'efectivo', importe: multiplicar('30.00', cantidad) }],
+      lineas: [{ productoId: IDS.tejocote, cantidad }],
+    });
+
+  /** Más mercancía para Ana, cuando la prueba necesita vender varias veces. */
+  const cargarAAna = (cantidad: number) =>
+    como(app, ALMACEN).post('/inventario/traspasos', {
+      claveIdempotencia: clave(),
+      origenId: IDS.almacen,
+      destinoId: IDS.ana,
+      lineas: [{ productoId: IDS.tejocote, cantidad }],
+    });
+
+  /** El escenario de arriba: Ana vendió $120 y le quedó 1 pieza. */
+  const resultado = () => como(app, ADMIN).get('/reportes/resultado');
+
+  const gastar = (importe: string) =>
+    como(app, ADMIN).post('/gastos', {
+      claveIdempotencia: clave(),
+      categoriaId: 1,
+      concepto: 'Bolsas',
+      importe,
+      metodoPago: 'efectivo',
+    });
+
   it('el corte de la vendedora cuadra', async () => {
     const corte = await como(app, ANA).get('/reportes/corte');
     expect(corte.body.productos).toEqual([
@@ -74,6 +110,81 @@ describe('reportes', () => {
     ]);
     expect(corte.body.cobros).toMatchObject({ efectivo: '90.00', transferencia: '30.00' });
     expect(corte.body.totalVendido).toBe('120.00');
+  });
+
+  describe('resultado del periodo y comisión de quien vende', () => {
+    it('baja de lo vendido a lo que de verdad quedó', async () => {
+      expect((await gastar('20.00')).status).toBe(201);
+
+      const { body } = await resultado();
+      expect(body.ventasNetas).toBe('120.00');
+      // Las 4 piezas vendidas, al costo de V001 ($17.909375 cada una).
+      expect(body.costoVendido).toBe('71.64');
+      expect(body.utilidadBruta).toBe('48.36');
+      // Nada se cobró con tarjeta en este escenario.
+      expect(body.comisionTarjeta).toBe('0.00');
+      expect(body.gastos).toEqual([{ categoria: 'Empaque', importe: '20.00' }]);
+      expect(body.utilidadOperativa).toBe('28.36');
+      // Lo atado en mercancía es lo mismo que dice el tablero.
+      const tablero = await como(app, ADMIN).get('/reportes/tablero');
+      expect(body.valorInventario).toBe(tablero.body.costos.valorInventario);
+    });
+
+    it('un gasto cancelado deja de restar', async () => {
+      const gasto = await gastar('20.00');
+      await como(app, ADMIN).post(`/gastos/${gasto.body.id}/cancelar`, { motivo: 'Duplicado' });
+      const { body } = await resultado();
+      expect(body.gastos).toEqual([]);
+      expect(body.totalGastos).toBe('0.00');
+      expect(body.utilidadOperativa).toBe('48.36');
+    });
+
+    it('la comisión sale de lo neto, y el corte dice lo mismo que el resultado', async () => {
+      await cargarAAna(4);
+      await comisionDeAna('0.15');
+      const vendida = await vender(2);
+      expect(vendida.status).toBe(201);
+
+      const conComision = await resultado();
+      expect(conComision.body.comisionesPorPagar).toEqual([
+        { vendedor: 'Ana', tasa: '0.1500', ventasNetas: '60.00', comision: '9.00' },
+      ]);
+      // El corte de Ana tiene que decir exactamente lo mismo.
+      expect((await como(app, ANA).get('/reportes/corte')).body.comisionVendedor).toBe('9.00');
+
+      // Devuelve una pieza: la comisión baja sola, sin tocarla.
+      await como(app, ANA).post(`/ventas/${vendida.body.id}/devoluciones`, {
+        claveIdempotencia: clave(),
+        motivo: 'No le gustó',
+        lineas: [{ productoId: IDS.tejocote, cantidad: 1 }],
+      });
+      const despues = await resultado();
+      expect(despues.body.comisionesPorPagar[0]).toMatchObject({
+        ventasNetas: '30.00',
+        comision: '4.50',
+      });
+      expect((await como(app, ANA).get('/reportes/corte')).body.comisionVendedor).toBe('4.50');
+    });
+
+    it('cambiar la tasa no reescribe lo ya vendido', async () => {
+      await cargarAAna(4);
+      await comisionDeAna('0.15');
+      await vender(1);
+      await comisionDeAna('0.05');
+      await vender(1);
+
+      // Cada venta con la tasa que tenía ese día: $4.50 y $1.50.
+      const { body } = await resultado();
+      expect(body.comisionesPorPagar).toEqual([
+        { vendedor: 'Ana', tasa: '0.1500', ventasNetas: '30.00', comision: '4.50' },
+        { vendedor: 'Ana', tasa: '0.0500', ventasNetas: '30.00', comision: '1.50' },
+      ]);
+    });
+
+    it('sin permiso de costos no se ve el resultado', async () => {
+      expect((await como(app, ANA).get('/reportes/resultado')).status).toBe(403);
+      expect((await como(app, CONSULTA).get('/reportes/resultado')).status).toBe(200);
+    });
   });
 
   it('un vendedor no ve el corte de otro; el admin sí', async () => {

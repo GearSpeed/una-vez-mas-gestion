@@ -1,0 +1,42 @@
+/** El resultado del periodo, renglón por renglón, como se lee un estado de cuenta. */
+.resultado {
+  display: grid;
+  gap: 0.25rem;
+  max-width: 32rem;
+  margin: 0 0 1rem;
+
+  > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.25rem 0;
+  }
+
+  dt {
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .subtotal,
+  .total {
+    border-top: 1px solid var(--mat-sys-outline-variant);
+    font: var(--mat-sys-title-medium);
+
+    dt {
+      color: inherit;
+    }
+  }
+
+  .total {
+    border-top-width: 2px;
+  }
+}
+
+.lista-simple {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+}

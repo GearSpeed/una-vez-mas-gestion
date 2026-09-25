@@ -332,6 +332,10 @@ export const esquemaUsuario = z.object({
   nombre: requerido(120),
   activo: z.boolean().default(true),
   roles: z.array(z.string().min(1).max(60)).min(1, 'Elige al menos un rol').max(20),
+  /** Lo que gana por vender, como proporción: 0.15 = 15 %. Cero si no es por comisión. */
+  comisionVenta: decimal(4)
+    .refine((valor) => Number(valor) <= 1, 'No puede pasar del 100 %')
+    .default('0'),
 });
 
 export const esquemaUbicacion = z.object({

@@ -348,6 +348,16 @@ export function repartirProporcional(total: Decimal, pesos: readonly Decimal[]):
   });
 }
 
+/**
+ * Lo que gana quien vendió: su tasa sobre lo que quedó **neto de devoluciones**.
+ *
+ * Se calcula sobre lo neto a propósito: si el cliente regresó la mitad, la mitad de
+ * esa venta no se vendió, y la comisión baja sola sin tener que corregirla a mano.
+ */
+export function comisionDeVendedor(ventaNeta: Decimal, tasa: Decimal): Decimal {
+  return fijar(big(ventaNeta).times(tasa), DECIMALES_DINERO);
+}
+
 /* -----------------------------------------------------------------------------
    Utilidades
    -------------------------------------------------------------------------- */

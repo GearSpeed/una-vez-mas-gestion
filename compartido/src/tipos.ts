@@ -43,6 +43,8 @@ export interface Usuario {
   /** Claves de rol. */
   readonly roles: readonly string[];
   readonly ubicacion: UbicacionResumen | null;
+  /** Lo que gana por vender, como proporción: `0.1500` = 15 %. */
+  readonly comisionVenta: Decimal;
   readonly ultimoAcceso: string | null;
 }
 
@@ -483,8 +485,40 @@ export interface Corte {
   readonly reembolsos: Readonly<Record<MetodoPago, Decimal>>;
   /** Lo que retuvo Mercado Pago de los cobros con tarjeta del periodo. */
   readonly comisiones: Decimal;
+  /** Lo que gana quien vendió por estas ventas. Cero si no trabaja por comisión. */
+  readonly comisionVendedor: Decimal;
   /** Cobros menos reembolsos. */
   readonly totalVendido: Decimal;
+}
+
+/**
+ * El resultado del periodo: de lo que se vendió a lo que de verdad quedó.
+ *
+ * Cuenta **gastos pagados**, no compromisos: por eso las comisiones de quien vende
+ * van aparte, como lo que se debe. Cuando se pagan, se registran como gasto y
+ * entran en el renglón de gastos del mes en que se pagaron.
+ */
+export interface EstadoResultados {
+  readonly desde: string;
+  readonly hasta: string;
+  /** Cobrado menos devuelto. */
+  readonly ventasNetas: Decimal;
+  readonly costoVendido: Decimal;
+  readonly utilidadBruta: Decimal;
+  /** Lo que se quedó Mercado Pago, ya descontado lo que regresó en devoluciones. */
+  readonly comisionTarjeta: Decimal;
+  readonly gastos: readonly { readonly categoria: string; readonly importe: Decimal }[];
+  readonly totalGastos: Decimal;
+  readonly utilidadOperativa: Decimal;
+  /** Lo que se le debe a cada quien por vender, y todavía no se le paga. */
+  readonly comisionesPorPagar: readonly {
+    readonly vendedor: string;
+    readonly ventasNetas: Decimal;
+    readonly tasa: Decimal;
+    readonly comision: Decimal;
+  }[];
+  /** Dinero atado en mercancía, a costo: ganancia que todavía no es efectivo. */
+  readonly valorInventario: Decimal;
 }
 
 export interface FilaReporteCompras {
