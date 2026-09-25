@@ -1,7 +1,7 @@
 import { CurrencyPipe, NgOptimizedImage, PercentPipe } from '@angular/common';
 import { httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -46,6 +46,7 @@ export class Productos {
   private readonly dialogo = inject(MatDialog);
   private readonly api = inject(ApiService);
   private readonly avisos = inject(AvisosService);
+  private readonly fb = inject(FormBuilder).nonNullable;
 
   protected readonly puedeEditar = computed(() => this.sesion.puede('productos.gestionar'));
   protected readonly incluirInactivos = signal(false);
@@ -63,9 +64,13 @@ export class Productos {
   });
   protected readonly conCostos = computed(() => this.visibles().some((p) => p.costos));
 
-  protected readonly nuevaCategoria = new FormControl('', {
-    nonNullable: true,
-    validators: [Validators.required],
+  /**
+   * Un grupo, no un control suelto: `ngSubmit` lo emite la directiva del formulario, y
+   * sin `[formGroup]` en el `<form>` el envío se lo queda el navegador (recarga la
+   * página) sin llamar nunca a `agregarCategoria()`.
+   */
+  protected readonly formularioCategoria = this.fb.group({
+    nombre: ['', Validators.required],
   });
 
   protected abrir(producto: Producto | null): void {
@@ -85,15 +90,17 @@ export class Productos {
   }
 
   protected async agregarCategoria(): Promise<void> {
-    if (this.nuevaCategoria.invalid) return;
+    const nombre = this.formularioCategoria.getRawValue().nombre.trim();
+    if (!nombre) {
+      this.formularioCategoria.markAllAsTouched();
+      return;
+    }
     try {
       const orden = (this.categorias.value() ?? []).length + 1;
-      await this.api.post<Categoria>('/categorias', {
-        nombre: this.nuevaCategoria.value.trim(),
-        orden,
-      });
-      this.nuevaCategoria.reset();
+      const creada = await this.api.post<Categoria>('/categorias', { nombre, orden });
+      this.formularioCategoria.reset();
       this.categorias.reload();
+      this.avisos.exito(`Categoría ${creada.nombre} agregada.`);
     } catch (error) {
       this.avisos.error(mensajeDeError(error));
     }

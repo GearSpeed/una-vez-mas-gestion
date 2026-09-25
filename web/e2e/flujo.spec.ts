@@ -130,6 +130,25 @@ test('un vendedor no ve pantallas de otros roles', async ({ page }) => {
   await expect(menu.getByRole('link', { name: 'Usuarios', includeHidden: true })).toHaveCount(0);
 });
 
+test('se agrega una categoría y queda lista para usarse', async ({ page }, info) => {
+  const categoria = `Conservas ${info.project.name}`;
+  await entrarComo(page, 'admin');
+  await page.goto('/productos');
+  await esperarCarga(page);
+
+  await page.getByRole('tab', { name: 'Categorías' }).click();
+  await page.getByLabel('Nueva categoría').fill(categoria);
+  await page.getByRole('button', { name: 'Agregar' }).click();
+  await expect(page.getByText(`Categoría ${categoria} agregada.`)).toBeVisible();
+  await expect(page.getByRole('listitem').filter({ hasText: categoria })).toBeVisible();
+
+  // Y ya se puede elegir al dar de alta un producto.
+  await page.getByRole('tab', { name: 'Productos' }).click();
+  await page.getByRole('button', { name: 'Nuevo producto' }).click();
+  await page.getByRole('dialog').getByRole('combobox', { name: 'Categoría' }).click();
+  await expect(page.getByRole('option', { name: categoria })).toBeVisible();
+});
+
 test('el slug de un producto nuevo se genera solo y no se puede editar', async ({ page }, info) => {
   const nombre = `Galletas de Piña ${info.project.name}`;
   await entrarComo(page, 'admin');

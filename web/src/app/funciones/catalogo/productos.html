@@ -155,12 +155,17 @@
           }
         </ul>
         @if (puedeEditar()) {
-          <form class="acciones" (ngSubmit)="agregarCategoria()">
+          <form
+            class="acciones"
+            [formGroup]="formularioCategoria"
+            (ngSubmit)="agregarCategoria()"
+            novalidate
+          >
             <mat-form-field>
               <mat-label>Nueva categoría</mat-label>
-              <input matInput [formControl]="nuevaCategoria" maxlength="60" />
+              <input matInput formControlName="nombre" maxlength="60" />
             </mat-form-field>
-            <button mat-stroked-button type="submit" [disabled]="nuevaCategoria.invalid">
+            <button mat-stroked-button type="submit" [disabled]="formularioCategoria.invalid">
               Agregar
             </button>
           </form>
