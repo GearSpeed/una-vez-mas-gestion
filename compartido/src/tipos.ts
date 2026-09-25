@@ -100,6 +100,11 @@ export interface Producto {
   readonly existenciaTotal: number;
   /** La foto en el bucket (la misma que muestra el sitio), o `null` si no tiene. */
   readonly imagen: ImagenProducto | null;
+  /**
+   * El texto alternativo guardado, haya foto o no: se puede escribir antes de subirla
+   * y queda esperándola. Cuando sí hay foto, es el mismo que `imagen.alt`.
+   */
+  readonly imagenAlt: string;
   readonly costos?: CostosProducto;
 }
 

@@ -274,7 +274,7 @@ export class ProductosService {
     }: Awaited<ReturnType<ProductosService['consulta']>>[number],
   ): Producto {
     const imagen = imagenClave ? { ...this.almacen.urls(imagenClave), alt: imagenAlt } : null;
-    return conCostos(usuario, { ...fila, imagen }, () => ({
+    return conCostos(usuario, { ...fila, imagen, imagenAlt }, () => ({
       costoPromedio,
       gananciaObjetivo,
       ...indicadoresPrecio(costoPromedio, fila.precioVenta, gananciaObjetivo),

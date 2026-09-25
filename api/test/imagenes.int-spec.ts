@@ -141,6 +141,15 @@ describe('imágenes de producto', () => {
     expect(fila?.['imagen_chica']).toMatch(/^productos\/1\/[0-9a-f]{16}-600\.webp$/);
   });
 
+  it('el texto alternativo se guarda aunque el producto no tenga foto', async () => {
+    const respuesta = await como(app, ADMIN).put(`/productos/${IDS.avena}/imagen`, { alt: ALT });
+    expect(respuesta.status).toBe(200);
+    // Sin foto no hay `imagen`, pero el texto queda guardado esperándola.
+    expect(respuesta.body).toMatchObject({ imagen: null, imagenAlt: ALT });
+    const { body } = await como(app, ADMIN).get(`/productos/${IDS.avena}`);
+    expect(body.imagenAlt).toBe(ALT);
+  });
+
   it('sin foto propia, el catálogo del sitio sirve el logo y lo dice', async () => {
     const respuesta = await request(app.getHttpServer()).get('/api/publico/catalogo');
     const avena = respuesta.body.find((p: { slug: string }) => p.slug === 'galletas-avena');

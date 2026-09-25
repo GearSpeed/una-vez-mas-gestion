@@ -76,7 +76,7 @@ export class ImagenProducto implements OnInit {
   }
 
   ngOnInit(): void {
-    this.alt.setValue(this.producto()?.imagen?.alt ?? '');
+    this.alt.setValue(this.producto()?.imagenAlt ?? '');
   }
 
   /**
@@ -97,7 +97,8 @@ export class ImagenProducto implements OnInit {
   async guardarEn(id: number): Promise<Producto | null> {
     const archivo = this.archivo();
     if (archivo) return this.subir(id, archivo);
-    if (this.imagen() && this.alt.dirty) {
+    // El texto se puede escribir antes de tener la foto: se guarda igual y la espera.
+    if (this.alt.dirty && this.alt.valid) {
       return this.listo(
         await this.api.put<Producto>(`/productos/${id}/imagen`, {
           alt: this.alt.value,

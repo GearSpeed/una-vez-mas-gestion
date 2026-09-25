@@ -298,6 +298,31 @@ test('un producto nuevo se da de alta con su ficha y su foto en un solo guardado
   });
 });
 
+test('el texto alternativo se guarda aunque la foto llegue después', async ({ page }, info) => {
+  const nombre = `Mermelada de Tejocote ${info.project.name}`;
+  const alt = 'Frasco de mermelada de tejocote con la tapa de tela';
+  await entrarComo(page, 'admin');
+  await page.goto('/productos');
+  await esperarCarga(page);
+
+  await page.getByRole('button', { name: 'Nuevo producto' }).click();
+  await page.getByRole('dialog').getByLabel('Nombre').fill(nombre);
+  await page.getByRole('dialog').getByRole('combobox', { name: 'Categoría' }).click();
+  await page.getByRole('option', { name: 'Galletas' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Guardar' }).click();
+  await expect(page.getByText(`${nombre} guardado.`)).toBeVisible();
+
+  // Sin foto todavía: el texto se escribe y se guarda igual, esperándola.
+  await page.getByLabel('Buscar por nombre o ID').fill(nombre);
+  await page.getByRole('button', { name: `Editar ${nombre}` }).click();
+  await page.getByRole('dialog').getByLabel('Texto alternativo').fill(alt);
+  await page.getByRole('dialog').getByRole('button', { name: 'Guardar' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  await page.getByRole('button', { name: `Editar ${nombre}` }).click();
+  await expect(page.getByRole('dialog').getByLabel('Texto alternativo')).toHaveValue(alt);
+});
+
 test('el menú lateral se abre y se cierra con su icono', async ({ page }, info) => {
   const celular = info.project.name === 'celular';
   await entrarComo(page, 'ana');
