@@ -138,7 +138,11 @@ los dos tienen prueba que falla si desaparecen.
 alta o crítica. Las de desarrollo solo avisan —hoy hay un aviso del servidor de
 esbuild, que llega por `drizzle-kit` y nunca corre en producción—, porque bloquear
 el despliegue por algo que no se ejecuta deja sin publicar los arreglos de verdad.
-Dependabot abre PR cada lunes.
+Dependabot abre PR cada lunes (las de npm), y una vez al mes las de la imagen base y
+las acciones del CI, agrupadas para que sea una PR por familia y no una por paquete.
+Los saltos **mayores de la imagen base de Node no se proponen solos**: cambiar la
+versión de producción es una decisión que va junto con `.nvmrc`, que es donde se
+prueba todo.
 
 ## Mantenimiento
 

@@ -21,12 +21,25 @@ updates:
         patterns: ['*']
         update-types: [minor, patch]
 
-  # La imagen base de la API y las acciones del propio CI también envejecen.
+  # La imagen base de la API y las acciones del propio CI también envejecen, pero
+  # de una en una son cinco PR el primer día: van agrupadas, una por familia.
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: monthly
+    groups:
+      imagen-base:
+        patterns: ['*']
+    ignore:
+      # Pasar de Node 24 a 26 en producción es una decisión, no una PR de rutina:
+      # `.nvmrc` fija 24.21 y ahí se prueba todo. El salto se hace a propósito,
+      # cambiando también la versión con la que se desarrolla.
+      - dependency-name: node
+        update-types: ['version-update:semver-major']
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
+    groups:
+      acciones:
+        patterns: ['*']
