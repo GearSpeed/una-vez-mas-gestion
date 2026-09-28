@@ -19,6 +19,7 @@ import {
   type FilaUtilidad,
   type FiltroCorte,
   type FiltroReporteVentas,
+  diasEntre,
   inicioDeMes,
   inicioDeSemana,
   METODOS_PAGO,
@@ -76,6 +77,14 @@ function suma(tipos: readonly string[]) {
   )})), 0)::int`;
 }
 
+/**
+ * Lo más ancho que se puede pedir de una vez. Un reporte recorre todas las líneas
+ * de venta del rango: sin tope, una sola petición puede costar lo que cuesta un año
+ * entero, y se puede repetir 300 veces por minuto. Un año y un día cubre cualquier
+ * comparación contra el mismo mes del año pasado; para más, se piden por tramos.
+ */
+const DIAS_MAXIMOS = 366;
+
 /** Sin fechas, los reportes cubren el mes en curso. */
 function periodo(
   filtro: Periodo,
@@ -88,6 +97,12 @@ function periodo(
     throw new UnprocessableEntityException({
       mensaje: 'La fecha inicial es posterior a la final.',
       campos: { desde: 'Debe ser anterior a "hasta"' },
+    });
+  }
+  if (diasEntre(desde, hasta) > DIAS_MAXIMOS) {
+    throw new UnprocessableEntityException({
+      mensaje: `El periodo no puede pasar de ${DIAS_MAXIMOS} días. Pídelo por tramos.`,
+      campos: { desde: `Como mucho ${DIAS_MAXIMOS} días antes de "hasta"` },
     });
   }
   return { desde, hasta };

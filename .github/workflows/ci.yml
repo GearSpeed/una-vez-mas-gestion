@@ -20,6 +20,14 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      # Lo que se despliega no puede llevar vulnerabilidades conocidas: esto corta.
+      - name: Dependencias de producción sin vulnerabilidades conocidas
+        run: npm audit --omit=dev --audit-level=high
+      # Las herramientas de desarrollo se avisan, pero no detienen el despliegue:
+      # un aviso del servidor de esbuild (que nos llega por drizzle-kit y nunca
+      # corre en producción) no es razón para no poder publicar un arreglo.
+      - name: Aviso de las herramientas de desarrollo
+        run: npm audit --audit-level=moderate || true
       - run: npm run format:check
       # Compilar antes de revisar: el lint usa los tipos de compartido/dist, que no
       # viene en el repositorio.

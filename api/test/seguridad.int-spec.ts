@@ -157,6 +157,17 @@ describe('seguridad', () => {
   });
 
   describe('respuestas con datos privados', () => {
+    it('un cuerpo enorme se rechaza antes de procesarlo', async () => {
+      // El tope es de 64 KB: cabe de sobra el documento más grande (un conteo de
+      // 500 productos, unos 25 KB) y nada más.
+      const enorme = { ...nuevaVenta(), notas: 'A'.repeat(70 * 1024) };
+      expect((await como(app, ANA).post('/ventas', enorme)).status).toBe(413);
+
+      // Y lo que sí cabe sigue pasando: lo rechaza la validación, no el tamaño.
+      const grande = { ...nuevaVenta(), notas: 'A'.repeat(40 * 1024) };
+      expect((await como(app, ANA).post('/ventas', grande)).status).toBe(422);
+    });
+
     it('no se guardan en la caché del navegador', async () => {
       const respuesta = await como(app, ADMIN).get('/usuarios');
       expect(respuesta.headers['cache-control']).toBe('no-store');

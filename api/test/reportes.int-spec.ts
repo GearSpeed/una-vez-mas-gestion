@@ -97,6 +97,25 @@ describe('reportes', () => {
       metodoPago: 'efectivo',
     });
 
+  it('un periodo demasiado ancho se rechaza, en vez de costar lo que cueste', async () => {
+    const amplio = await como(app, ADMIN).get('/reportes/ventas?desde=2020-01-01&hasta=2026-12-31');
+    expect(amplio.status).toBe(422);
+    expect(amplio.body.mensaje).toMatch(/no puede pasar de 366 días/);
+    expect(amplio.body.campos).toHaveProperty('desde');
+
+    // Un año justo sí pasa: es la comparación contra el mismo mes del año pasado.
+    expect(
+      (await como(app, ADMIN).get('/reportes/ventas?desde=2026-01-01&hasta=2026-12-31')).status,
+    ).toBe(200);
+    // Y el tope aplica a todos los reportes, no solo a ventas.
+    for (const reporte of ['utilidad', 'resultado', 'comisiones', 'compras', 'corte']) {
+      expect(
+        (await como(app, ADMIN).get(`/reportes/${reporte}?desde=2020-01-01&hasta=2026-12-31`))
+          .status,
+      ).toBe(422);
+    }
+  });
+
   it('el corte de la vendedora cuadra', async () => {
     const corte = await como(app, ANA).get('/reportes/corte');
     expect(corte.body.productos).toEqual([

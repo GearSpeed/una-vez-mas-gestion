@@ -1,0 +1,32 @@
+# Dependabot abre una PR cuando sale una versión nueva. Sin esto, la única defensa
+# contra una vulnerabilidad conocida es que alguien se acuerde de mirar.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # Angular, NestJS y Drizzle publican varios paquetes a la vez: una PR por
+      # familia, no doce.
+      angular:
+        patterns: ['@angular/*', 'zone.js']
+      nestjs:
+        patterns: ['@nestjs/*']
+      drizzle:
+        patterns: ['drizzle-*']
+      resto:
+        patterns: ['*']
+        update-types: [minor, patch]
+
+  # La imagen base de la API y las acciones del propio CI también envejecen.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

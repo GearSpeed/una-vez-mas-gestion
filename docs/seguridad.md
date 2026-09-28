@@ -115,10 +115,36 @@ Estos pasos no viven en el repositorio; están detallados en
    salva de un ransomware. Y la contraseña del cifrado, guardada fuera del servidor.
 9. Restaurar un respaldo antes de dar el sistema por bueno.
 
+## Topes, para que nadie ocupe la casa
+
+Cada entrada tiene un techo declarado, no heredado:
+
+| Qué                                | Tope                      | Dónde                            |
+| ---------------------------------- | ------------------------- | -------------------------------- |
+| Peticiones por usuario (o IP real) | 300 por minuto            | `LIMITE_PETICIONES`              |
+| Ruta pública del catálogo          | 60 por minuto             | `LIMITE_PUBLICO`                 |
+| Subir fotos                        | 30 cada 5 minutos         | `LIMITE_IMAGENES`                |
+| Cuerpo JSON                        | 64 KB                     | `configurar-app.ts`              |
+| Archivo subido                     | 10 MB, uno por petición   | `PESO_MAXIMO_IMAGEN`             |
+| Píxeles de una imagen              | 25 millones, una a la vez | `procesar-imagen.ts`             |
+| Rango de un reporte                | 366 días                  | `DIAS_MAXIMOS`                   |
+| Líneas por documento               | 100–500 según el tipo     | esquemas de `compartido`         |
+| Importes                           | 999,999,999.99            | patrón decimal + `numeric(12,2)` |
+
+El del cuerpo y el del rango son de los que se pierden solos si nadie los escribe:
+los dos tienen prueba que falla si desaparecen.
+
+**Dependencias**: CI corta si una dependencia de producción tiene una vulnerabilidad
+alta o crítica. Las de desarrollo solo avisan —hoy hay un aviso del servidor de
+esbuild, que llega por `drizzle-kit` y nunca corre en producción—, porque bloquear
+el despliegue por algo que no se ejecuta deja sin publicar los arreglos de verdad.
+Dependabot abre PR cada lunes.
+
 ## Mantenimiento
 
 | Cada cuándo          | Qué                                                                                                                    |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Semanal              | Revisar las PR que abre Dependabot (lunes) y subir las que estén al día                                                |
 | Mensual              | Revisar el registro de Access, confirmar quién tiene acceso, probar el respaldo                                        |
 | Trimestral           | Rotar `SITIO_LECTURA_PASSWORD`; desplegar una imagen al día                                                            |
 | Semestral            | Rotar las contraseñas de Postgres y las llaves S3; purgar la bitácora                                                  |
