@@ -320,6 +320,8 @@ export const esquemaGasto = z.object({
   concepto: requerido(200),
   importe: dinero,
   metodoPago: z.enum(METODOS_PAGO),
+  /** A quién se le pagó, si el gasto es la comisión de una vendedora. */
+  vendedorId: z.preprocess(vacioANulo, esquemaId.nullable()).default(null),
   notas,
 });
 

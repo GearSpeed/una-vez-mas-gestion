@@ -19,6 +19,7 @@ import {
   type Gasto,
   inicioDeMes,
   type ListaGastos,
+  type Usuario,
 } from '@uvm/compartido';
 import { ApiService, conParametros } from '../../core/api';
 import { AvisosService } from '../../core/avisos';
@@ -77,6 +78,13 @@ export class Gastos {
   protected readonly pagina = signal(1);
 
   protected readonly categorias = httpResource<Categoria[]>(() => '/api/gastos/categorias');
+  /**
+   * Para el campo «¿a quién se le pagó?». Solo lo pide quien puede ver la lista de
+   * usuarios; si no, el campo no aparece y el gasto se registra igual.
+   */
+  private readonly usuarios = httpResource<Usuario[]>(() =>
+    this.sesion.puede('usuarios.gestionar') ? '/api/usuarios' : undefined,
+  );
   protected readonly gastos = httpResource<ListaGastos>(() =>
     conParametros('/gastos', {
       desde: this.desde(),
@@ -107,7 +115,12 @@ export class Gastos {
   }
 
   protected nuevo(): void {
-    const datos: DatosDialogoGasto = { categorias: this.categorias.value() ?? [] };
+    const datos: DatosDialogoGasto = {
+      categorias: this.categorias.value() ?? [],
+      vendedores: (this.usuarios.value() ?? [])
+        .filter((u) => u.activo)
+        .map(({ id, nombre }) => ({ id, nombre })),
+    };
     this.dialogo
       .open<DialogoGasto, DatosDialogoGasto, Gasto>(DialogoGasto, {
         data: datos,

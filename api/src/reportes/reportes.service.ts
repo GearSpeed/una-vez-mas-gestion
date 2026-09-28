@@ -6,6 +6,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
+  type ComisionVendedor,
   type Corte,
   type EstadoResultados,
   ETIQUETAS_CANAL,
@@ -28,7 +29,21 @@ import {
   sumar,
   type Tablero,
 } from '@uvm/compartido';
-import { and, asc, count, desc, eq, gt, gte, inArray, lte, sql, type SQL, sum } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  isNotNull,
+  lte,
+  sql,
+  type SQL,
+  sum,
+} from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { UsuarioSesion } from '../acceso/usuario-sesion.js';
 import { conCostos } from '../comun/costos.js';
@@ -76,6 +91,13 @@ function periodo(
     });
   }
   return { desde, hasta };
+}
+
+/** Agrupa por vendedor las filas que traen su id, dejando fuera las que no lo traen. */
+function porId<T extends { vendedorId: number | null }>(filas: readonly T[]): Map<number, T> {
+  return new Map(
+    filas.flatMap((fila) => (fila.vendedorId === null ? [] : [[fila.vendedorId, fila] as const])),
+  );
 }
 
 @Injectable()
@@ -524,6 +546,92 @@ export class ReportesService {
       comisionesPorPagar: comisiones,
       valorInventario: redondear(inventario?.valor ?? '0'),
     };
+  }
+
+  /**
+   * Lo que se le debe a cada quien por vender: **todo** lo que ha ganado, menos
+   * **todo** lo que ya se le pagó. El saldo es de siempre a propósito —una deuda no
+   * cambia porque uno mire otro mes—; el periodo solo sirve para explicarlo, con lo
+   * generado y los pagos de esos días.
+   */
+  async comisiones(filtro: Periodo): Promise<ComisionVendedor[]> {
+    const { desde, hasta } = periodo(filtro);
+    const netoPorVenta = this.netoPorVenta();
+    const ganadoPor = (condiciones: SQL | undefined) =>
+      this.db
+        .with(netoPorVenta)
+        .select({
+          vendedorId: ventas.vendedorId,
+          ganado: sql<string>`coalesce(
+            sum(round(${netoPorVenta.importe} * ${ventas.comisionVendedorTasa}, 2)), 0
+          )::numeric(12, 2)`,
+        })
+        .from(ventas)
+        .innerJoin(netoPorVenta, eq(netoPorVenta.ventaId, ventas.id))
+        .where(and(eq(ventas.estado, 'vigente'), condiciones))
+        .groupBy(ventas.vendedorId);
+
+    const [quienesVenden, ganadoTotal, ganadoPeriodo, pagado, pagosDelPeriodo] = await Promise.all([
+      // Quien tiene tasa hoy, o quien ya generó comisión alguna vez.
+      this.db
+        .select({ id: usuarios.id, nombre: usuarios.nombre, tasa: usuarios.comisionVenta })
+        .from(usuarios)
+        .where(eq(usuarios.activo, true))
+        .orderBy(asc(usuarios.nombre)),
+      ganadoPor(undefined),
+      ganadoPor(and(gte(ventas.fecha, desde), lte(ventas.fecha, hasta))),
+      this.db
+        .select({
+          vendedorId: gastos.vendedorId,
+          pagado: sql<string>`coalesce(sum(${gastos.importe}), 0)::numeric(12, 2)`,
+        })
+        .from(gastos)
+        .where(and(eq(gastos.estado, 'vigente'), isNotNull(gastos.vendedorId)))
+        .groupBy(gastos.vendedorId),
+      this.db
+        .select({
+          vendedorId: gastos.vendedorId,
+          folio: gastos.folio,
+          fecha: gastos.fecha,
+          importe: gastos.importe,
+        })
+        .from(gastos)
+        .where(
+          and(
+            eq(gastos.estado, 'vigente'),
+            isNotNull(gastos.vendedorId),
+            gte(gastos.fecha, desde),
+            lte(gastos.fecha, hasta),
+          ),
+        )
+        .orderBy(desc(gastos.fecha), desc(gastos.id)),
+    ]);
+
+    const total = porId(ganadoTotal);
+    const enPeriodo = porId(ganadoPeriodo);
+    const yaPagado = porId(pagado);
+
+    return (
+      quienesVenden
+        .map((persona) => {
+          const ganado = total.get(persona.id)?.ganado ?? '0.00';
+          const pagos = yaPagado.get(persona.id)?.pagado ?? '0.00';
+          return {
+            vendedorId: persona.id,
+            vendedor: persona.nombre,
+            tasa: persona.tasa,
+            ganado: redondear(ganado),
+            pagado: redondear(pagos),
+            saldo: restar(ganado, pagos),
+            ganadoEnPeriodo: redondear(enPeriodo.get(persona.id)?.ganado ?? '0.00'),
+            pagosEnPeriodo: pagosDelPeriodo
+              .filter((pago) => pago.vendedorId === persona.id)
+              .map(({ folio, fecha, importe }) => ({ folio, fecha, importe })),
+          };
+        })
+        // Quien nunca ha ganado ni cobrado nada no aparece: no hay nada que decir de él.
+        .filter((fila) => fila.ganado !== '0.00' || fila.pagado !== '0.00' || Number(fila.tasa) > 0)
+    );
   }
 
   /**

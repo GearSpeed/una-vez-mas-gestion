@@ -398,6 +398,8 @@ export interface Gasto {
   readonly concepto: string;
   readonly importe: Decimal;
   readonly metodoPago: MetodoPago;
+  /** A quién se le pagó, si fue la comisión de una vendedora. */
+  readonly vendedor: string | null;
   readonly notas: string;
   readonly registradoPor: string;
   readonly registradoEn: string;
@@ -411,6 +413,26 @@ export interface ListaGastos extends Paginado<Gasto> {
     readonly importe: Decimal;
     readonly porCategoria: readonly { readonly categoria: string; readonly importe: Decimal }[];
   };
+}
+
+/** Lo que se le debe a quien vende: lo ganado de siempre, menos lo ya pagado. */
+export interface ComisionVendedor {
+  readonly vendedorId: number;
+  readonly vendedor: string;
+  /** Su tasa de hoy, para lo que venda de aquí en adelante. */
+  readonly tasa: Decimal;
+  /** Todo lo que ha ganado, cada venta con la tasa que tenía ese día. */
+  readonly ganado: Decimal;
+  readonly pagado: Decimal;
+  /** Ganado − pagado. Negativo significa que se le pagó de más. */
+  readonly saldo: Decimal;
+  /** Lo generado dentro del periodo consultado, para explicar el saldo. */
+  readonly ganadoEnPeriodo: Decimal;
+  readonly pagosEnPeriodo: readonly {
+    readonly folio: string;
+    readonly fecha: string;
+    readonly importe: Decimal;
+  }[];
 }
 
 /* ---- Reportes ---- */

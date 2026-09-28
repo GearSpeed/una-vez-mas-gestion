@@ -1,5 +1,6 @@
 import { Controller, Get, Query, type StreamableFile } from '@nestjs/common';
 import {
+  type ComisionVendedor,
   type Corte,
   type EstadoResultados,
   esquemaFiltroCorte,
@@ -93,6 +94,13 @@ export class ReportesController {
   @RequierePermiso('costos.ver')
   resultado(@Query(new Validar(esquemaPeriodo)) filtro: Periodo): Promise<EstadoResultados> {
     return this.reportes.resultado(filtro);
+  }
+
+  /** Cuánto se le debe a cada quien por vender: ganado de siempre menos pagado. */
+  @Get('comisiones')
+  @RequierePermiso('costos.ver')
+  comisiones(@Query(new Validar(esquemaPeriodo)) filtro: Periodo): Promise<ComisionVendedor[]> {
+    return this.reportes.comisiones(filtro);
   }
 
   @Get('compras')

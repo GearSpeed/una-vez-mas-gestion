@@ -8,8 +8,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTabsModule } from '@angular/material/tabs';
+import { MatDialog } from '@angular/material/dialog';
 import {
   type AgruparVentasPor,
+  type Categoria,
+  type ComisionVendedor,
   fechaDeHoy,
   type FilaReporteCompras,
   type FilaReporteVentas,
@@ -19,6 +22,7 @@ import {
   sumar,
 } from '@uvm/compartido';
 import { conParametros } from '../../core/api';
+import { type DatosDialogoGasto, DialogoGasto } from '../gastos/dialogo-gasto';
 import { AvisosService } from '../../core/avisos';
 import { DescargasService } from '../../core/descargas';
 import { mensajeDeError } from '../../core/errores';
@@ -62,6 +66,7 @@ const AGRUPACIONES: readonly { valor: AgruparVentasPor; etiqueta: string }[] = [
 })
 export class Reportes {
   private readonly sesion = inject(SesionService);
+  private readonly dialogo = inject(MatDialog);
   private readonly descargas = inject(DescargasService);
   private readonly avisos = inject(AvisosService);
 
@@ -83,6 +88,17 @@ export class Reportes {
   /** El resultado del periodo: de lo vendido a lo que de verdad quedó. */
   protected readonly resultado = httpResource<EstadoResultados>(() =>
     this.verCostos() ? conParametros('/reportes/resultado', this.periodo()) : undefined,
+  );
+
+  /** Lo que se le debe a cada quien por vender: ganado de siempre menos pagado. */
+  protected readonly comisiones = httpResource<ComisionVendedor[]>(() =>
+    this.verCostos() ? conParametros('/reportes/comisiones', this.periodo()) : undefined,
+  );
+  private readonly categoriasGasto = httpResource<Categoria[]>(() =>
+    this.verCostos() ? '/api/gastos/categorias' : undefined,
+  );
+  protected readonly totalPorPagar = computed(() =>
+    sumar((this.comisiones.value() ?? []).map((c) => c.saldo)),
   );
   protected readonly compras = httpResource<FilaReporteCompras[]>(() =>
     conParametros('/reportes/compras', this.periodo()),
@@ -110,5 +126,36 @@ export class Reportes {
     } catch (error) {
       this.avisos.error(mensajeDeError(error));
     }
+  }
+
+  /**
+   * Registrar el pago de la comisión: abre el gasto ya lleno con la categoría, la
+   * persona y su saldo. El monto se puede cambiar —un abono parcial es normal— y el
+   * saldo se recalcula solo.
+   */
+  protected pagar(comision: ComisionVendedor): void {
+    const datos: DatosDialogoGasto = {
+      categorias: this.categoriasGasto.value() ?? [],
+      vendedores: [{ id: comision.vendedorId, nombre: comision.vendedor }],
+      inicial: {
+        categoria: 'Comisiones',
+        vendedorId: comision.vendedorId,
+        importe: comision.saldo,
+        concepto: `Comisión de ${comision.vendedor}`,
+      },
+    };
+    this.dialogo
+      .open<DialogoGasto, DatosDialogoGasto>(DialogoGasto, {
+        data: datos,
+        width: '34rem',
+        maxWidth: '95vw',
+      })
+      .afterClosed()
+      .subscribe((gasto) => {
+        if (!gasto) return;
+        this.avisos.exito(`Pago registrado: ${gasto.folio} por $${gasto.importe}.`);
+        this.comisiones.reload();
+        this.resultado.reload();
+      });
   }
 }

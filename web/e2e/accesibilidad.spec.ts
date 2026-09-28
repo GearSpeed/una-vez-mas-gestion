@@ -18,6 +18,7 @@ const PANTALLAS: readonly { ruta: string; usuario: keyof typeof USUARIOS }[] = [
   { ruta: '/productos', usuario: 'admin' },
   { ruta: '/proveedores', usuario: 'admin' },
   { ruta: '/gastos', usuario: 'admin' },
+  { ruta: '/reportes', usuario: 'admin' },
   { ruta: '/reportes', usuario: 'consulta' },
   { ruta: '/usuarios', usuario: 'admin' },
 ];

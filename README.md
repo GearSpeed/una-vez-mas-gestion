@@ -136,6 +136,10 @@ probar lo que ve cada rol. Ese modo se niega a arrancar si `NODE_ENV=production`
   sola, y cada venta guarda la tasa que tenía ese día: cambiarla no reescribe lo pasado. La
   vendedora la ve en su corte. Es lo que **se le debe**; cuando se le paga, se registra como
   gasto y cuenta en el mes en que se pagó.
+- **Cuánto se le debe a cada quien** (Reportes → Comisiones): lo que ha ganado desde siempre
+  menos lo que ya se le pagó. El pago se registra desde ahí mismo y se liga a la persona
+  (`gastos.vendedor_id`), que es lo que permite llevar el saldo. Un abono parcial es válido:
+  el saldo se ajusta solo.
 - **Resultado del periodo** (Reportes): ventas netas − costo = utilidad bruta, menos la
   comisión de tarjeta y los gastos = utilidad operativa. Aparte, lo que se le debe a quien
   vende y el dinero atado en mercancía, que es ganancia que todavía no es efectivo.

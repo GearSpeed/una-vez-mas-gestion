@@ -150,10 +150,12 @@
 
             @if (r.comisionesPorPagar.length) {
               <section class="tarjeta" aria-labelledby="titulo-comisiones">
-                <h3 id="titulo-comisiones">Comisiones por pagar</h3>
+                <h3 id="titulo-comisiones">Comisiones generadas en el periodo</h3>
                 <p class="ayuda">
-                  Todavía no son gasto: cuando se paguen, se registran en Gastos y cuentan en el mes
-                  en que se pagaron.
+                  Esto es lo que se generó en estos días, no lo que se debe: para el saldo —ganado
+                  de siempre menos pagado— está la pestaña <strong>Comisiones</strong>. Todavía no
+                  son gasto: cuando se paguen, se registran en Gastos y cuentan en el mes en que se
+                  pagaron.
                 </p>
                 <ul class="lista-simple">
                   @for (c of r.comisionesPorPagar; track c.vendedor) {
@@ -180,6 +182,89 @@
                 utilidad del mes no es lo que se puede sacar de la caja.
               </p>
             </section>
+          }
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Comisiones">
+        <div class="pestana">
+          <uvm-estado-carga
+            [cargando]="comisiones.isLoading()"
+            [error]="comisiones.error()"
+            (reintentar)="comisiones.reload()"
+          />
+          @if (comisiones.value(); as lista) {
+            <p class="ayuda">
+              Lo que se le debe a cada quien es de siempre: todo lo que ha ganado, menos todo lo que
+              ya se le pagó. El periodo de arriba solo cambia el desglose.
+            </p>
+            <div uvmDesplazable="Comisiones por vendedora">
+              <table class="tabla-simple">
+                <caption class="visualmente-oculto">
+                  Comisiones por vendedora
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Vendedora</th>
+                    <th scope="col" class="numero">Ha ganado</th>
+                    <th scope="col" class="numero">Ya se le pagó</th>
+                    <th scope="col" class="numero">Le debes</th>
+                    <th scope="col"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (c of lista; track c.vendedorId) {
+                    <tr>
+                      <th scope="row">
+                        {{ c.vendedor }}
+                        <span class="ayuda bloque">{{ c.tasa | percent: '1.0-2' }} por venta</span>
+                      </th>
+                      <td class="numero">{{ c.ganado | currency }}</td>
+                      <td class="numero">{{ c.pagado | currency }}</td>
+                      <td class="numero">
+                        <strong class="saldo">{{ c.saldo | currency }}</strong>
+                        @if (c.saldo.startsWith('-')) {
+                          <span class="ayuda bloque">se le pagó de más</span>
+                        }
+                      </td>
+                      <td>
+                        <button mat-stroked-button type="button" (click)="pagar(c)">
+                          Registrar pago
+                        </button>
+                      </td>
+                    </tr>
+                    <tr class="desglose">
+                      <td colspan="5">
+                        <span class="ayuda">
+                          En el periodo: ganó {{ c.ganadoEnPeriodo | currency }}
+                          @if (c.pagosEnPeriodo.length) {
+                            · se le pagó
+                            @for (p of c.pagosEnPeriodo; track p.folio; let ultimo = $last) {
+                              {{ p.importe | currency }} ({{ p.folio }},
+                              {{ p.fecha | date: 'mediumDate' }}){{ ultimo ? '' : ' · ' }}
+                            }
+                          } @else {
+                            · sin pagos registrados
+                          }
+                        </span>
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td colspan="5">
+                        Nadie tiene comisión todavía. Se le pone su porcentaje en Usuarios.
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+            @if (lista.length > 1) {
+              <p class="total-comisiones">
+                En total se debe <strong>{{ totalPorPagar() | currency }}</strong
+                >.
+              </p>
+            }
           }
         </div>
       </mat-tab>

@@ -715,9 +715,16 @@ export const gastos = gestion.table(
     /** Con qué se pagó: el mismo catálogo que las ventas. */
     metodoPago: metodoPago().notNull(),
     notas: text().notNull().default(''),
+    /** Quién capturó el gasto. No confundir con `vendedorId`. */
     usuarioId: integer()
       .notNull()
       .references(() => usuarios.id),
+    /**
+     * A quién se le pagó, cuando el gasto es la comisión de una vendedora. Es lo que
+     * permite saber cuánto se le debe: lo que ha ganado menos lo que ya se le pagó.
+     * `null` en cualquier otro gasto.
+     */
+    vendedorId: integer().references(() => usuarios.id),
     claveIdempotencia: claveIdempotencia('gastos'),
     registradoEn: ahora(),
     ...cancelacion(),
@@ -727,6 +734,7 @@ export const gastos = gestion.table(
     check('gastos_cancelacion', sql`(estado = 'cancelado') = (cancelado_en is not null)`),
     index('gastos_fecha').on(t.fecha),
     index('gastos_categoria').on(t.categoriaId),
+    index('gastos_vendedor').on(t.vendedorId),
   ],
 );
 

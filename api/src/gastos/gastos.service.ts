@@ -26,6 +26,7 @@ import { gastoCategorias, gastos, usuarios } from '../db/esquema.js';
 const POR_PAGINA = 30;
 const canceladoPor = alias(usuarios, 'cancelado_por');
 const registradoPor = alias(usuarios, 'registrado_por');
+const vendedor = alias(usuarios, 'vendedor');
 
 /**
  * Lo que cuesta operar y no es mercancía: bolsas, renta, publicidad, el pago de una
@@ -50,6 +51,15 @@ export class GastosService {
           if (!categoria.activa) {
             throw campoInvalido('categoriaId', 'Esa categoría está dada de baja.');
           }
+          if (datos.vendedorId !== null) {
+            const [quienCobra] = await tx
+              .select({ activo: usuarios.activo })
+              .from(usuarios)
+              .where(eq(usuarios.id, datos.vendedorId));
+            if (!quienCobra?.activo) {
+              throw campoInvalido('vendedorId', 'Esa persona no existe o está dada de baja.');
+            }
+          }
 
           const [gasto] = await tx
             .insert(gastos)
@@ -59,6 +69,7 @@ export class GastosService {
               concepto: datos.concepto,
               importe: datos.importe,
               metodoPago: datos.metodoPago,
+              vendedorId: datos.vendedorId,
               notas: datos.notas,
               usuarioId: usuario.id,
               claveIdempotencia: datos.claveIdempotencia,
@@ -195,6 +206,7 @@ export class GastosService {
         concepto: gastos.concepto,
         importe: gastos.importe,
         metodoPago: gastos.metodoPago,
+        vendedor: vendedor.nombre,
         notas: gastos.notas,
         registradoPor: registradoPor.nombre,
         registradoEn: gastos.registradoEn,
@@ -206,6 +218,7 @@ export class GastosService {
       .from(gastos)
       .innerJoin(gastoCategorias, eq(gastoCategorias.id, gastos.categoriaId))
       .innerJoin(registradoPor, eq(registradoPor.id, gastos.usuarioId))
+      .leftJoin(vendedor, eq(vendedor.id, gastos.vendedorId))
       .leftJoin(canceladoPor, eq(canceladoPor.id, gastos.canceladoPor))
       .$dynamic();
   }

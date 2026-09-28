@@ -64,6 +64,19 @@
       </mat-button-toggle-group>
     </fieldset>
 
+    @if (vendedores.length) {
+      <mat-form-field>
+        <mat-label>¿A quién se le pagó? (opcional)</mat-label>
+        <mat-select formControlName="vendedorId" [canSelectNullableOptions]="true">
+          <mat-option [value]="null">A nadie en particular</mat-option>
+          @for (v of vendedores; track v.id) {
+            <mat-option [value]="v.id">{{ v.nombre }}</mat-option>
+          }
+        </mat-select>
+        <mat-hint>Para los pagos de comisión: así se descuenta de lo que se le debe.</mat-hint>
+      </mat-form-field>
+    }
+
     <mat-form-field>
       <mat-label>Notas (opcional)</mat-label>
       <input matInput formControlName="notas" maxlength="500" />

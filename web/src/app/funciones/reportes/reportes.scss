@@ -40,3 +40,19 @@
   margin: 0.5rem 0 0;
   padding-left: 1.25rem;
 }
+
+/** El saldo es la respuesta a «¿cuánto le debo?»: se lee antes que lo demás. */
+.saldo {
+  font: var(--mat-sys-title-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+/** El desglose va pegado a su vendedora, sin línea que los separe. */
+tr.desglose td {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.total-comisiones {
+  margin-top: 0.75rem;
+}

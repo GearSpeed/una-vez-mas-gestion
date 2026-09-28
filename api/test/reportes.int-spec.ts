@@ -59,11 +59,13 @@ describe('reportes', () => {
     });
   });
 
-  const comisionDeAna = async (tasa: string) => {
+  /** Le pone tasa a Ana y devuelve su id de usuario (que no es el de su ubicación). */
+  const comisionDeAna = async (tasa: string): Promise<number> => {
     const ana = (await como(app, ADMIN).get('/usuarios')).body.find(
       (u: { correo: string }) => u.correo === ANA,
     );
     await como(app, ADMIN).put(`/usuarios/${ana.id}`, { ...ana, comisionVenta: tasa });
+    return ana.id as number;
   };
 
   const vender = (cantidad: number) =>
@@ -179,6 +181,90 @@ describe('reportes', () => {
         { vendedor: 'Ana', tasa: '0.1500', ventasNetas: '30.00', comision: '4.50' },
         { vendedor: 'Ana', tasa: '0.0500', ventasNetas: '30.00', comision: '1.50' },
       ]);
+    });
+
+    it('el saldo es lo ganado menos lo pagado, y el pago lo baja', async () => {
+      await cargarAAna(4);
+      const anaId = await comisionDeAna('0.15');
+      await vender(2); // $60 × 15 % = $9.00
+
+      const conDeuda = await como(app, ADMIN).get('/reportes/comisiones');
+      expect(conDeuda.body).toEqual([
+        {
+          vendedorId: anaId,
+          vendedor: 'Ana',
+          tasa: '0.1500',
+          ganado: '9.00',
+          pagado: '0.00',
+          saldo: '9.00',
+          ganadoEnPeriodo: '9.00',
+          pagosEnPeriodo: [],
+        },
+      ]);
+
+      // Se le abona la mitad: el saldo baja, no lo ganado.
+      const pago = await como(app, ADMIN).post('/gastos', {
+        claveIdempotencia: clave(),
+        categoriaId: 2,
+        concepto: 'Comisión de Ana',
+        importe: '4.00',
+        metodoPago: 'efectivo',
+        vendedorId: anaId,
+      });
+      expect(pago.status).toBe(201);
+      expect(pago.body.vendedor).toBe('Ana');
+
+      const conAbono = (await como(app, ADMIN).get('/reportes/comisiones')).body[0];
+      expect(conAbono).toMatchObject({ ganado: '9.00', pagado: '4.00', saldo: '5.00' });
+      expect(conAbono.pagosEnPeriodo).toEqual([
+        { folio: pago.body.folio, fecha: pago.body.fecha, importe: '4.00' },
+      ]);
+
+      // Si el pago se cancela, la deuda vuelve.
+      await como(app, ADMIN).post(`/gastos/${pago.body.id}/cancelar`, { motivo: 'Me equivoqué' });
+      expect((await como(app, ADMIN).get('/reportes/comisiones')).body[0]).toMatchObject({
+        pagado: '0.00',
+        saldo: '9.00',
+      });
+    });
+
+    it('una devolución baja lo ganado y el saldo', async () => {
+      await cargarAAna(4);
+      await comisionDeAna('0.15');
+      const vendida = await vender(2);
+      await como(app, ANA).post(`/ventas/${vendida.body.id}/devoluciones`, {
+        claveIdempotencia: clave(),
+        motivo: 'No le gustó',
+        lineas: [{ productoId: IDS.tejocote, cantidad: 1 }],
+      });
+      expect((await como(app, ADMIN).get('/reportes/comisiones')).body[0]).toMatchObject({
+        ganado: '4.50',
+        saldo: '4.50',
+      });
+    });
+
+    it('pagar de más deja saldo a favor de la vendedora, sin romper nada', async () => {
+      await cargarAAna(4);
+      const anaId = await comisionDeAna('0.15');
+      await vender(1); // $4.50
+      await como(app, ADMIN).post('/gastos', {
+        claveIdempotencia: clave(),
+        categoriaId: 2,
+        concepto: 'Comisión de Ana',
+        importe: '10.00',
+        metodoPago: 'efectivo',
+        vendedorId: anaId,
+      });
+      expect((await como(app, ADMIN).get('/reportes/comisiones')).body[0]).toMatchObject({
+        ganado: '4.50',
+        pagado: '10.00',
+        saldo: '-5.50',
+      });
+    });
+
+    it('sin permiso de costos no se ven las comisiones', async () => {
+      expect((await como(app, ANA).get('/reportes/comisiones')).status).toBe(403);
+      expect((await como(app, CONSULTA).get('/reportes/comisiones')).status).toBe(200);
     });
 
     it('sin permiso de costos no se ve el resultado', async () => {

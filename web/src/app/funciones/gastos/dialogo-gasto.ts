@@ -22,6 +22,19 @@ import { CALENDARIO_EN_ESPANOL } from '../../ui/intl-calendario';
 
 export interface DatosDialogoGasto {
   readonly categorias: readonly Categoria[];
+  /**
+   * A quién se le puede pagar. Si viene vacío, el campo no se muestra: no todos los
+   * gastos son un pago a alguien, y quien registra gastos no siempre puede ver la
+   * lista de usuarios.
+   */
+  readonly vendedores?: readonly { readonly id: number; readonly nombre: string }[];
+  /** Con qué abre, cuando se registra un pago desde la pantalla de Comisiones. */
+  readonly inicial?: {
+    readonly categoria?: string;
+    readonly vendedorId?: number;
+    readonly importe?: string;
+    readonly concepto?: string;
+  };
 }
 
 /** Alta de un gasto: lo que salió, de dónde salió y por qué. */
@@ -56,11 +69,24 @@ export class DialogoGasto {
   protected readonly error = signal<string | null>(null);
   private readonly clave = nuevaClave();
 
+  protected readonly vendedores = this.datos.vendedores ?? [];
+
+  /** La categoría con la que abre, buscada por nombre: los ids cambian entre bases. */
+  private readonly categoriaInicial =
+    this.datos.categorias.find((c) => c.nombre === this.datos.inicial?.categoria)?.id ?? null;
+
   protected readonly formulario = this.fb.group({
     fecha: [this.hoy, Validators.required],
-    categoriaId: this.fb.control<number | null>(null, Validators.required),
-    concepto: ['', [Validators.required, Validators.maxLength(200)]],
-    importe: this.fb.control<number | null>(null, [Validators.required, Validators.min(0.01)]),
+    categoriaId: this.fb.control<number | null>(this.categoriaInicial, Validators.required),
+    concepto: [
+      this.datos.inicial?.concepto ?? '',
+      [Validators.required, Validators.maxLength(200)],
+    ],
+    importe: this.fb.control<number | null>(
+      this.datos.inicial?.importe ? Number(this.datos.inicial.importe) : null,
+      [Validators.required, Validators.min(0.01)],
+    ),
+    vendedorId: this.fb.control<number | null>(this.datos.inicial?.vendedorId ?? null),
     notas: [''],
   });
 

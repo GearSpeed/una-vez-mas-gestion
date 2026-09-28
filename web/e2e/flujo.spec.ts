@@ -466,6 +466,51 @@ test('un gasto de operación se registra y se puede cancelar', async ({ page }, 
   await expect(page.getByRole('row', { name: new RegExp(concepto) })).toContainText('Cancelado');
 });
 
+test('se ve cuánto se le debe a la vendedora y se le paga desde ahí', async ({ page }, info) => {
+  // 1. El admin le pone comisión a Ana.
+  await entrarComo(page, 'admin');
+  await page.goto('/usuarios');
+  await esperarCarga(page);
+  await page.getByRole('button', { name: 'Editar Ana' }).click();
+  let dialogo = page.getByRole('dialog');
+  await dialogo.getByLabel('Comisión por vender').fill('15');
+  await dialogo.getByRole('button', { name: 'Guardar' }).click();
+  await expect(dialogo).toHaveCount(0);
+
+  // 2. Ana vende: se apoya en la mercancía que le cargaron en el recorrido de arriba.
+  await entrarComo(page, 'ana');
+  await page.goto('/ventas/nueva');
+  await esperarCarga(page);
+  await page.getByRole('button', { name: 'Agregar una pieza de Galletas de Coco' }).click();
+  await page.getByRole('button', { name: 'Registrar venta' }).click();
+  await expect(page.getByText(/Venta V-\d{6} registrada/)).toBeVisible();
+
+  // 3. El admin ve cuánto le debe.
+  await entrarComo(page, 'admin');
+  await page.goto('/reportes');
+  await esperarCarga(page);
+  await page.getByRole('tab', { name: 'Comisiones' }).click();
+  const fila = page.getByRole('row', { name: /^Ana / }).first();
+  await expect(fila).toBeVisible();
+  const saldo = (await fila.locator('.saldo').textContent())?.trim() ?? '';
+  expect(saldo).toMatch(/^\$\d/);
+  expect(saldo).not.toBe('$0.00');
+
+  // 4. Le paga desde ahí: el diálogo abre con la categoría, la persona y el saldo.
+  await fila.getByRole('button', { name: 'Registrar pago' }).click();
+  dialogo = page.getByRole('dialog');
+  await expect(dialogo.getByLabel('Concepto')).toHaveValue(/Comisión de Ana/);
+  await expect(dialogo.getByRole('combobox', { name: 'Categoría' })).toContainText('Comisiones');
+  await dialogo.getByRole('button', { name: 'Registrar gasto' }).click();
+  await expect(page.getByText(/Pago registrado: G-\d{6}/)).toBeVisible();
+
+  // 5. Y el saldo queda en cero.
+  await expect(page.getByRole('row', { name: /^Ana / }).first().locator('.saldo')).toHaveText(
+    '$0.00',
+  );
+  expect(info.project.name).toBeTruthy();
+});
+
 test('el menú lateral se abre y se cierra con su icono', async ({ page }, info) => {
   const celular = info.project.name === 'celular';
   await entrarComo(page, 'ana');

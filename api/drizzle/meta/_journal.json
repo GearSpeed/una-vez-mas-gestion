@@ -99,6 +99,13 @@
       "when": 1790375638297,
       "tag": "0013_comision_de_vendedor",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790379762909,
+      "tag": "0014_pago_de_comision",
+      "breakpoints": true
     }
   ]
 }
