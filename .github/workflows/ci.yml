@@ -43,7 +43,7 @@ jobs:
       - name: Pruebas e2e y accesibilidad (axe)
         run: npm run e2e -w @uvm/web
       - if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: e2e
           path: web/test-results
