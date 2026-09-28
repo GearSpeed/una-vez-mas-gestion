@@ -5,7 +5,7 @@
 # imagen (compose.prod.yml, servicio `migraciones`).
 
 # ---- 1. Compilar compartido, api y web ----
-FROM node:24.21-alpine AS construir
+FROM node:26.10-alpine AS construir
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY compartido/package.json compartido/
@@ -16,7 +16,7 @@ COPY . .
 RUN npm run build
 
 # ---- 2. Solo lo que se necesita para correr la API ----
-FROM node:24.21-alpine AS dependencias
+FROM node:26.10-alpine AS dependencias
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY compartido/package.json compartido/
@@ -27,7 +27,7 @@ RUN npm ci --omit=dev --no-audit --no-fund --ignore-scripts \
     --workspace=@uvm/api --workspace=@uvm/compartido
 
 # ---- 3. Imagen final ----
-FROM node:24.21-alpine
+FROM node:26.10-alpine
 ENV NODE_ENV=production \
     PUERTO=3000 \
     WEB_DIST=/app/web
