@@ -18,6 +18,7 @@ import { Desplazable } from '../../ui/desplazable';
 import { Encabezado } from '../../ui/encabezado';
 import { EstadoCarga } from '../../ui/estado-carga';
 import { CobroTarjeta } from './cobro-tarjeta';
+import { type DatosDialogoCategoria, DialogoCategoria } from './dialogo-categoria';
 import { type DatosDialogoProducto, DialogoProducto } from './dialogo-producto';
 
 @Component({
@@ -85,6 +86,25 @@ export class Productos {
       .subscribe((guardado) => {
         if (!guardado) return;
         this.avisos.exito(`${guardado.nombre} guardado.`);
+        this.productos.reload();
+      });
+  }
+
+  /** El nombre, el orden y la tarjeta que le toca en la portada del sitio. */
+  protected editarCategoria(categoria: Categoria): void {
+    const datos: DatosDialogoCategoria = { categoria };
+    this.dialogo
+      .open<DialogoCategoria, DatosDialogoCategoria, Categoria>(DialogoCategoria, {
+        data: datos,
+        width: '42rem',
+        maxWidth: '95vw',
+      })
+      .afterClosed()
+      .subscribe((guardada) => {
+        if (!guardada) return;
+        this.avisos.exito(`${guardada.nombre} guardada.`);
+        this.categorias.reload();
+        // El nombre de la categoría sale en la lista de productos.
         this.productos.reload();
       });
   }

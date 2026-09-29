@@ -148,6 +148,13 @@
           @for (c of categorias.value() ?? []; track c.id) {
             <li class="tarjeta">
               <span>{{ c.nombre }}</span>
+              <!-- Las dos condiciones que pide el sitio: dada de baja no sale, y sin
+                   foto no dibuja tarjeta. -->
+              @if (c.activa && c.imagen) {
+                <span class="estado bien" title="Tiene tarjeta en la portada del sitio"
+                  >En portada</span
+                >
+              }
               @if (puedeEditar()) {
                 <mat-slide-toggle
                   [checked]="c.activa"
@@ -155,6 +162,7 @@
                 >
                   Activa
                 </mat-slide-toggle>
+                <button mat-button type="button" (click)="editarCategoria(c)">Editar</button>
               } @else {
                 <span class="estado">{{ c.activa ? 'Activa' : 'Inactiva' }}</span>
               }

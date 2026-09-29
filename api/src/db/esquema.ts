@@ -147,12 +147,32 @@ export const ubicaciones = gestion.table(
    Catálogo
    -------------------------------------------------------------------------- */
 
-export const categorias = gestion.table('categorias', {
-  id: id(),
-  nombre: text().notNull().unique(),
-  orden: integer().notNull().default(0),
-  activa: boolean().notNull().default(true),
-});
+export const categorias = gestion.table(
+  'categorias',
+  {
+    id: id(),
+    nombre: text().notNull().unique(),
+    orden: integer().notNull().default(0),
+    activa: boolean().notNull().default(true),
+    /* La tarjeta de «Nuestras Categorías Dulces», en la portada del sitio. Sin foto no
+       hay tarjeta: una a medias se ve rota. */
+    /** «Galletas de Amaranto». Vacío: la tarjeta usa el `nombre`. */
+    titulo: text().notNull().default(''),
+    /** La píldora de la tarjeta: «Tradición dulce». */
+    insignia: text().notNull().default(''),
+    /** El ícono de Material Symbols que la acompaña: `cookie`, `local_bar`… */
+    insigniaIcono: text().notNull().default(''),
+    /** El párrafo de la tarjeta. */
+    descripcion: text().notNull().default(''),
+    /** El texto del enlace. Vacío: se arma «Ver {nombre}». */
+    cta: text().notNull().default(''),
+    /** La foto en el bucket, sin variante: `categorias/3/3f9a…`. `null`: sin tarjeta. */
+    imagenClave: text(),
+    /** Texto alternativo de la foto (accesibilidad y buscadores). */
+    imagenAlt: text().notNull().default(''),
+  },
+  () => [check('categorias_imagen_clave', sql`imagen_clave ~ '^categorias/[0-9]+/[0-9a-f]{16}$'`)],
+);
 
 export const productos = gestion.table(
   'productos',

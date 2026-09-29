@@ -128,4 +128,41 @@ export class CatalogoController {
   ): Promise<Categoria> {
     return this.productos.actualizarCategoria(id, datos);
   }
+
+  /**
+   * La foto de la tarjeta de «Nuestras Categorías Dulces». Mismo trato que la del
+   * producto: multipart con `archivo` y `alt`, y su propio límite de peticiones.
+   */
+  @Post('categorias/:id/imagen')
+  @RequierePermiso('productos.gestionar')
+  @Throttle(LIMITE_IMAGENES)
+  @UseInterceptors(
+    FileInterceptor('archivo', { limits: { fileSize: PESO_MAXIMO_IMAGEN, files: 1 } }),
+  )
+  subirImagenCategoria(
+    @UsuarioActual() usuario: UsuarioSesion,
+    @Param('id', ParseId) id: number,
+    @UploadedFile() archivo: { readonly buffer: Buffer } | undefined,
+    @Body(new Validar(esquemaImagenProducto)) datos: DatosImagenProducto,
+  ): Promise<Categoria> {
+    return this.productos.subirImagenCategoria(usuario, id, archivo?.buffer, datos);
+  }
+
+  @Put('categorias/:id/imagen')
+  @RequierePermiso('productos.gestionar')
+  cambiarAltImagenCategoria(
+    @Param('id', ParseId) id: number,
+    @Body(new Validar(esquemaImagenProducto)) datos: DatosImagenProducto,
+  ): Promise<Categoria> {
+    return this.productos.cambiarAltImagenCategoria(id, datos);
+  }
+
+  @Delete('categorias/:id/imagen')
+  @RequierePermiso('productos.gestionar')
+  quitarImagenCategoria(
+    @UsuarioActual() usuario: UsuarioSesion,
+    @Param('id', ParseId) id: number,
+  ): Promise<Categoria> {
+    return this.productos.quitarImagenCategoria(usuario, id);
+  }
 }

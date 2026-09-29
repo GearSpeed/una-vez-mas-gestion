@@ -184,6 +184,46 @@ describe('slug de los productos', () => {
     });
   });
 
+  describe('la tarjeta de la categoría en la portada', () => {
+    // Todo lo que lleva foto vive en imagenes.int-spec.ts: ahí están los ayudantes que
+    // la arman y la suben por multipart.
+    it('sin foto no hay tarjeta, pero la categoría sigue en el catálogo', async () => {
+      const guardada = await como(app, ADMIN).put('/categorias/1', {
+        nombre: 'Galletas',
+        orden: 1,
+        activa: true,
+        titulo: 'Galletas de Amaranto',
+        insignia: 'Tradición dulce',
+        insigniaIcono: 'cookie',
+        descripcion: 'Todas llevan amaranto.',
+        cta: 'Ver nuestras galletas',
+      });
+      expect(guardada.status).toBe(200);
+      // Los textos se guardan…
+      expect(guardada.body).toMatchObject({ titulo: 'Galletas de Amaranto', imagen: null });
+
+      // …pero sin foto el sitio no dibuja la tarjeta, y la categoría sigue sirviendo
+      // para filtrar el catálogo.
+      const publico = await request(app.getHttpServer()).get('/api/publico/catalogo');
+      const galletas = publico.body.categorias.find(
+        (c: { nombre: string }) => c.nombre === 'Galletas',
+      );
+      expect(galletas).toEqual({ nombre: 'Galletas', vitrina: null });
+    });
+
+    it('la categoría de gasto no lleva nada de la tarjeta', async () => {
+      // Compartían tipo y esquema mientras tuvieron la misma forma; al darle vitrina a
+      // las del catálogo dejaron de coincidir, y el esquema se separó.
+      const creada = await como(app, ADMIN).post('/gastos/categorias', {
+        nombre: 'Papelería',
+        orden: 9,
+        titulo: 'No debería guardarse',
+      });
+      expect(creada.status).toBe(201);
+      expect(creada.body).not.toHaveProperty('titulo');
+    });
+  });
+
   it('un resumen de más de 160 caracteres no se acepta', async () => {
     const respuesta = await como(app, ADMIN).post('/productos', {
       ...productoConPrecio('Galletas de Mucho Texto', 30),

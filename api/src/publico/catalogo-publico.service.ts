@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   type CatalogoPublico,
+  type CategoriaPublica,
   comparar,
   type Decimal,
   type ImagenPublica,
@@ -37,13 +38,36 @@ export class CatalogoPublicoService {
    * Todas las activas, tengan productos o no. Una recién dada de alta todavía no tiene
    * ninguno, y el sitio necesita saber que existe para anunciarla.
    */
-  private async categorias(): Promise<string[]> {
+  private async categorias(): Promise<CategoriaPublica[]> {
     const filas = await this.db
-      .select({ nombre: categorias.nombre })
+      .select({
+        nombre: categorias.nombre,
+        titulo: categorias.titulo,
+        insignia: categorias.insignia,
+        icono: categorias.insigniaIcono,
+        descripcion: categorias.descripcion,
+        cta: categorias.cta,
+        imagenClave: categorias.imagenClave,
+        imagenAlt: categorias.imagenAlt,
+      })
       .from(categorias)
       .where(eq(categorias.activa, true))
       .orderBy(asc(categorias.orden), asc(categorias.nombre));
-    return filas.map((fila) => fila.nombre);
+
+    return filas.map(({ nombre, imagenClave, imagenAlt, titulo, cta, ...resto }) => ({
+      nombre,
+      // Sin foto no hay tarjeta: una a medias se ve rota, y el sitio no tiene con qué
+      // rellenarla. La categoría sigue saliendo para filtrar el catálogo.
+      vitrina: imagenClave
+        ? {
+            ...resto,
+            // Resueltos aquí, para que el sitio no tenga que conocer estas reglas.
+            titulo: titulo || nombre,
+            cta: cta || `Ver ${nombre.toLocaleLowerCase('es-MX')}`,
+            imagen: { ...this.almacen.urls(imagenClave), alt: imagenAlt },
+          }
+        : null,
+    }));
   }
 
   private async productos(): Promise<ProductoPublico[]> {

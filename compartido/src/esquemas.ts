@@ -72,6 +72,18 @@ export const esquemaCategoria = z.object({
   nombre: requerido(60),
   orden: z.number().int().min(0).default(0),
   activa: z.boolean().default(true),
+  /* La tarjeta de la portada del sitio. Nada es obligatorio: una categoría sirve para
+     agrupar productos aunque nunca salga en «Nuestras Categorías Dulces». */
+  /** «Galletas de Amaranto». Vacío: la tarjeta usa el nombre. */
+  titulo: texto(80).default(''),
+  /** La píldora de la tarjeta: «Tradición dulce». */
+  insignia: texto(40).default(''),
+  /** El ícono de Material Symbols que la acompaña. */
+  insigniaIcono: texto(40).default(''),
+  /** El párrafo de la tarjeta. */
+  descripcion: texto(300).default(''),
+  /** El texto del enlace. Vacío: se arma «Ver {nombre}». */
+  cta: texto(60).default(''),
 });
 
 /** El slug no viene aquí: la API lo genera del nombre al crear y ya no cambia. */
@@ -339,8 +351,16 @@ export const esquemaNuevaVenta = z
    Gastos de operación
    -------------------------------------------------------------------------- */
 
-/** Las categorías de gasto tienen la misma forma que las de producto. */
-export const esquemaCategoriaGasto = esquemaCategoria;
+/**
+ * Las categorías de gasto solo agrupan: no salen en el sitio, así que no llevan nada de
+ * la tarjeta de portada. Fue un alias de `esquemaCategoria` mientras las dos formas
+ * coincidieron; al darle vitrina a las de producto dejaron de coincidir.
+ */
+export const esquemaCategoriaGasto = z.object({
+  nombre: requerido(60),
+  orden: z.number().int().min(0).default(0),
+  activa: z.boolean().default(true),
+});
 
 export const esquemaGasto = z.object({
   claveIdempotencia: clave,
@@ -431,6 +451,7 @@ export const esquemaFiltroCorte = esquemaPeriodo.extend({ ubicacionId: idEnQuery
    -------------------------------------------------------------------------- */
 
 export type DatosCategoria = z.output<typeof esquemaCategoria>;
+export type DatosCategoriaGasto = z.output<typeof esquemaCategoriaGasto>;
 export type DatosGasto = z.output<typeof esquemaGasto>;
 export type FiltroGastos = z.output<typeof esquemaFiltroGastos>;
 export type DatosProducto = z.output<typeof esquemaProducto>;

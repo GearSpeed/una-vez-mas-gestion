@@ -229,13 +229,23 @@ export class ProductosService {
   /* ---- categorías ---- */
 
   async categorias(): Promise<Categoria[]> {
-    return this.db.select().from(categorias).orderBy(asc(categorias.orden), asc(categorias.nombre));
+    const filas = await this.db
+      .select()
+      .from(categorias)
+      .orderBy(asc(categorias.orden), asc(categorias.nombre));
+    return filas.map((fila) => this.aCategoria(fila));
+  }
+
+  async obtenerCategoria(id: number): Promise<Categoria> {
+    const [fila] = await this.db.select().from(categorias).where(eq(categorias.id, id));
+    if (!fila) throw new NotFoundException('La categoría no existe.');
+    return this.aCategoria(fila);
   }
 
   async crearCategoria(datos: DatosCategoria): Promise<Categoria> {
     const [creada] = await this.db.insert(categorias).values(datos).returning();
     if (!creada) throw new Error('No se creó la categoría');
-    return creada;
+    return this.aCategoria(creada);
   }
 
   async actualizarCategoria(id: number, datos: DatosCategoria): Promise<Categoria> {
@@ -245,7 +255,91 @@ export class ProductosService {
       .where(eq(categorias.id, id))
       .returning();
     if (!actualizada) throw new NotFoundException('La categoría no existe.');
-    return actualizada;
+    return this.aCategoria(actualizada);
+  }
+
+  /**
+   * La foto de la tarjeta de «Nuestras Categorías Dulces». Mismo camino que la del
+   * producto: se procesa a dos tamaños, se sube con la huella en el nombre y la anterior
+   * se borra del bucket, para que una subida por error no se quede pública para siempre.
+   */
+  async subirImagenCategoria(
+    usuario: UsuarioSesion | null,
+    id: number,
+    archivo: Buffer | undefined,
+    { alt }: DatosImagenProducto,
+  ): Promise<Categoria> {
+    if (!archivo) {
+      throw new UnprocessableEntityException({
+        mensaje: 'Elige una imagen.',
+        campos: { archivo: 'Elige una imagen' },
+      });
+    }
+    const [actual] = await this.db
+      .select({ imagenClave: categorias.imagenClave, imagenAlt: categorias.imagenAlt })
+      .from(categorias)
+      .where(eq(categorias.id, id));
+    if (!actual) throw new NotFoundException('La categoría no existe.');
+
+    const imagen = await procesarImagen(archivo);
+    const clave = `categorias/${id}/${imagen.huella}`;
+    if (clave !== actual.imagenClave) await this.almacen.subir(clave, imagen);
+    const anterior = clave === actual.imagenClave ? null : actual.imagenClave;
+    if (clave !== actual.imagenClave || alt !== actual.imagenAlt) {
+      await this.db.transaction(async (tx) => {
+        await tx
+          .update(categorias)
+          .set({ imagenClave: clave, imagenAlt: alt })
+          .where(eq(categorias.id, id));
+        await registrarEnBitacora(tx, {
+          usuarioId: usuario?.id ?? null,
+          accion: 'cambiar_imagen',
+          entidad: 'categoria',
+          entidadId: id,
+          datos: { antes: actual.imagenClave, despues: clave },
+        });
+      });
+      if (anterior) await this.almacen.borrar(anterior);
+    }
+    return this.obtenerCategoria(id);
+  }
+
+  async cambiarAltImagenCategoria(id: number, { alt }: DatosImagenProducto): Promise<Categoria> {
+    const [cambiada] = await this.db
+      .update(categorias)
+      .set({ imagenAlt: alt })
+      .where(eq(categorias.id, id))
+      .returning({ id: categorias.id });
+    if (!cambiada) throw new NotFoundException('La categoría no existe.');
+    return this.obtenerCategoria(id);
+  }
+
+  /** La categoría se queda sin foto, y con eso deja de tener tarjeta en la portada. */
+  async quitarImagenCategoria(usuario: UsuarioSesion, id: number): Promise<Categoria> {
+    let borrada: string | null = null;
+    await this.db.transaction(async (tx) => {
+      const [actual] = await tx
+        .select({ imagenClave: categorias.imagenClave })
+        .from(categorias)
+        .where(eq(categorias.id, id))
+        .for('update');
+      if (!actual) throw new NotFoundException('La categoría no existe.');
+      if (actual.imagenClave === null) return;
+      borrada = actual.imagenClave;
+      await tx
+        .update(categorias)
+        .set({ imagenClave: null, imagenAlt: '' })
+        .where(eq(categorias.id, id));
+      await registrarEnBitacora(tx, {
+        usuarioId: usuario.id,
+        accion: 'quitar_imagen',
+        entidad: 'categoria',
+        entidadId: id,
+        datos: { antes: actual.imagenClave },
+      });
+    });
+    if (borrada) await this.almacen.borrar(borrada);
+    return this.obtenerCategoria(id);
   }
 
   /* ---- internos ---- */
@@ -354,6 +448,14 @@ export class ProductosService {
       destacadoEtiqueta: datos.destacadoEtiqueta,
       destacadoQuip: datos.destacadoQuip,
       destacadoTexto: datos.destacadoTexto,
+    };
+  }
+
+  /** La fila cruda no sale tal cual: la clave de la imagen se cambia por sus URLs. */
+  private aCategoria({ imagenClave, ...fila }: typeof categorias.$inferSelect): Categoria {
+    return {
+      ...fila,
+      imagen: imagenClave ? { ...this.almacen.urls(imagenClave), alt: fila.imagenAlt } : null,
     };
   }
 
