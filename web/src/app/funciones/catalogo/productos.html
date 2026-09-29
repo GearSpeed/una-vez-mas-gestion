@@ -148,9 +148,8 @@
           @for (c of categorias.value() ?? []; track c.id) {
             <li class="tarjeta">
               <span>{{ c.nombre }}</span>
-              <!-- Las dos condiciones que pide el sitio: dada de baja no sale, y sin
-                   foto no dibuja tarjeta. -->
-              @if (c.activa && c.imagen) {
+              <!-- Lo calcula la API, para que no se desalinee con lo que hace el sitio. -->
+              @if (c.activa && c.saleEnPortada) {
                 <span class="estado bien" title="Tiene tarjeta en la portada del sitio"
                   >En portada</span
                 >

@@ -90,10 +90,18 @@ export interface Categoria {
   readonly descripcion: string;
   /** El texto del enlace. Vacío: se arma «Ver {nombre}». */
   readonly cta: string;
-  /** La foto de la tarjeta, o `null` si no tiene: sin foto no hay tarjeta. */
+  /**
+   * Su foto propia, la que manda sobre el sorteo. `null` es lo normal: entonces la
+   * tarjeta rota entre las fotos de sus productos.
+   */
   readonly imagen: ImagenProducto | null;
   /** El texto alternativo guardado, haya foto o no. */
   readonly imagenAlt: string;
+  /**
+   * Si dibuja tarjeta en la portada del sitio: tiene descripción y hay de dónde sacar
+   * la imagen. Lo calcula la API para que la pantalla no deduzca la regla por su cuenta.
+   */
+  readonly saleEnPortada: boolean;
 }
 
 export interface CostosProducto {
@@ -329,7 +337,12 @@ export interface VitrinaPublica {
   readonly descripcion: string;
   /** Ya resuelto: si no se capturó, es «Ver {nombre}». */
   readonly cta: string;
-  readonly imagen: ImagenProducto;
+  /**
+   * Su foto propia, cuando se subió una. **`null` significa «sácala de sus productos»**,
+   * que es el caso normal: el sitio sortea entre las fotos de la familia, y así la
+   * portada cambia un poco en cada visita.
+   */
+  readonly imagen: ImagenProducto | null;
 }
 
 export interface ProductoPublico {

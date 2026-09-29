@@ -25,8 +25,9 @@
     <fieldset class="ficha">
       <legend>Tarjeta de la portada</legend>
       <p class="ayuda">
-        Es lo que se lee en «Nuestras Categorías Dulces». Sin foto no sale la tarjeta, pero la
-        categoría sigue sirviendo para filtrar el catálogo.
+        Es lo que se lee en «Nuestras Categorías Dulces».
+        <strong>La descripción es la que hace aparecer la tarjeta</strong>: si la dejas vacía, la
+        categoría sigue sirviendo para filtrar el catálogo pero no se anuncia en la portada.
       </p>
 
       <mat-form-field>
@@ -69,6 +70,7 @@
           maxlength="300"
           placeholder="Qué agrupa esta familia y qué la hace distinta."
         ></textarea>
+        <mat-hint>Sin esto no hay tarjeta en la portada.</mat-hint>
       </mat-form-field>
 
       <mat-form-field>
@@ -78,6 +80,11 @@
       </mat-form-field>
     </fieldset>
 
+    <p class="ayuda">
+      La foto es opcional: sin ella, la tarjeta va rotando entre las fotos de los productos de esta
+      familia, y así la portada cambia un poco en cada visita. Súbele una sólo si quieres que se
+      quede fija.
+    </p>
     <uvm-imagen-editable ruta="categorias" [entidad]="base()" (cambio)="guardado.set($event)" />
 
     @if (error()) {
