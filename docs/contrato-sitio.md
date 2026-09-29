@@ -28,11 +28,7 @@ las **categorías activas**, en el orden en que se muestran, y una entrada por p
         "icono": "cookie",
         "descripcion": "Todas llevan amaranto: avena, chocolate, coco y nuez.",
         "cta": "Ver nuestras galletas",
-        "imagen": {
-          "url": "https://img.unavezmasmx.com/categorias/1/7c2e9b104fa3d85e-1200.webp",
-          "urlChica": "https://img.unavezmasmx.com/categorias/1/7c2e9b104fa3d85e-600.webp",
-          "alt": "Galletas de amaranto en platos de cerámica"
-        }
+        "imagen": null
       }
     },
     { "nombre": "Obleas", "vitrina": null }
@@ -64,10 +60,23 @@ no tiene ninguno, y aun así debe poder anunciarse en el sitio («Próximamente�
 solo las activas, en el orden en que se capturó que se muestran; una dada de baja
 desaparece de la lista. Cada `producto.categoria` es el `nombre` de una de estas.
 
-**`vitrina` es su tarjeta** en «Nuestras Categorías Dulces», la fila de la portada, y llega
-`null` cuando la categoría **no tiene foto**: una tarjeta con un hueco donde va la imagen se
-ve rota, y el sitio no tiene con qué rellenarla. La categoría sigue saliendo en la lista,
-porque sirve para filtrar el catálogo aunque no se anuncie.
+**`vitrina` es su tarjeta** en «Nuestras Categorías Dulces», la fila de la portada. Llega
+`null` cuando la categoría no tiene con qué armarla, y entonces simplemente no se anuncia;
+sigue en la lista, porque sirve para filtrar el catálogo. Hay tarjeta cuando se cumplen las
+dos cosas:
+
+1. **Tiene `descripcion`.** Es lo que la enciende: el único texto que no se puede deducir de
+   nada.
+2. **Hay de dónde sacar la imagen**: su foto propia, o al menos un producto publicado con
+   foto propia (uno con el logo de relleno no cuenta).
+
+**`vitrina.imagen` casi siempre llega `null`, y eso no es un error: significa «sácala de sus
+productos».** Lo normal es que la tarjeta se vista con las fotos de su familia, y como el
+sitio sortea una en el navegador, la portada cambia un poco en cada visita. Cuando sí viene
+una imagen es porque alguien le subió una foto propia a la categoría para dejarla fija.
+
+Conviene sortear **sólo entre los productos de esa categoría cuya `imagen.esPlaceholder`
+sea `false`**, y tomar el `alt` del producto elegido, que ya está escrito.
 
 `titulo` y `cta` vienen resueltos: si no se capturaron, traen el nombre de la categoría y
 «Ver {nombre}». `insignia` e `icono` pueden venir vacíos, y entonces no se pintan; el ícono
@@ -181,6 +190,7 @@ declararla, de una de estas dos formas:
 | 2026-09-28 | **Cambio que rompe**: la respuesta pasa de ser un arreglo a `{ categorias, productos }`                    |
 | 2026-09-28 | Se agrega `destacado`: quién sale en «Los Favoritos de la Casa» se elige en la aplicación                  |
 | 2026-09-29 | **Cambio que rompe**: `categorias` pasa de nombres a objetos, cada uno con su `vitrina`                    |
+| 2026-09-29 | La tarjeta se enciende con la `descripcion`, y su `imagen` llega `null` cuando sale de los productos       |
 
 ## La vista `publico.catalogo` (uso interno)
 

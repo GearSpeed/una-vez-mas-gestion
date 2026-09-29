@@ -13,7 +13,7 @@ import {
   type Producto,
   slugDe,
 } from '@uvm/compartido';
-import { and, asc, count, eq, ne, sql } from 'drizzle-orm';
+import { and, asc, count, eq, getTableColumns, ne, sql } from 'drizzle-orm';
 import type { UsuarioSesion } from '../acceso/usuario-sesion.js';
 import { registrarEnBitacora } from '../comun/bitacora.js';
 import { conCostos } from '../comun/costos.js';
@@ -21,6 +21,7 @@ import { type BaseDatos, DB, type Ejecutor } from '../db/conexion.js';
 import { categorias, existencias, productos } from '../db/esquema.js';
 import { AlmacenImagenes } from '../imagenes/almacen-imagenes.js';
 import { procesarImagen } from '../imagenes/procesar-imagen.js';
+import { saleEnPortada } from './vitrina.js';
 
 /** Las tarjetas que dibuja «Los Favoritos de la Casa» en la portada del sitio. */
 const MAXIMO_EN_PORTADA = 4;
@@ -229,23 +230,27 @@ export class ProductosService {
   /* ---- categorías ---- */
 
   async categorias(): Promise<Categoria[]> {
-    const filas = await this.db
-      .select()
-      .from(categorias)
-      .orderBy(asc(categorias.orden), asc(categorias.nombre));
+    const filas = await this.consultaCategorias().orderBy(
+      asc(categorias.orden),
+      asc(categorias.nombre),
+    );
     return filas.map((fila) => this.aCategoria(fila));
   }
 
   async obtenerCategoria(id: number): Promise<Categoria> {
-    const [fila] = await this.db.select().from(categorias).where(eq(categorias.id, id));
+    const [fila] = await this.consultaCategorias().where(eq(categorias.id, id));
     if (!fila) throw new NotFoundException('La categoría no existe.');
     return this.aCategoria(fila);
   }
 
   async crearCategoria(datos: DatosCategoria): Promise<Categoria> {
-    const [creada] = await this.db.insert(categorias).values(datos).returning();
+    const [creada] = await this.db
+      .insert(categorias)
+      .values(datos)
+      .returning({ id: categorias.id });
     if (!creada) throw new Error('No se creó la categoría');
-    return this.aCategoria(creada);
+    // Se relee para que traiga `saleEnPortada`, que es un campo calculado.
+    return this.obtenerCategoria(creada.id);
   }
 
   async actualizarCategoria(id: number, datos: DatosCategoria): Promise<Categoria> {
@@ -253,9 +258,9 @@ export class ProductosService {
       .update(categorias)
       .set(datos)
       .where(eq(categorias.id, id))
-      .returning();
+      .returning({ id: categorias.id });
     if (!actualizada) throw new NotFoundException('La categoría no existe.');
-    return this.aCategoria(actualizada);
+    return this.obtenerCategoria(actualizada.id);
   }
 
   /**
@@ -451,8 +456,22 @@ export class ProductosService {
     };
   }
 
+  /**
+   * Las categorías con su `saleEnPortada` ya calculado: así la pantalla no deduce por su
+   * cuenta cuándo hay tarjeta, que es como se desalineó del sitio la primera vez.
+   */
+  private consultaCategorias() {
+    return this.db
+      .select({ ...getTableColumns(categorias), saleEnPortada })
+      .from(categorias)
+      .$dynamic();
+  }
+
   /** La fila cruda no sale tal cual: la clave de la imagen se cambia por sus URLs. */
-  private aCategoria({ imagenClave, ...fila }: typeof categorias.$inferSelect): Categoria {
+  private aCategoria({
+    imagenClave,
+    ...fila
+  }: typeof categorias.$inferSelect & { saleEnPortada: boolean }): Categoria {
     return {
       ...fila,
       imagen: imagenClave ? { ...this.almacen.urls(imagenClave), alt: fila.imagenAlt } : null,

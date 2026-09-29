@@ -10,6 +10,7 @@ import {
 } from '@uvm/compartido';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { type BaseDatos, DB } from '../db/conexion.js';
+import { saleEnPortada } from '../catalogo/vitrina.js';
 import { categorias, existencias, productos } from '../db/esquema.js';
 import { AlmacenImagenes } from '../imagenes/almacen-imagenes.js';
 import { ALT_PLACEHOLDER, CLAVE_PLACEHOLDER } from '../imagenes/placeholder.js';
@@ -49,22 +50,25 @@ export class CatalogoPublicoService {
         cta: categorias.cta,
         imagenClave: categorias.imagenClave,
         imagenAlt: categorias.imagenAlt,
+        conTarjeta: saleEnPortada,
       })
       .from(categorias)
       .where(eq(categorias.activa, true))
       .orderBy(asc(categorias.orden), asc(categorias.nombre));
 
-    return filas.map(({ nombre, imagenClave, imagenAlt, titulo, cta, ...resto }) => ({
+    return filas.map(({ nombre, imagenClave, imagenAlt, titulo, cta, conTarjeta, ...resto }) => ({
       nombre,
-      // Sin foto no hay tarjeta: una a medias se ve rota, y el sitio no tiene con qué
-      // rellenarla. La categoría sigue saliendo para filtrar el catálogo.
-      vitrina: imagenClave
+      // La categoría sale siempre —sirve para filtrar el catálogo—; la tarjeta, sólo si
+      // hay con qué armarla (ver `saleEnPortada`).
+      vitrina: conTarjeta
         ? {
             ...resto,
             // Resueltos aquí, para que el sitio no tenga que conocer estas reglas.
             titulo: titulo || nombre,
             cta: cta || `Ver ${nombre.toLocaleLowerCase('es-MX')}`,
-            imagen: { ...this.almacen.urls(imagenClave), alt: imagenAlt },
+            // Su foto propia manda; `null` es «sácala de sus productos», y de eso se
+            // encarga el sitio, que es donde el sorteo puede cambiar por visitante.
+            imagen: imagenClave ? { ...this.almacen.urls(imagenClave), alt: imagenAlt } : null,
           }
         : null,
     }));

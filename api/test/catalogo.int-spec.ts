@@ -187,7 +187,7 @@ describe('slug de los productos', () => {
   describe('la tarjeta de la categoría en la portada', () => {
     // Todo lo que lleva foto vive en imagenes.int-spec.ts: ahí están los ayudantes que
     // la arman y la suben por multipart.
-    it('sin foto no hay tarjeta, pero la categoría sigue en el catálogo', async () => {
+    it('sin nada de donde sacar imagen no hay tarjeta, pero la categoría sigue', async () => {
       const guardada = await como(app, ADMIN).put('/categorias/1', {
         nombre: 'Galletas',
         orden: 1,
@@ -199,11 +199,15 @@ describe('slug de los productos', () => {
         cta: 'Ver nuestras galletas',
       });
       expect(guardada.status).toBe(200);
-      // Los textos se guardan…
-      expect(guardada.body).toMatchObject({ titulo: 'Galletas de Amaranto', imagen: null });
+      // Los textos se guardan, y la categoría sabe que todavía no sale…
+      expect(guardada.body).toMatchObject({
+        titulo: 'Galletas de Amaranto',
+        imagen: null,
+        saleEnPortada: false,
+      });
 
-      // …pero sin foto el sitio no dibuja la tarjeta, y la categoría sigue sirviendo
-      // para filtrar el catálogo.
+      // …porque ningún producto de la semilla tiene foto y la categoría tampoco: no hay
+      // con qué vestir la tarjeta. La categoría sigue sirviendo para filtrar el catálogo.
       const publico = await request(app.getHttpServer()).get('/api/publico/catalogo');
       const galletas = publico.body.categorias.find(
         (c: { nombre: string }) => c.nombre === 'Galletas',
