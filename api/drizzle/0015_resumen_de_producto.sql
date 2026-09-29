@@ -1,0 +1,1 @@
+ALTER TABLE "gestion"."productos" ADD COLUMN "resumen" text DEFAULT '' NOT NULL;

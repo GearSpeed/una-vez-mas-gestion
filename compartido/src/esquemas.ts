@@ -75,26 +75,56 @@ export const esquemaCategoria = z.object({
 });
 
 /** El slug no viene aquí: la API lo genera del nombre al crear y ya no cambia. */
-export const esquemaProducto = z.object({
-  nombre: requerido(120),
-  categoriaId: esquemaId,
-  variedad: texto(80).default(''),
-  presentacion: z.preprocess(vacioANulo, texto(80).nullable()).default(null),
-  /** La ficha que muestra el sitio. Vacía: el sitio no la pinta. */
-  descripcion: texto(1000).default(''),
-  /** Ingredientes destacados, en el orden en que se capturaron. */
-  ingredientes: z
-    .array(texto(40).min(1, 'Escribe el ingrediente'))
-    .max(12, 'Como máximo 12 ingredientes')
-    .default([]),
-  /** `null` = todavía sin precio: el sitio dice "Consulta precio" y no se puede vender. */
-  precioVenta: decimalOpcional(2),
-  /** Proporción sobre el costo: 0.8 = 80 %. */
-  gananciaObjetivo: decimalOpcional(4),
-  stockMinimo: z.number().int().min(0).default(0),
-  activo: z.boolean().default(true),
-  publicado: z.boolean().default(false),
-});
+export const esquemaProducto = z
+  .object({
+    nombre: requerido(120),
+    categoriaId: esquemaId,
+    variedad: texto(80).default(''),
+    presentacion: z.preprocess(vacioANulo, texto(80).nullable()).default(null),
+    /** Lo que se lee en la tarjeta del sitio: una o dos líneas. Vacío: la tarjeta no lo pinta. */
+    resumen: texto(160).default(''),
+    /** La ficha que muestra el sitio. Vacía: el sitio no la pinta. */
+    descripcion: texto(1000).default(''),
+    /** Ingredientes destacados, en el orden en que se capturaron. */
+    ingredientes: z
+      .array(texto(40).min(1, 'Escribe el ingrediente'))
+      .max(12, 'Como máximo 12 ingredientes')
+      .default([]),
+    /** `null` = todavía sin precio: el sitio dice "Consulta precio" y no se puede vender. */
+    precioVenta: decimalOpcional(2),
+    /** Proporción sobre el costo: 0.8 = 80 %. */
+    gananciaObjetivo: decimalOpcional(4),
+    stockMinimo: z.number().int().min(0).default(0),
+    activo: z.boolean().default(true),
+    publicado: z.boolean().default(false),
+    /** Si sale en «Los Favoritos de la Casa» del sitio. Hay tope de cuatro: lo cuida la API. */
+    destacado: z.boolean().default(false),
+    /** La píldora de la tarjeta de portada. */
+    destacadoEtiqueta: texto(40).default(''),
+    /** El guiño junto a la estrellita. */
+    destacadoQuip: texto(60).default(''),
+    /** El texto de la tarjeta. Vacío: el sitio usa el `resumen` del producto. */
+    destacadoTexto: texto(160).default(''),
+  })
+  .superRefine((producto, ctx) => {
+    // Una tarjeta de portada sin píldora ni guiño se ve a medio hacer, y esos dos no se
+    // pueden deducir de nada. El texto sí: si falta, el sitio usa el resumen.
+    if (!producto.destacado) return;
+    if (!producto.destacadoEtiqueta) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['destacadoEtiqueta'],
+        message: 'Escribe la etiqueta de la tarjeta («Clásico», «Para el café»…)',
+      });
+    }
+    if (!producto.destacadoQuip) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['destacadoQuip'],
+        message: 'Escribe el guiño de la tarjeta («El favorito de Ami»…)',
+      });
+    }
+  });
 
 /** El texto alternativo de la foto: lo leen los lectores de pantalla y los buscadores. */
 export const esquemaImagenProducto = z.object({

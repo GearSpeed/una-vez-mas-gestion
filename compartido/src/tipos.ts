@@ -90,6 +90,8 @@ export interface Producto {
   readonly categoria: string;
   readonly variedad: string;
   readonly presentacion: string | null;
+  /** Lo que se lee en la tarjeta del sitio: una o dos líneas. Vacío si no se ha escrito. */
+  readonly resumen: string;
   /** La ficha del sitio: un párrafo. Vacía si no se ha escrito. */
   readonly descripcion: string;
   /** Ingredientes destacados, en orden. Vacío si no se han capturado. */
@@ -98,6 +100,14 @@ export interface Producto {
   readonly stockMinimo: number;
   readonly activo: boolean;
   readonly publicado: boolean;
+  /** Si sale en «Los Favoritos de la Casa» del sitio. Solo caben cuatro. */
+  readonly destacado: boolean;
+  /** La píldora de la tarjeta de portada: «Clásico», «Para el café». */
+  readonly destacadoEtiqueta: string;
+  /** El guiño junto a la estrellita: «El favorito de Ami». */
+  readonly destacadoQuip: string;
+  /** El texto de la tarjeta. Vacío: el sitio usa el `resumen`. */
+  readonly destacadoTexto: string;
   /** Suma de todas las ubicaciones. */
   readonly existenciaTotal: number;
   /** La foto en el bucket (la misma que muestra el sitio), o `null` si no tiene. */
@@ -267,12 +277,23 @@ export interface VentaDetalle extends VentaResumen {
 /**
  * Lo único que sale sin identidad: lo que el sitio necesita para su catálogo. Sin
  * costos, sin ids internos y sin la existencia exacta (ver `docs/contrato-sitio.md`).
+ *
+ * Las categorías vienen aparte y no deducidas de los productos: una recién dada de alta
+ * todavía no tiene ninguno, y el sitio necesita saber que existe para anunciarla.
  */
+export interface CatalogoPublico {
+  /** Las activas, en el orden en que se muestran. Puede haber alguna sin productos. */
+  readonly categorias: readonly string[];
+  readonly productos: readonly ProductoPublico[];
+}
+
 export interface ProductoPublico {
   readonly slug: string;
   readonly nombre: string;
   readonly categoria: string;
   readonly presentacion: string | null;
+  /** Una o dos líneas para la tarjeta del catálogo. Cadena vacía si no se ha escrito. */
+  readonly resumen: string;
   /** La ficha del producto. Cadena vacía si no se ha escrito. */
   readonly descripcion: string;
   /** Ingredientes destacados, en orden. Arreglo vacío si no hay. */
@@ -282,6 +303,21 @@ export interface ProductoPublico {
   readonly disponibilidad: Disponibilidad;
   /** Nunca falta: si el producto no tiene foto, viene el logo (`esPlaceholder`). */
   readonly imagen: ImagenPublica;
+  /** Los textos de su tarjeta de portada, o `null` si no está en «Los Favoritos». */
+  readonly destacado: DestacadoPublico | null;
+}
+
+/**
+ * Lo que le toca escribir a la portada del sitio. El nombre, la foto, el precio y la
+ * disponibilidad no van aquí: esa tarjeta los toma del propio producto.
+ */
+export interface DestacadoPublico {
+  /** La píldora: «Clásico», «Para el café». */
+  readonly etiqueta: string;
+  /** El guiño junto a la estrellita: «El favorito de Ami». */
+  readonly quip: string;
+  /** Ya resuelto: si no se capturó, viene el `resumen` del producto. */
+  readonly texto: string;
 }
 
 /** La imagen del catálogo del sitio: siempre hay una, aunque sea de relleno. */

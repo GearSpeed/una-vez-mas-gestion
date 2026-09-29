@@ -166,6 +166,8 @@ export const productos = gestion.table(
       .references(() => categorias.id),
     variedad: text().notNull().default(''),
     presentacion: text(),
+    /** Una o dos líneas: es lo que se lee en la tarjeta del catálogo del sitio. */
+    resumen: text().notNull().default(''),
     /** Ficha del sitio: un párrafo sobre el producto. Vacío: el sitio no la muestra. */
     descripcion: text().notNull().default(''),
     /** Ingredientes destacados, en orden. Los pinta el sitio como etiquetas. */
@@ -180,6 +182,17 @@ export const productos = gestion.table(
     activo: boolean().notNull().default(true),
     /** Si el sitio lo muestra (vista `publico.catalogo`). */
     publicado: boolean().notNull().default(false),
+    /**
+     * Si sale en «Los Favoritos de la Casa», la fila de cuatro de la portada del sitio.
+     * El tope de cuatro y el que destacar exige publicar los cuida `ProductosService`.
+     */
+    destacado: boolean().notNull().default(false),
+    /** La píldora de la tarjeta: «Clásico», «Para el café». */
+    destacadoEtiqueta: text().notNull().default(''),
+    /** El guiño junto a la estrellita: «El favorito de Ami». */
+    destacadoQuip: text().notNull().default(''),
+    /** El texto de la tarjeta. Vacío: el sitio usa el `resumen`. */
+    destacadoTexto: text().notNull().default(''),
     /**
      * Clave de la imagen en el bucket, sin variante: `productos/12/3f9a…`. Las
      * variantes son `<clave>-1200.webp` y `<clave>-600.webp`. `null`: sin imagen.

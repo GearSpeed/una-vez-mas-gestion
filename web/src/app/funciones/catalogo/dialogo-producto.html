@@ -118,6 +118,18 @@
     <fieldset class="ficha">
       <legend>Ficha para el sitio</legend>
       <mat-form-field>
+        <mat-label>Resumen</mat-label>
+        <textarea
+          matInput
+          formControlName="resumen"
+          rows="2"
+          maxlength="160"
+          placeholder="Una o dos líneas que den ganas."
+        ></textarea>
+        <mat-hint>Lo que se lee en la tarjeta del catálogo del sitio.</mat-hint>
+      </mat-form-field>
+
+      <mat-form-field>
         <mat-label>Descripción</mat-label>
         <textarea
           matInput
@@ -149,6 +161,51 @@
         </mat-chip-grid>
         <mat-hint>Enter o coma para agregar cada uno. Hasta 12.</mat-hint>
       </mat-form-field>
+    </fieldset>
+
+    <fieldset class="portada">
+      <legend>Portada del sitio</legend>
+      <mat-slide-toggle formControlName="destacado" [disabled]="!puedeDestacar()">
+        Sale en «Los Favoritos de la Casa»
+      </mat-slide-toggle>
+      @if (!puedeDestacar()) {
+        <p class="ayuda">
+          Solo se puede destacar un producto publicado: la tarjeta de la portada lleva a su página
+          en el sitio.
+        </p>
+      } @else if (enPortada()) {
+        <p class="ayuda">
+          La tarjeta usa la foto, el nombre, el precio y la disponibilidad del producto. En la
+          portada caben cuatro.
+        </p>
+        <mat-form-field>
+          <mat-label>Etiqueta</mat-label>
+          <input
+            matInput
+            formControlName="destacadoEtiqueta"
+            maxlength="40"
+            placeholder="Clásico"
+          />
+          <mat-hint>La píldora de la esquina: «Clásico», «Para el café», «Fiesta»…</mat-hint>
+        </mat-form-field>
+
+        <mat-form-field>
+          <mat-label>Guiño</mat-label>
+          <input
+            matInput
+            formControlName="destacadoQuip"
+            maxlength="60"
+            placeholder="El favorito de Ami"
+          />
+          <mat-hint>Lo que va junto a la estrellita.</mat-hint>
+        </mat-form-field>
+
+        <mat-form-field>
+          <mat-label>Texto de la tarjeta</mat-label>
+          <textarea matInput formControlName="destacadoTexto" rows="2" maxlength="160"></textarea>
+          <mat-hint>Si lo dejas vacío se usa el resumen del producto.</mat-hint>
+        </mat-form-field>
+      }
     </fieldset>
 
     <uvm-imagen-producto [producto]="base()" (cambio)="guardado.set($event)" />

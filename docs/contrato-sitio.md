@@ -13,50 +13,70 @@ en Cloudflare. Así el motor de base de datos no queda expuesto a nada (ver
 GET https://gestion.unavezmasmx.com/api/publico/catalogo
 ```
 
-Sin identidad, sin llaves, sin cabeceras especiales. Responde un arreglo con una entrada
-por producto **activo y publicado**, ordenado por categoría y nombre:
+Sin identidad, sin llaves, sin cabeceras especiales. Responde un objeto con dos partes:
+las **categorías activas**, en el orden en que se muestran, y una entrada por producto
+**activo y publicado**, ordenado por categoría y nombre:
 
 ```json
-[
-  {
-    "slug": "galletas-avena",
-    "nombre": "Galletas de Avena",
-    "categoria": "Galletas",
-    "presentacion": "6 pzas",
-    "descripcion": "Galletas suaves de avena con amaranto, horneadas el mismo día.",
-    "ingredientes": ["avena", "amaranto", "miel de agave"],
-    "precio": "30.00",
-    "disponibilidad": "disponible",
-    "imagen": {
-      "url": "https://img.unavezmasmx.com/productos/1/3f9a1c2b7d8e6f50-1200.webp",
-      "urlChica": "https://img.unavezmasmx.com/productos/1/3f9a1c2b7d8e6f50-600.webp",
-      "alt": "Galletas de avena con amaranto sobre un plato de barro",
-      "esPlaceholder": false
+{
+  "categorias": ["Galletas", "Borrachitos", "Alegrías"],
+  "productos": [
+    {
+      "slug": "galletas-avena",
+      "nombre": "Galletas de Avena",
+      "categoria": "Galletas",
+      "presentacion": "6 pzas",
+      "resumen": "Avena y amaranto con un toque de canela, ligeras y crujientes.",
+      "descripcion": "Galletas suaves de avena con amaranto, recién hechas.",
+      "ingredientes": ["avena", "amaranto", "miel de agave"],
+      "precio": "30.00",
+      "disponibilidad": "disponible",
+      "imagen": {
+        "url": "https://img.unavezmasmx.com/productos/1/3f9a1c2b7d8e6f50-1200.webp",
+        "urlChica": "https://img.unavezmasmx.com/productos/1/3f9a1c2b7d8e6f50-600.webp",
+        "alt": "Galletas de avena con amaranto sobre un plato de barro",
+        "esPlaceholder": false
+      }
     }
-  }
-]
+  ]
+}
 ```
 
-| Campo            | Tipo            | Qué es                                                                          |
-| ---------------- | --------------- | ------------------------------------------------------------------------------- |
-| `slug`           | texto           | La llave con el sitio: es el `id` de `products.json` y `/catalogo/:slug`        |
-| `nombre`         | texto           | Nombre del producto                                                             |
-| `categoria`      | texto           | «Galletas», «Borrachitos», «Alegrías»…                                          |
-| `presentacion`   | texto o `null`  | «6 pzas». `null` si no se ha definido                                           |
-| `descripcion`    | texto           | La ficha del producto. **Cadena vacía** si no se ha escrito, nunca `null`       |
-| `ingredientes`   | lista de textos | Ingredientes destacados, en orden. Lista vacía si no hay                        |
-| `precio`         | texto o `null`  | Precio en MXN como texto decimal. **`null` = «Consulta precio»**                |
-| `disponibilidad` | texto           | `disponible`, `ultimas_piezas` (5 o menos) o `agotado`                          |
-| `imagen`         | objeto          | `url` (1200 px), `urlChica` (600 px), `alt` y `esPlaceholder`. **Nunca `null`** |
+**`categorias` no se deduce de los productos.** Una categoría recién dada de alta todavía
+no tiene ninguno, y aun así debe poder anunciarse en el sitio («Próximamente»). Vienen
+solo las activas, en el orden en que se capturó que se muestran; una dada de baja
+desaparece de la lista. Cada `producto.categoria` es uno de estos nombres.
+
+Los campos de cada producto:
+
+| Campo            | Tipo            | Qué es                                                                                   |
+| ---------------- | --------------- | ---------------------------------------------------------------------------------------- |
+| `slug`           | texto           | La llave con el sitio: es el `id` de `products.json` y `/catalogo/:slug`                 |
+| `nombre`         | texto           | Nombre del producto                                                                      |
+| `categoria`      | texto           | «Galletas», «Borrachitos», «Alegrías»…                                                   |
+| `presentacion`   | texto o `null`  | «6 pzas». `null` si no se ha definido                                                    |
+| `resumen`        | texto           | Una o dos líneas para la tarjeta. **Cadena vacía** si no se ha escrito                   |
+| `descripcion`    | texto           | La ficha del producto. **Cadena vacía** si no se ha escrito, nunca `null`                |
+| `ingredientes`   | lista de textos | Ingredientes destacados, en orden. Lista vacía si no hay                                 |
+| `precio`         | texto o `null`  | Precio en MXN como texto decimal, siempre mayor que cero. **`null` = «Consulta precio»** |
+| `disponibilidad` | texto           | `disponible`, `ultimas_piezas` (5 o menos) o `agotado`                                   |
+| `imagen`         | objeto          | `url` (1200 px), `urlChica` (600 px), `alt` y `esPlaceholder`. **Nunca `null`**          |
+| `destacado`      | objeto o `null` | Los textos de su tarjeta de portada. `null` si no está en «Los Favoritos»                |
 
 El precio viaja como texto (`"30.00"`) para que no se pierdan centavos al convertirlo:
 conviene mostrarlo tal cual, o convertirlo solo al formatear. Es el precio final al
 público, el mismo que cobra el mostrador: no lleva nada encima ni por pagar con tarjeta
 —esa comisión la absorbe el negocio— ni por ningún otro concepto.
 
-`descripcion` e `ingredientes` son la ficha del producto, y se capturan en la aplicación.
-Los dos pueden venir vacíos (`""` y `[]`): el sitio decide si esconde la sección o pone un
-texto de relleno. Los ingredientes llegan en el orden en que se capturaron, que es el orden
+**Nunca llega un precio en cero.** Un producto en $0 es una captura a medias o un dedazo,
+y publicarlo obligaría a respetar ese precio ante quien lo viera. La API lo convierte en
+`null`, que es «Consulta precio». Aun así, conviene que el sitio no pinte un cero aunque
+le llegue: puede estar mostrando una copia de otro momento.
+
+`resumen`, `descripcion` e `ingredientes` son la ficha del producto, y se capturan en la
+aplicación: el resumen es el gancho de la tarjeta y la descripción el párrafo del detalle.
+Los tres pueden venir vacíos (`""`, `""` y `[]`): el sitio decide si esconde la sección o
+pone un texto de relleno. Los ingredientes llegan en el orden en que se capturaron, que es el orden
 en el que conviene mostrarlos.
 
 **`imagen` nunca viene vacía.** Si el producto todavía no tiene foto, llega el logo de la
@@ -65,6 +85,15 @@ no tiene que resolver el hueco, pero sabe que no es una foto del producto: convi
 indexarla como tal, no abrirla en la galería y, si se muestra, dejarla como decorativa
 (`alt=""`). Con foto propia, `esPlaceholder` es `false` y el `alt` es el que escribió quien
 la subió.
+
+**`destacado` es la sección «Los Favoritos de la Casa»** de la portada, y trae solo lo que
+hay que escribir: `etiqueta` (la píldora: «Clásico», «Para el café»), `quip` (el guiño
+junto a la estrellita) y `texto`. El nombre, la foto, el precio y la disponibilidad de esa
+tarjeta salen del propio producto, para que no puedan contradecirse con el catálogo.
+`texto` viene resuelto: si no se capturó, trae el `resumen`.
+
+Vienen como mucho **cuatro**, que es la fila que dibuja el sitio, y siempre publicados. El
+orden es el mismo de la respuesta.
 
 **Por qué no va la existencia exacta**: con el número, cualquiera que consulte dos veces al
 día calcula el ritmo de venta del negocio. Cómo mostrar cada estado («Disponible»,
@@ -77,6 +106,12 @@ stale-while-revalidate=600`. Conviene dejar que Cloudflare la cachee con una reg
   caché: así el origen casi no se toca.
 - Hay un límite de **60 peticiones por minuto** por IP. El sitio debería leer el catálogo
   al construirse o cada pocos minutos, no en cada visita.
+- La respuesta trae `Access-Control-Allow-Origin: *`, así que el **navegador** del sitio
+  puede leerla directo, desde cualquier dominio. Es una cabecera fija a propósito:
+  Cloudflare no varía la caché por `Origin`, y una que cambiara según quién pregunta se
+  quedaría pegada en la caché con el valor del primero. `*` además impide que el navegador
+  mande cookies, que es lo que se quiere: aquí no hay identidad. Es la única ruta de la API
+  con CORS.
 - Las imágenes las sirve `img.unavezmasmx.com` (un bucket de Cloudflare R2 detrás de la
   caché de Cloudflare), no la aplicación, y son inmutables: una foto nueva tiene otra URL,
   así que se pueden cachear para siempre.
@@ -114,6 +149,9 @@ declararla, de una de estas dos formas:
 | 2026-09-22 | Se agregan `id`, `imagen`, `imagen_chica` e `imagen_alt`                                                   |
 | 2026-09-23 | El contrato pasa a ser HTTP (`/api/publico/catalogo`), con `disponibilidad` en vez de la existencia exacta |
 | 2026-09-25 | Se agregan `descripcion` e `ingredientes`; `imagen` deja de ser `null` y trae `esPlaceholder`              |
+| 2026-09-28 | Se agrega `resumen` y la cabecera `Access-Control-Allow-Origin: *`; el sitio pasa a leer esta ruta         |
+| 2026-09-28 | Un `precio` en cero sale como `null`: nunca se publica un producto en $0                                   |
+| 2026-09-28 | **Cambio que rompe**: la respuesta pasa de ser un arreglo a `{ categorias, productos }`                    |
 
 ## La vista `publico.catalogo` (uso interno)
 

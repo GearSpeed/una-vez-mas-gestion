@@ -35,9 +35,15 @@ fieldset {
   }
 }
 
-.ficha {
+.ficha,
+.portada {
   display: grid;
   gap: 0.5rem;
+}
+
+.portada mat-slide-toggle {
+  justify-self: start;
+  margin-bottom: 0.25rem;
 }
 
 .casillas {

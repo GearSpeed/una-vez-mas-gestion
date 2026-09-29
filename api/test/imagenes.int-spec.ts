@@ -152,7 +152,9 @@ describe('imágenes de producto', () => {
 
   it('sin foto propia, el catálogo del sitio sirve el logo y lo dice', async () => {
     const respuesta = await request(app.getHttpServer()).get('/api/publico/catalogo');
-    const avena = respuesta.body.find((p: { slug: string }) => p.slug === 'galletas-avena');
+    const avena = respuesta.body.productos.find(
+      (p: { slug: string }) => p.slug === 'galletas-avena',
+    );
     expect(avena.imagen.esPlaceholder).toBe(true);
     // Y el logo está de verdad en el bucket: lo publica la API al arrancar.
     const { tipo, cuerpo } = await descargar(avena.imagen.url);
@@ -163,7 +165,9 @@ describe('imágenes de producto', () => {
   it('con foto propia, el catálogo del sitio ya no manda el logo', async () => {
     await subir(IDS.avena, await foto());
     const respuesta = await request(app.getHttpServer()).get('/api/publico/catalogo');
-    const avena = respuesta.body.find((p: { slug: string }) => p.slug === 'galletas-avena');
+    const avena = respuesta.body.productos.find(
+      (p: { slug: string }) => p.slug === 'galletas-avena',
+    );
     expect(avena.imagen).toMatchObject({ alt: ALT, esPlaceholder: false });
     expect(avena.imagen.url).toContain(`productos/${IDS.avena}/`);
   });

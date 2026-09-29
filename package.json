@@ -23,6 +23,7 @@
     "preparar-bucket": "npm run preparar-bucket -w api",
     "probar-imagenes": "npm run probar-imagenes -w api",
     "subir-imagenes": "npm run subir-imagenes -w api --",
+    "importar-fichas": "npm run importar-fichas -w api --",
     "prelint": "npm run build -w compartido",
     "lint": "oxlint --type-aware compartido/src api/src api/test web/src web/e2e",
     "format": "prettier --write .",

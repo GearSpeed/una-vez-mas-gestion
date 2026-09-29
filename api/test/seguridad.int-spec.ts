@@ -39,10 +39,11 @@ describe('seguridad', () => {
   const sinIdentidad = () => request(app.getHttpServer());
 
   const catalogoPublico = () => sinIdentidad().get('/api/publico/catalogo');
-  const slugs = () => catalogoPublico().then((r) => r.body.map((p: { slug: string }) => p.slug));
+  const slugs = () =>
+    catalogoPublico().then((r) => r.body.productos.map((p: { slug: string }) => p.slug));
   const disponibilidadDe = (slug: string) =>
     catalogoPublico().then(
-      (r) => r.body.find((p: { slug: string }) => p.slug === slug)?.disponibilidad,
+      (r) => r.body.productos.find((p: { slug: string }) => p.slug === slug)?.disponibilidad,
     );
 
   describe('catálogo público (lo que lee el sitio)', () => {
@@ -57,12 +58,15 @@ describe('seguridad', () => {
         'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
       );
 
-      const avena = respuesta.body.find((p: { slug: string }) => p.slug === 'galletas-avena');
+      const avena = respuesta.body.productos.find(
+        (p: { slug: string }) => p.slug === 'galletas-avena',
+      );
       expect(avena).toEqual({
         slug: 'galletas-avena',
         nombre: 'Galletas de Avena',
         categoria: 'Galletas',
         presentacion: '6 pzas',
+        resumen: '',
         descripcion: '',
         ingredientes: [],
         precio: '30.00',
@@ -74,12 +78,42 @@ describe('seguridad', () => {
           alt: 'Logo de Una vez más',
           esPlaceholder: true,
         },
+        // No está en «Los Favoritos de la Casa»: null, no un objeto vacío.
+        destacado: null,
       });
       // Ni ids internos, ni conteos, ni costos.
-      const llaves = new Set(llavesDe(respuesta.body));
+      const llaves = new Set(llavesDe(respuesta.body.productos));
       for (const prohibida of ['id', 'costos', 'costoPromedio', 'existenciaTotal', 'piezas']) {
         expect(llaves.has(prohibida)).toBe(false);
       }
+    });
+
+    it('manda las categorías activas, tengan productos o no', async () => {
+      const catalogo = await catalogoPublico();
+      expect(catalogo.body.categorias).toEqual(['Galletas', 'Borrachitos', 'Alegrías']);
+
+      // Una recién dada de alta no tiene ni un producto, y aun así el sitio debe poder
+      // anunciarla («Próximamente»). Por eso no se deducen de los productos.
+      const creada = await como(app, ADMIN).post('/categorias', {
+        nombre: 'Paletas',
+        orden: 4,
+        activa: true,
+      });
+      expect(creada.status).toBe(201);
+      expect((await catalogoPublico()).body.categorias).toEqual([
+        'Galletas',
+        'Borrachitos',
+        'Alegrías',
+        'Paletas',
+      ]);
+
+      // Y una dada de baja desaparece, aunque siga existiendo adentro.
+      await como(app, ADMIN).put(`/categorias/${creada.body.id}`, {
+        nombre: 'Paletas',
+        orden: 4,
+        activa: false,
+      });
+      expect((await catalogoPublico()).body.categorias).not.toContain('Paletas');
     });
 
     it('no muestra lo que no está publicado ni lo dado de baja', async () => {
@@ -114,6 +148,18 @@ describe('seguridad', () => {
         lineas: [{ productoId: IDS.tejocote, cantidad: 10, costoUnitario: 17 }],
       });
       expect(await disponibilidadDe('galletas-mermelada-tejocote')).toBe('disponible');
+    });
+
+    it('el navegador del sitio puede leerla, y solo ella', async () => {
+      // Sin esta cabecera el navegador descarta la respuesta y el sitio se queda
+      // con el catálogo del último build, sin decir por qué.
+      const publico = await catalogoPublico();
+      expect(publico.headers['access-control-allow-origin']).toBe('*');
+
+      // Y no se le escapa al resto: ahí un `fetch` desde otro dominio no debe leer nada.
+      const privada = await como(app, ADMIN).get('/productos');
+      expect(privada.status).toBe(200);
+      expect(privada.headers['access-control-allow-origin']).toBeUndefined();
     });
 
     it('corta a las 60 peticiones por minuto', async () => {

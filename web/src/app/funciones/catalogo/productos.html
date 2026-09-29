@@ -109,6 +109,11 @@
                   <span class="estado" [class.bien]="p.publicado">{{
                     p.publicado ? 'Publicado' : 'Sin publicar'
                   }}</span>
+                  @if (p.destacado) {
+                    <span class="estado bien" title="Sale en «Los Favoritos de la Casa»"
+                      >Portada</span
+                    >
+                  }
                 </td>
                 @if (puedeEditar()) {
                   <td>

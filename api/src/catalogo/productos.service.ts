@@ -13,7 +13,7 @@ import {
   type Producto,
   slugDe,
 } from '@uvm/compartido';
-import { asc, eq, sql } from 'drizzle-orm';
+import { and, asc, count, eq, ne, sql } from 'drizzle-orm';
 import type { UsuarioSesion } from '../acceso/usuario-sesion.js';
 import { registrarEnBitacora } from '../comun/bitacora.js';
 import { conCostos } from '../comun/costos.js';
@@ -21,6 +21,9 @@ import { type BaseDatos, DB, type Ejecutor } from '../db/conexion.js';
 import { categorias, existencias, productos } from '../db/esquema.js';
 import { AlmacenImagenes } from '../imagenes/almacen-imagenes.js';
 import { procesarImagen } from '../imagenes/procesar-imagen.js';
+
+/** Las tarjetas que dibuja «Los Favoritos de la Casa» en la portada del sitio. */
+const MAXIMO_EN_PORTADA = 4;
 
 @Injectable()
 export class ProductosService {
@@ -56,9 +59,10 @@ export class ProductosService {
     }
     const id = await this.db.transaction(async (tx) => {
       await this.validarCategoria(tx, datos.categoriaId);
+      const portada = await this.portadaQueQueda(tx, datos, null);
       const [creado] = await tx
         .insert(productos)
-        .values({ ...datos, slug })
+        .values({ ...datos, ...portada, slug })
         .returning({ id: productos.id });
       if (!creado) throw new Error('No se creó el producto');
       await registrarEnBitacora(tx, {
@@ -83,16 +87,18 @@ export class ProductosService {
         .select({
           precioVenta: productos.precioVenta,
           publicado: productos.publicado,
+          destacado: productos.destacado,
         })
         .from(productos)
         .where(eq(productos.id, id))
         .for('update');
       if (!actual) throw new NotFoundException('El producto no existe.');
       await this.validarCategoria(tx, datos.categoriaId);
+      const portada = await this.portadaQueQueda(tx, datos, id);
 
       await tx
         .update(productos)
-        .set({ ...datos, actualizadoEn: new Date() })
+        .set({ ...datos, ...portada, actualizadoEn: new Date() })
         .where(eq(productos.id, id));
 
       const antes = actual.precioVenta === null ? null : Number(actual.precioVenta);
@@ -113,6 +119,15 @@ export class ProductosService {
           entidad: 'producto',
           entidadId: id,
           datos: { antes: actual.publicado, despues: datos.publicado },
+        });
+      }
+      if (actual.destacado !== portada.destacado) {
+        await registrarEnBitacora(tx, {
+          usuarioId: usuario.id,
+          accion: 'cambiar_portada',
+          entidad: 'producto',
+          entidadId: id,
+          datos: { antes: actual.destacado, despues: portada.destacado },
         });
       }
     });
@@ -245,6 +260,7 @@ export class ProductosService {
         categoria: categorias.nombre,
         variedad: productos.variedad,
         presentacion: productos.presentacion,
+        resumen: productos.resumen,
         descripcion: productos.descripcion,
         ingredientes: productos.ingredientes,
         precioVenta: productos.precioVenta,
@@ -253,6 +269,10 @@ export class ProductosService {
         stockMinimo: productos.stockMinimo,
         activo: productos.activo,
         publicado: productos.publicado,
+        destacado: productos.destacado,
+        destacadoEtiqueta: productos.destacadoEtiqueta,
+        destacadoQuip: productos.destacadoQuip,
+        destacadoTexto: productos.destacadoTexto,
         imagenClave: productos.imagenClave,
         imagenAlt: productos.imagenAlt,
         existenciaTotal: sql<number>`coalesce((select sum(e.cantidad) from ${existencias} e
@@ -279,6 +299,62 @@ export class ProductosService {
       gananciaObjetivo,
       ...indicadoresPrecio(costoPromedio, fila.precioVenta, gananciaObjetivo),
     }));
+  }
+
+  /**
+   * Qué queda guardado de la portada, con las dos reglas que no se le pueden pedir al
+   * formulario:
+   *
+   * 1. **Destacar exige publicar.** Un producto sin publicar no tiene página en el
+   *    sitio, así que la tarjeta llevaría a ningún lado. En vez de un error que
+   *    esquivar, despublicar apaga la portada sola.
+   * 2. **Solo caben cuatro**, que es la fila que dibuja el sitio. Se cuenta dentro de la
+   *    transacción, con el renglón ya bloqueado por el `for('update')` de quien llama.
+   *
+   * Los tres textos se limpian cuando el switch queda apagado: si no, mañana alguien lo
+   * vuelve a prender y aparece un guiño que ya no venía a cuento.
+   */
+  private async portadaQueQueda(
+    db: Ejecutor,
+    datos: DatosProducto,
+    id: number | null,
+  ): Promise<{
+    destacado: boolean;
+    destacadoEtiqueta: string;
+    destacadoQuip: string;
+    destacadoTexto: string;
+  }> {
+    const destacado = datos.destacado && datos.publicado;
+    if (!destacado) {
+      return {
+        destacado: false,
+        destacadoEtiqueta: '',
+        destacadoQuip: '',
+        destacadoTexto: '',
+      };
+    }
+
+    const otros = await db
+      .select({ cuantos: count() })
+      .from(productos)
+      .where(
+        id === null
+          ? eq(productos.destacado, true)
+          : and(eq(productos.destacado, true), ne(productos.id, id)),
+      );
+    if ((otros[0]?.cuantos ?? 0) >= MAXIMO_EN_PORTADA) {
+      throw new UnprocessableEntityException({
+        mensaje: `Ya hay ${MAXIMO_EN_PORTADA} productos en la portada.`,
+        campos: { destacado: 'Apaga otro primero: en la portada solo caben cuatro' },
+      });
+    }
+
+    return {
+      destacado: true,
+      destacadoEtiqueta: datos.destacadoEtiqueta,
+      destacadoQuip: datos.destacadoQuip,
+      destacadoTexto: datos.destacadoTexto,
+    };
   }
 
   private async validarCategoria(db: Ejecutor, categoriaId: number): Promise<void> {

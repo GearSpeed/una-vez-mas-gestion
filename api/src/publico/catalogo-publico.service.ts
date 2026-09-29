@@ -1,5 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { type ImagenPublica, PIEZAS_ULTIMAS, type ProductoPublico } from '@uvm/compartido';
+import {
+  type CatalogoPublico,
+  comparar,
+  type Decimal,
+  type ImagenPublica,
+  PIEZAS_ULTIMAS,
+  type ProductoPublico,
+} from '@uvm/compartido';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { type BaseDatos, DB } from '../db/conexion.js';
 import { categorias, existencias, productos } from '../db/esquema.js';
@@ -18,16 +25,42 @@ export class CatalogoPublicoService {
     private readonly almacen: AlmacenImagenes,
   ) {}
 
-  async catalogo(): Promise<ProductoPublico[]> {
+  async catalogo(): Promise<CatalogoPublico> {
+    const [categoriasActivas, productosPublicados] = await Promise.all([
+      this.categorias(),
+      this.productos(),
+    ]);
+    return { categorias: categoriasActivas, productos: productosPublicados };
+  }
+
+  /**
+   * Todas las activas, tengan productos o no. Una recién dada de alta todavía no tiene
+   * ninguno, y el sitio necesita saber que existe para anunciarla.
+   */
+  private async categorias(): Promise<string[]> {
+    const filas = await this.db
+      .select({ nombre: categorias.nombre })
+      .from(categorias)
+      .where(eq(categorias.activa, true))
+      .orderBy(asc(categorias.orden), asc(categorias.nombre));
+    return filas.map((fila) => fila.nombre);
+  }
+
+  private async productos(): Promise<ProductoPublico[]> {
     const filas = await this.db
       .select({
         slug: productos.slug,
         nombre: productos.nombre,
         categoria: categorias.nombre,
         presentacion: productos.presentacion,
+        resumen: productos.resumen,
         descripcion: productos.descripcion,
         ingredientes: productos.ingredientes,
         precio: productos.precioVenta,
+        destacado: productos.destacado,
+        destacadoEtiqueta: productos.destacadoEtiqueta,
+        destacadoQuip: productos.destacadoQuip,
+        destacadoTexto: productos.destacadoTexto,
         imagenClave: productos.imagenClave,
         imagenAlt: productos.imagenAlt,
         piezas: sql<number>`coalesce((select sum(e.cantidad) from ${existencias} e
@@ -38,12 +71,33 @@ export class CatalogoPublicoService {
       .where(and(eq(productos.activo, true), eq(productos.publicado, true)))
       .orderBy(asc(categorias.orden), asc(productos.nombre));
 
-    return filas.map(({ piezas, imagenClave, imagenAlt, ...fila }) => ({
-      ...fila,
-      disponibilidad:
-        piezas <= 0 ? 'agotado' : piezas <= PIEZAS_ULTIMAS ? 'ultimas_piezas' : 'disponible',
-      imagen: this.imagen(imagenClave, imagenAlt),
-    }));
+    return filas.map(
+      ({
+        piezas,
+        imagenClave,
+        imagenAlt,
+        precio,
+        destacado,
+        destacadoEtiqueta,
+        destacadoQuip,
+        destacadoTexto,
+        ...fila
+      }) => ({
+        ...fila,
+        precio: precioPublicable(precio),
+        disponibilidad:
+          piezas <= 0 ? 'agotado' : piezas <= PIEZAS_ULTIMAS ? 'ultimas_piezas' : 'disponible',
+        imagen: this.imagen(imagenClave, imagenAlt),
+        destacado: destacado
+          ? {
+              etiqueta: destacadoEtiqueta,
+              quip: destacadoQuip,
+              // Resuelto aquí: el sitio no tiene por qué conocer esta regla.
+              texto: destacadoTexto || fila.resumen,
+            }
+          : null,
+      }),
+    );
   }
 
   /**
@@ -55,4 +109,17 @@ export class CatalogoPublicoService {
     if (clave) return { ...this.almacen.urls(clave), alt, esPlaceholder: false };
     return { ...this.almacen.urls(CLAVE_PLACEHOLDER), alt: ALT_PLACEHOLDER, esPlaceholder: true };
   }
+}
+
+/**
+ * Un precio en cero no es un precio: es una captura a medias o un dedazo. Publicarlo
+ * sería anunciar el producto en $0, y quien lo vea puede exigir que se le respete
+ * (la Ley Federal de Protección al Consumidor obliga a respetar el precio exhibido).
+ *
+ * Así que sale como `null`, que en el contrato significa «Consulta precio». Se filtra
+ * aquí y no en la pantalla porque el catálogo público lo puede leer cualquiera.
+ */
+function precioPublicable(precio: Decimal | null): Decimal | null {
+  if (precio === null) return null;
+  return comparar(precio, '0') > 0 ? precio : null;
 }

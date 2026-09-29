@@ -3,6 +3,21 @@ import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { ADMIN, como, crearApp, IDS, productoConPrecio, reiniciarBd } from './ayudantes.js';
 
+/** Un producto listo para la portada, con lo mínimo que exige el switch prendido. */
+const enPortada = (nombre: string, extra: object = {}) => ({
+  ...productoConPrecio(nombre, 30),
+  destacado: true,
+  destacadoEtiqueta: 'Clásico',
+  destacadoQuip: 'El favorito de Ami',
+  ...extra,
+});
+
+/** Lo que el sitio pintaría hoy en «Los Favoritos de la Casa». */
+async function losDeLaPortada(app: INestApplication) {
+  const publico = await request(app.getHttpServer()).get('/api/publico/catalogo');
+  return publico.body.productos.filter((p: { destacado: unknown }) => p.destacado !== null);
+}
+
 /** El slug es la URL del producto en el sitio: lo genera la API y no cambia. */
 describe('slug de los productos', () => {
   let app: INestApplication;
@@ -54,27 +69,128 @@ describe('slug de los productos', () => {
   });
 
   it('la ficha del producto llega hasta el catálogo del sitio', async () => {
+    const resumen = 'Avena y amaranto con un toque de canela.';
     const descripcion = 'Galletas suaves de avena, horneadas el mismo día.';
     const ingredientes = ['avena', 'amaranto', 'miel de agave'];
     const editado = await como(app, ADMIN).put(`/productos/${IDS.avena}`, {
       ...productoConPrecio('Galletas de Avena', 30),
+      resumen,
       descripcion,
       ingredientes,
     });
     expect(editado.status).toBe(200);
-    expect(editado.body).toMatchObject({ descripcion, ingredientes });
+    expect(editado.body).toMatchObject({ resumen, descripcion, ingredientes });
 
     const publico = await request(app.getHttpServer()).get('/api/publico/catalogo');
-    const avena = publico.body.find((p: { slug: string }) => p.slug === 'galletas-avena');
-    expect(avena).toMatchObject({ descripcion, ingredientes, precio: '30.00' });
+    const avena = publico.body.productos.find((p: { slug: string }) => p.slug === 'galletas-avena');
+    expect(avena).toMatchObject({ resumen, descripcion, ingredientes, precio: '30.00' });
   });
 
-  it('sin ficha, los dos campos salen vacíos y no como nulos', async () => {
+  it('sin ficha, los campos salen vacíos y no como nulos', async () => {
     const creado = await como(app, ADMIN).post(
       '/productos',
       productoConPrecio('Galletas de Nuez Nueva', 30),
     );
-    expect(creado.body).toMatchObject({ descripcion: '', ingredientes: [] });
+    expect(creado.body).toMatchObject({ resumen: '', descripcion: '', ingredientes: [] });
+  });
+
+  it('un precio en cero no se publica: el sitio dice «Consulta precio»', async () => {
+    // Pasa por dedazo o porque alguien dejó la ficha a medias. Anunciar un producto
+    // en $0 obligaría a respetarlo, así que el catálogo público lo manda como null.
+    await como(app, ADMIN).put(`/productos/${IDS.avena}`, {
+      ...productoConPrecio('Galletas de Avena', 0),
+    });
+
+    const publico = await request(app.getHttpServer()).get('/api/publico/catalogo');
+    const avena = publico.body.productos.find((p: { slug: string }) => p.slug === 'galletas-avena');
+    expect(avena.precio).toBeNull();
+    // Adentro sí se ve el cero: quien captura tiene que poder darse cuenta.
+    const interno = await como(app, ADMIN).get(`/productos/${IDS.avena}`);
+    expect(interno.body.precioVenta).toBe('0.00');
+  });
+
+  describe('la portada del sitio', () => {
+    it('lo que se escribe aquí es lo que sale en la tarjeta', async () => {
+      const editado = await como(app, ADMIN).put(
+        `/productos/${IDS.avena}`,
+        enPortada('Galletas de Avena', { destacadoTexto: 'Para acompañar el café.' }),
+      );
+      expect(editado.status).toBe(200);
+
+      expect(await losDeLaPortada(app)).toEqual([
+        expect.objectContaining({
+          slug: 'galletas-avena',
+          destacado: {
+            etiqueta: 'Clásico',
+            quip: 'El favorito de Ami',
+            texto: 'Para acompañar el café.',
+          },
+        }),
+      ]);
+    });
+
+    it('sin texto propio, la tarjeta usa el resumen del producto', async () => {
+      await como(app, ADMIN).put(
+        `/productos/${IDS.avena}`,
+        enPortada('Galletas de Avena', { resumen: 'Avena y amaranto.', destacadoTexto: '' }),
+      );
+      const [avena] = await losDeLaPortada(app);
+      expect(avena.destacado.texto).toBe('Avena y amaranto.');
+    });
+
+    it('el quinto no cabe, y lo dice', async () => {
+      const cuatro = [IDS.avena, IDS.coco, IDS.nuez, IDS.tejocote];
+      for (const id of cuatro) {
+        const puesto = await como(app, ADMIN).put(`/productos/${id}`, enPortada(`Producto ${id}`));
+        expect(puesto.status).toBe(200);
+      }
+
+      const quinto = await como(app, ADMIN).post('/productos', enPortada('Galletas de Limón'));
+      expect(quinto.status).toBe(422);
+      expect(quinto.body.campos.destacado).toMatch(/solo caben cuatro/);
+      expect(await losDeLaPortada(app)).toHaveLength(4);
+    });
+
+    it('destacar exige publicar: despublicar apaga la portada sola', async () => {
+      await como(app, ADMIN).put(`/productos/${IDS.avena}`, enPortada('Galletas de Avena'));
+      expect(await losDeLaPortada(app)).toHaveLength(1);
+
+      const despublicado = await como(app, ADMIN).put(`/productos/${IDS.avena}`, {
+        ...enPortada('Galletas de Avena'),
+        publicado: false,
+      });
+      expect(despublicado.status).toBe(200);
+      // Y los textos se limpian: si mañana se vuelve a prender, no reaparece un guiño viejo.
+      expect(despublicado.body).toMatchObject({ destacado: false, destacadoEtiqueta: '' });
+      expect(await losDeLaPortada(app)).toHaveLength(0);
+    });
+
+    it('con el switch prendido, la etiqueta y el guiño son obligatorios', async () => {
+      const respuesta = await como(app, ADMIN).put(`/productos/${IDS.avena}`, {
+        ...productoConPrecio('Galletas de Avena', 30),
+        destacado: true,
+      });
+      expect(respuesta.status).toBe(422);
+      expect(respuesta.body.campos).toHaveProperty('destacadoEtiqueta');
+      expect(respuesta.body.campos).toHaveProperty('destacadoQuip');
+    });
+
+    it('un producto que no está en la portada sale como null, no como vacío', async () => {
+      const publico = await request(app.getHttpServer()).get('/api/publico/catalogo');
+      const avena = publico.body.productos.find(
+        (p: { slug: string }) => p.slug === 'galletas-avena',
+      );
+      expect(avena.destacado).toBeNull();
+    });
+  });
+
+  it('un resumen de más de 160 caracteres no se acepta', async () => {
+    const respuesta = await como(app, ADMIN).post('/productos', {
+      ...productoConPrecio('Galletas de Mucho Texto', 30),
+      resumen: 'a'.repeat(161),
+    });
+    expect(respuesta.status).toBe(422);
+    expect(respuesta.body.campos).toHaveProperty('resumen');
   });
 
   it('más de doce ingredientes no se aceptan', async () => {

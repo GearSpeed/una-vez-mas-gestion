@@ -14,6 +14,7 @@
     "preparar-bucket": "tsx src/cli/preparar-bucket.ts",
     "probar-imagenes": "tsx src/cli/probar-imagenes.ts",
     "subir-imagenes": "tsx src/cli/subir-imagenes.ts",
+    "importar-fichas": "tsx src/cli/importar-fichas.ts",
     "test": "vitest run",
     "test:integracion": "vitest run --config vitest.integracion.config.ts"
   },

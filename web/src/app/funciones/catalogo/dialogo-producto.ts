@@ -17,6 +17,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { type Categoria, indicadoresPrecio, type Producto, slugDe } from '@uvm/compartido';
 import { startWith } from 'rxjs';
 import { ApiService } from '../../core/api';
@@ -52,6 +53,7 @@ export interface DatosDialogoProducto {
     MatIconModule,
     MatInputModule,
     MatSelectModule,
+    MatSlideToggleModule,
   ],
   templateUrl: './dialogo-producto.html',
   styleUrl: './dialogo.scss',
@@ -83,6 +85,7 @@ export class DialogoProducto {
     ),
     variedad: [this.producto?.variedad ?? ''],
     presentacion: [this.producto?.presentacion ?? ''],
+    resumen: [this.producto?.resumen ?? '', Validators.maxLength(160)],
     descripcion: [this.producto?.descripcion ?? '', Validators.maxLength(1000)],
     precioVenta: this.fb.control<number | null>(
       numeroONulo(this.producto?.precioVenta),
@@ -98,6 +101,10 @@ export class DialogoProducto {
     stockMinimo: [this.producto?.stockMinimo ?? 0, [Validators.required, Validators.min(0)]],
     activo: [this.producto?.activo ?? true],
     publicado: [this.producto?.publicado ?? false],
+    destacado: [this.producto?.destacado ?? false],
+    destacadoEtiqueta: [this.producto?.destacadoEtiqueta ?? '', Validators.maxLength(40)],
+    destacadoQuip: [this.producto?.destacadoQuip ?? '', Validators.maxLength(60)],
+    destacadoTexto: [this.producto?.destacadoTexto ?? '', Validators.maxLength(160)],
   });
 
   private readonly valor = toSignal(
@@ -125,6 +132,16 @@ export class DialogoProducto {
    */
   protected readonly slug = computed(
     () => this.producto?.slug ?? slugDe(this.valor().nombre ?? ''),
+  );
+
+  /**
+   * La portada solo tiene sentido si el producto está publicado: si no, la tarjeta
+   * llevaría a una página que no existe. El servidor apaga el switch de todos modos
+   * (ver `portadaQueQueda`), pero conviene que aquí se vea por qué no se puede.
+   */
+  protected readonly puedeDestacar = computed(() => this.valor().publicado === true);
+  protected readonly enPortada = computed(
+    () => this.puedeDestacar() && this.valor().destacado === true,
   );
 
   protected readonly guardando = signal(false);
