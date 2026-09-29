@@ -1,8 +1,10 @@
 /**
- * `npm run subir-imagenes -- <carpeta del sitio>`: sube al bucket las fotos que hoy
- * tiene el sitio (public/img/productos) y se las asigna a cada producto por su
- * slug, con el texto alternativo de products.json. Se puede correr varias veces:
- * una foto que el producto ya tiene no se vuelve a subir.
+ * `npm run subir-imagenes -- <carpeta del sitio>`: sube al bucket las fotos que hoy tiene
+ * el sitio y se las asigna a quien corresponde. Las de `public/img/productos` van a cada
+ * producto por su slug, con el texto alternativo de `products.json`; las de
+ * `public/img/categorias` van a cada categoría por el nombre que dice `showcase.json`.
+ *
+ * Se puede correr varias veces: una foto que ya está puesta no se vuelve a subir.
  */
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
@@ -11,11 +13,17 @@ import { cargarArchivoEnv } from '../config/cargar-env.js';
 import { leerEntorno } from '../config/entorno.js';
 import { ProductosService } from '../catalogo/productos.service.js';
 import { crearBaseDatos } from '../db/conexion.js';
-import { productos } from '../db/esquema.js';
+import { categorias, productos } from '../db/esquema.js';
 import { AlmacenImagenes } from '../imagenes/almacen-imagenes.js';
 
 interface ProductoDelSitio {
   readonly id: string;
+  readonly imagen?: string;
+  readonly alt?: string;
+}
+
+interface VitrinaDelSitio {
+  readonly categoria: string;
   readonly imagen?: string;
   readonly alt?: string;
 }
@@ -40,10 +48,17 @@ const delSitio = JSON.parse(
 ) as ProductoDelSitio[];
 const porSlug = new Map(delSitio.map((p) => [p.id, p]));
 
+const vitrinasDelSitio = await readFile(resolve(carpeta, 'src/app/content/showcase.json'), 'utf8')
+  .then((texto) => JSON.parse(texto) as VitrinaDelSitio[])
+  .catch(() => []);
+const vitrinaPorCategoria = new Map(vitrinasDelSitio.map((v) => [v.categoria, v]));
+
 const db = crearBaseDatos(entorno.DATABASE_URL, { maximo: 2 });
 const servicio = new ProductosService(db, almacen);
 const sinFoto: string[] = [];
+const categoriasSinFoto: string[] = [];
 let subidas = 0;
+let categoriasConFoto = 0;
 try {
   const nuestros = await db
     .select({ id: productos.id, slug: productos.slug, nombre: productos.nombre })
@@ -64,14 +79,41 @@ try {
     subidas++;
     console.log(`✓ ${producto.id} ${producto.slug}`);
   }
+
+  // Las fotos de las tarjetas de categoría. Sin foto, una categoría no dibuja tarjeta en
+  // la portada, así que esto es lo que las enciende.
+  const nuestrasCategorias = await db
+    .select({ id: categorias.id, nombre: categorias.nombre })
+    .from(categorias)
+    .orderBy(asc(categorias.id));
+
+  for (const categoria of nuestrasCategorias) {
+    const vitrina = vitrinaPorCategoria.get(categoria.nombre);
+    vitrinaPorCategoria.delete(categoria.nombre);
+    if (!vitrina?.imagen) {
+      categoriasSinFoto.push(`${categoria.id} ${categoria.nombre}`);
+      continue;
+    }
+    const archivo = await readFile(resolve(carpeta, 'public/img', vitrina.imagen));
+    await servicio.subirImagenCategoria(null, categoria.id, archivo, {
+      alt: vitrina.alt?.trim() || categoria.nombre,
+    });
+    categoriasConFoto++;
+    console.log(`✓ categoría ${categoria.id} ${categoria.nombre}`);
+  }
 } finally {
   await db.$client.end();
   almacen.onModuleDestroy();
 }
 
-console.log(`\n${subidas} productos con foto.`);
+console.log(`\n${subidas} productos y ${categoriasConFoto} categorías con foto.`);
 if (sinFoto.length) {
   console.log(`\nSin foto en el sitio (súbela desde Productos):\n  ${sinFoto.join('\n  ')}`);
+}
+if (categoriasSinFoto.length) {
+  console.log(
+    `\nCategorías sin foto en el sitio (súbela en Productos → Categorías):\n  ${categoriasSinFoto.join('\n  ')}`,
+  );
 }
 const sobrantes = [...porSlug.values()].filter((p) => p.imagen);
 if (sobrantes.length) {

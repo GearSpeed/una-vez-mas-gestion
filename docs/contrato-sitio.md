@@ -19,7 +19,24 @@ las **categorías activas**, en el orden en que se muestran, y una entrada por p
 
 ```json
 {
-  "categorias": ["Galletas", "Borrachitos", "Alegrías"],
+  "categorias": [
+    {
+      "nombre": "Galletas",
+      "vitrina": {
+        "titulo": "Galletas de Amaranto",
+        "insignia": "Tradición dulce",
+        "icono": "cookie",
+        "descripcion": "Todas llevan amaranto: avena, chocolate, coco y nuez.",
+        "cta": "Ver nuestras galletas",
+        "imagen": {
+          "url": "https://img.unavezmasmx.com/categorias/1/7c2e9b104fa3d85e-1200.webp",
+          "urlChica": "https://img.unavezmasmx.com/categorias/1/7c2e9b104fa3d85e-600.webp",
+          "alt": "Galletas de amaranto en platos de cerámica"
+        }
+      }
+    },
+    { "nombre": "Obleas", "vitrina": null }
+  ],
   "productos": [
     {
       "slug": "galletas-avena",
@@ -45,7 +62,17 @@ las **categorías activas**, en el orden en que se muestran, y una entrada por p
 **`categorias` no se deduce de los productos.** Una categoría recién dada de alta todavía
 no tiene ninguno, y aun así debe poder anunciarse en el sitio («Próximamente»). Vienen
 solo las activas, en el orden en que se capturó que se muestran; una dada de baja
-desaparece de la lista. Cada `producto.categoria` es uno de estos nombres.
+desaparece de la lista. Cada `producto.categoria` es el `nombre` de una de estas.
+
+**`vitrina` es su tarjeta** en «Nuestras Categorías Dulces», la fila de la portada, y llega
+`null` cuando la categoría **no tiene foto**: una tarjeta con un hueco donde va la imagen se
+ve rota, y el sitio no tiene con qué rellenarla. La categoría sigue saliendo en la lista,
+porque sirve para filtrar el catálogo aunque no se anuncie.
+
+`titulo` y `cta` vienen resueltos: si no se capturaron, traen el nombre de la categoría y
+«Ver {nombre}». `insignia` e `icono` pueden venir vacíos, y entonces no se pintan; el ícono
+es un nombre de Material Symbols. El **color** de cada tarjeta no viaja: lo decide el sitio
+según el lugar que ocupa en la fila.
 
 Los campos de cada producto:
 
@@ -152,6 +179,8 @@ declararla, de una de estas dos formas:
 | 2026-09-28 | Se agrega `resumen` y la cabecera `Access-Control-Allow-Origin: *`; el sitio pasa a leer esta ruta         |
 | 2026-09-28 | Un `precio` en cero sale como `null`: nunca se publica un producto en $0                                   |
 | 2026-09-28 | **Cambio que rompe**: la respuesta pasa de ser un arreglo a `{ categorias, productos }`                    |
+| 2026-09-28 | Se agrega `destacado`: quién sale en «Los Favoritos de la Casa» se elige en la aplicación                  |
+| 2026-09-29 | **Cambio que rompe**: `categorias` pasa de nombres a objetos, cada uno con su `vitrina`                    |
 
 ## La vista `publico.catalogo` (uso interno)
 

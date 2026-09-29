@@ -91,6 +91,7 @@ export function como(app: INestApplication, correo: string) {
       http().post(`/api${ruta}`).set('X-Dev-Correo', correo).send(cuerpo),
     put: (ruta: string, cuerpo: object) =>
       http().put(`/api${ruta}`).set('X-Dev-Correo', correo).send(cuerpo),
+    delete: (ruta: string) => http().delete(`/api${ruta}`).set('X-Dev-Correo', correo),
   };
 }
 

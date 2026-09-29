@@ -1,8 +1,8 @@
 import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
 import {
-  type Categoria,
+  type CategoriaGasto,
   type DatosCancelacion,
-  type DatosCategoria,
+  type DatosCategoriaGasto,
   type DatosGasto,
   esquemaCancelacion,
   esquemaCategoriaGasto,
@@ -29,15 +29,15 @@ export class GastosController {
 
   @Get('gastos/categorias')
   @RequierePermiso('gastos.ver', 'gastos.registrar')
-  categorias(): Promise<Categoria[]> {
+  categorias(): Promise<CategoriaGasto[]> {
     return this.servicio.categorias();
   }
 
   @Post('gastos/categorias')
   @RequierePermiso('gastos.registrar')
   crearCategoria(
-    @Body(new Validar(esquemaCategoriaGasto)) datos: DatosCategoria,
-  ): Promise<Categoria> {
+    @Body(new Validar(esquemaCategoriaGasto)) datos: DatosCategoriaGasto,
+  ): Promise<CategoriaGasto> {
     return this.servicio.crearCategoria(datos);
   }
 
@@ -45,8 +45,8 @@ export class GastosController {
   @RequierePermiso('gastos.registrar')
   actualizarCategoria(
     @Param('id', ParseId) id: number,
-    @Body(new Validar(esquemaCategoriaGasto)) datos: DatosCategoria,
-  ): Promise<Categoria> {
+    @Body(new Validar(esquemaCategoriaGasto)) datos: DatosCategoriaGasto,
+  ): Promise<CategoriaGasto> {
     return this.servicio.actualizarCategoria(id, datos);
   }
 

@@ -1,8 +1,9 @@
 /**
  * `npm run importar-fichas -- <carpeta del sitio>`: copia a la aplicación los textos que
- * hoy tiene escritos el sitio, emparejando por slug. De `products.json`, la ficha
- * (resumen, descripción e ingredientes); de `featured.json`, las cuatro tarjetas de
- * «Los Favoritos de la Casa» (el switch, la etiqueta, el guiño y el texto).
+ * hoy tiene escritos el sitio. De `products.json`, la ficha de cada producto (resumen,
+ * descripción e ingredientes); de `featured.json`, las cuatro tarjetas de «Los Favoritos
+ * de la Casa»; y de `showcase.json`, las tarjetas de «Nuestras Categorías Dulces», estas
+ * emparejando por nombre de categoría y no por slug.
  *
  * **Solo llena lo que está vacío.** Un texto escrito en la pantalla de Productos no se
  * pisa nunca, así que se puede correr las veces que haga falta. Es un puente de una sola
@@ -18,13 +19,22 @@ import { asc, eq } from 'drizzle-orm';
 import { cargarArchivoEnv } from '../config/cargar-env.js';
 import { leerEntorno } from '../config/entorno.js';
 import { crearBaseDatos } from '../db/conexion.js';
-import { productos } from '../db/esquema.js';
+import { categorias, productos } from '../db/esquema.js';
 
 interface ProductoDelSitio {
   readonly id: string;
   readonly resumen?: string;
   readonly descripcion?: string;
   readonly ingredientes?: string;
+}
+
+interface VitrinaDelSitio {
+  readonly categoria: string;
+  readonly titulo?: string;
+  readonly insignia?: string;
+  readonly insigniaIcono?: string;
+  readonly descripcion?: string;
+  readonly cta?: string;
 }
 
 interface DestacadoDelSitio {
@@ -40,6 +50,10 @@ const LARGO_DESCRIPCION = 1000;
 const MAXIMO_INGREDIENTES = 12;
 const LARGO_INGREDIENTE = 40;
 const LARGO_ETIQUETA = 40;
+const LARGO_TITULO = 80;
+const LARGO_INSIGNIA = 40;
+const LARGO_DESCRIPCION_VITRINA = 300;
+const LARGO_CTA = 60;
 const LARGO_QUIP = 60;
 /** La fila que dibuja la portada del sitio. Igual que en `ProductosService`. */
 const MAXIMO_EN_PORTADA = 4;
@@ -78,11 +92,18 @@ function listaDeIngredientes(frase: string): string[] {
     .slice(0, MAXIMO_INGREDIENTES);
 }
 
+/** `showcase.json`, igual que los otros dos: el sitio ya no lo lee, el puente sí. */
+const vitrinasDelSitio = await readFile(resolve(carpeta, 'src/app/content/showcase.json'), 'utf8')
+  .then((texto) => JSON.parse(texto) as VitrinaDelSitio[])
+  .catch(() => []);
+const vitrinaPorCategoria = new Map(vitrinasDelSitio.map((v) => [v.categoria, v]));
+
 const db = crearBaseDatos(leerEntorno().DATABASE_URL, { maximo: 2 });
 const llenados: string[] = [];
 const respetados: string[] = [];
 const sinFicha: string[] = [];
 const sinPublicar: string[] = [];
+const sinVitrina: string[] = [];
 try {
   const nuestros = await db
     .select({
@@ -159,6 +180,56 @@ try {
       respetados.push(`${producto.id} ${producto.slug}: ${conservados.join(', ')}`);
     }
   }
+
+  // Las tarjetas de «Nuestras Categorías Dulces». La foto no va aquí: esa la sube
+  // `subir-imagenes`, y sin ella la categoría no dibuja tarjeta.
+  const nuestrasCategorias = await db
+    .select({
+      id: categorias.id,
+      nombre: categorias.nombre,
+      titulo: categorias.titulo,
+      insignia: categorias.insignia,
+      insigniaIcono: categorias.insigniaIcono,
+      descripcion: categorias.descripcion,
+      cta: categorias.cta,
+    })
+    .from(categorias)
+    .orderBy(asc(categorias.orden));
+
+  for (const categoria of nuestrasCategorias) {
+    const vitrina = vitrinaPorCategoria.get(categoria.nombre);
+    vitrinaPorCategoria.delete(categoria.nombre);
+    if (!vitrina) {
+      sinVitrina.push(`${categoria.id} ${categoria.nombre}`);
+      continue;
+    }
+
+    const campos: Record<string, string> = {};
+    const conservados: string[] = [];
+    const posibles = [
+      ['titulo', vitrina.titulo, LARGO_TITULO, categoria.titulo],
+      ['insignia', vitrina.insignia, LARGO_INSIGNIA, categoria.insignia],
+      ['insigniaIcono', vitrina.insigniaIcono, LARGO_INSIGNIA, categoria.insigniaIcono],
+      ['descripcion', vitrina.descripcion, LARGO_DESCRIPCION_VITRINA, categoria.descripcion],
+      ['cta', vitrina.cta, LARGO_CTA, categoria.cta],
+    ] as const;
+
+    for (const [campo, valor, largo, actual] of posibles) {
+      const limpio = valor?.trim().slice(0, largo);
+      if (!limpio) continue;
+      if (actual) conservados.push(campo);
+      else campos[campo] = limpio;
+    }
+
+    const puestos = Object.keys(campos);
+    if (puestos.length > 0) {
+      await db.update(categorias).set(campos).where(eq(categorias.id, categoria.id));
+      llenados.push(`categoría ${categoria.id} ${categoria.nombre}: ${puestos.join(', ')}`);
+    }
+    if (conservados.length > 0) {
+      respetados.push(`categoría ${categoria.id} ${categoria.nombre}: ${conservados.join(', ')}`);
+    }
+  }
 } finally {
   await db.$client.end();
 }
@@ -176,6 +247,16 @@ if (sinFicha.length) {
 if (sinPublicar.length) {
   console.log(
     `\nIban en la portada del sitio pero no están publicados, así que no se prendieron:\n  ${sinPublicar.join('\n  ')}`,
+  );
+}
+if (sinVitrina.length) {
+  console.log(
+    `\nCategorías sin tarjeta en el sitio (escríbela en Productos → Categorías):\n  ${sinVitrina.join('\n  ')}`,
+  );
+}
+if (vitrinaPorCategoria.size) {
+  console.log(
+    `\nTarjetas del sitio sin categoría con ese nombre (no se importaron):\n  ${[...vitrinaPorCategoria.keys()].join('\n  ')}`,
   );
 }
 if (porSlug.size) {

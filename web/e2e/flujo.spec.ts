@@ -348,7 +348,9 @@ test('un producto nuevo se da de alta con su ficha y su foto en un solo guardado
 
   // Y es lo que el sitio lee, sin identidad.
   const catalogo = await (await request.get('/api/publico/catalogo')).json();
-  expect(catalogo.categorias).toContain('Galletas');
+  expect(catalogo.categorias.map((c: { nombre: string }) => c.nombre)).toContain('Galletas');
+  // Ninguna tiene foto en la semilla, así que ninguna dibuja tarjeta en la portada.
+  expect(catalogo.categorias.every((c: { vitrina: unknown }) => c.vitrina === null)).toBe(true);
   expect(catalogo.productos.find((p: { nombre: string }) => p.nombre === nombre)).toMatchObject({
     descripcion,
     ingredientes: ['durazno', 'azúcar mascabado'],

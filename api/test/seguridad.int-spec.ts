@@ -23,6 +23,10 @@ const nuevaVenta = () => ({
   lineas: [{ productoId: IDS.tejocote, cantidad: 1 }],
 });
 
+/** Los nombres de las categorías del catálogo público, que ahora llegan como objetos. */
+const nombresDe = (r: { body: { categorias: { nombre: string }[] } }) =>
+  r.body.categorias.map((c) => c.nombre);
+
 /** Lo que protege a la API de cara a internet: ruta pública, CSRF y límites. */
 describe('seguridad', () => {
   let app: INestApplication;
@@ -90,7 +94,7 @@ describe('seguridad', () => {
 
     it('manda las categorías activas, tengan productos o no', async () => {
       const catalogo = await catalogoPublico();
-      expect(catalogo.body.categorias).toEqual(['Galletas', 'Borrachitos', 'Alegrías']);
+      expect(nombresDe(catalogo)).toEqual(['Galletas', 'Borrachitos', 'Alegrías']);
 
       // Una recién dada de alta no tiene ni un producto, y aun así el sitio debe poder
       // anunciarla («Próximamente»). Por eso no se deducen de los productos.
@@ -100,7 +104,7 @@ describe('seguridad', () => {
         activa: true,
       });
       expect(creada.status).toBe(201);
-      expect((await catalogoPublico()).body.categorias).toEqual([
+      expect(nombresDe(await catalogoPublico())).toEqual([
         'Galletas',
         'Borrachitos',
         'Alegrías',
@@ -113,7 +117,7 @@ describe('seguridad', () => {
         orden: 4,
         activa: false,
       });
-      expect((await catalogoPublico()).body.categorias).not.toContain('Paletas');
+      expect(nombresDe(await catalogoPublico())).not.toContain('Paletas');
     });
 
     it('no muestra lo que no está publicado ni lo dado de baja', async () => {

@@ -23,7 +23,7 @@ import { startWith } from 'rxjs';
 import { ApiService } from '../../core/api';
 import { marcarErroresDelServidor, mensajeDeError } from '../../core/errores';
 import { numeroONulo } from '../../ui/claves';
-import { ImagenProducto } from './imagen-producto';
+import { ImagenEditable } from './imagen-editable';
 
 /** Lo que cabe en una etiqueta de ingrediente, y cuántas. Igual que en `compartido`. */
 const MAXIMO_INGREDIENTES = 12;
@@ -41,7 +41,7 @@ export interface DatosDialogoProducto {
 @Component({
   selector: 'uvm-dialogo-producto',
   imports: [
-    ImagenProducto,
+    ImagenEditable,
     ReactiveFormsModule,
     CurrencyPipe,
     PercentPipe,
@@ -66,7 +66,7 @@ export class DialogoProducto {
   private readonly fb = inject(FormBuilder).nonNullable;
 
   protected readonly producto = this.datos.producto;
-  private readonly imagenRef = viewChild.required(ImagenProducto);
+  private readonly imagenRef = viewChild.required(ImagenEditable<Producto>);
   /**
    * Lo que ya quedó grabado sin cerrar el diálogo: el producto recién creado, o el
    * que cambió al quitarle la imagen. Sirve para dos cosas: que al cerrar se

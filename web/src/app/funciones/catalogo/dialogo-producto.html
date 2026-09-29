@@ -208,7 +208,7 @@
       }
     </fieldset>
 
-    <uvm-imagen-producto [producto]="base()" (cambio)="guardado.set($event)" />
+    <uvm-imagen-editable ruta="productos" [entidad]="base()" (cambio)="guardado.set($event)" />
 
     <div class="casillas">
       <mat-checkbox formControlName="activo">Activo (se puede comprar y vender)</mat-checkbox>

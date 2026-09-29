@@ -6,8 +6,8 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
-  type Categoria,
-  type DatosCategoria,
+  type CategoriaGasto,
+  type DatosCategoriaGasto,
   type DatosGasto,
   type FiltroGastos,
   type Gasto,
@@ -170,20 +170,20 @@ export class GastosService {
 
   /* ---- Categorías ---- */
 
-  async categorias(): Promise<Categoria[]> {
+  async categorias(): Promise<CategoriaGasto[]> {
     return this.db
       .select()
       .from(gastoCategorias)
       .orderBy(asc(gastoCategorias.orden), asc(gastoCategorias.nombre));
   }
 
-  async crearCategoria(datos: DatosCategoria): Promise<Categoria> {
+  async crearCategoria(datos: DatosCategoriaGasto): Promise<CategoriaGasto> {
     const [creada] = await this.db.insert(gastoCategorias).values(datos).returning();
     if (!creada) throw new Error('No se creó la categoría');
     return creada;
   }
 
-  async actualizarCategoria(id: number, datos: DatosCategoria): Promise<Categoria> {
+  async actualizarCategoria(id: number, datos: DatosCategoriaGasto): Promise<CategoriaGasto> {
     const [actualizada] = await this.db
       .update(gastoCategorias)
       .set(datos)

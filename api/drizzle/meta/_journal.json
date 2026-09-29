@@ -120,6 +120,13 @@
       "when": 1790639250005,
       "tag": "0016_destacados_de_portada",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790705455393,
+      "tag": "0017_vitrinas_de_categoria",
+      "breakpoints": true
     }
   ]
 }

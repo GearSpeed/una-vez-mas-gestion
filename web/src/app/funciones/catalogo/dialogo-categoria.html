@@ -1,0 +1,95 @@
+<h2 mat-dialog-title>Editar {{ categoria.nombre }}</h2>
+<form [formGroup]="formulario" (ngSubmit)="guardar()" novalidate>
+  <mat-dialog-content class="contenido">
+    <div class="rejilla-campos">
+      <mat-form-field>
+        <mat-label>Nombre</mat-label>
+        <input matInput formControlName="nombre" cdkFocusInitial />
+        <mat-hint>Es el que filtra el catálogo del sitio.</mat-hint>
+        @if (formulario.controls.nombre.hasError('required')) {
+          <mat-error>Escribe el nombre.</mat-error>
+        } @else if (formulario.controls.nombre.hasError('servidor')) {
+          <mat-error>{{ formulario.controls.nombre.getError('servidor') }}</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field>
+        <mat-label>Orden</mat-label>
+        <input matInput type="number" min="0" formControlName="orden" />
+        <mat-hint>En qué lugar va, en el catálogo y en la portada.</mat-hint>
+      </mat-form-field>
+    </div>
+
+    <mat-slide-toggle formControlName="activa">Activa</mat-slide-toggle>
+
+    <fieldset class="ficha">
+      <legend>Tarjeta de la portada</legend>
+      <p class="ayuda">
+        Es lo que se lee en «Nuestras Categorías Dulces». Sin foto no sale la tarjeta, pero la
+        categoría sigue sirviendo para filtrar el catálogo.
+      </p>
+
+      <mat-form-field>
+        <mat-label>Título</mat-label>
+        <input
+          matInput
+          formControlName="titulo"
+          maxlength="80"
+          placeholder="Galletas de Amaranto"
+        />
+        <mat-hint>Si lo dejas vacío se usa el nombre de la categoría.</mat-hint>
+      </mat-form-field>
+
+      <div class="rejilla-campos">
+        <mat-form-field>
+          <mat-label>Insignia</mat-label>
+          <input matInput formControlName="insignia" maxlength="40" placeholder="Tradición dulce" />
+        </mat-form-field>
+
+        <mat-form-field>
+          <mat-label>Ícono de la insignia</mat-label>
+          <mat-select formControlName="insigniaIcono">
+            <mat-option [value]="''">Sin ícono</mat-option>
+            @for (icono of iconos; track icono.valor) {
+              <mat-option [value]="icono.valor">
+                <mat-icon>{{ icono.valor }}</mat-icon>
+                <span>{{ icono.nombre }}</span>
+              </mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <mat-form-field>
+        <mat-label>Descripción</mat-label>
+        <textarea
+          matInput
+          formControlName="descripcion"
+          rows="3"
+          maxlength="300"
+          placeholder="Qué agrupa esta familia y qué la hace distinta."
+        ></textarea>
+      </mat-form-field>
+
+      <mat-form-field>
+        <mat-label>Texto del enlace</mat-label>
+        <input matInput formControlName="cta" maxlength="60" placeholder="Ver nuestras galletas" />
+        <mat-hint>Si lo dejas vacío se arma «Ver {{ categoria.nombre.toLowerCase() }}».</mat-hint>
+      </mat-form-field>
+    </fieldset>
+
+    <uvm-imagen-editable ruta="categorias" [entidad]="base()" (cambio)="guardado.set($event)" />
+
+    @if (error()) {
+      <p class="error-texto" role="alert">{{ error() }}</p>
+    }
+  </mat-dialog-content>
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" (click)="cerrar()">
+      {{ guardado() ? 'Cerrar' : 'Cancelar' }}
+    </button>
+    <button mat-flat-button type="submit" [disabled]="guardando()">
+      {{ guardando() ? 'Guardando…' : 'Guardar' }}
+    </button>
+  </mat-dialog-actions>
+</form>

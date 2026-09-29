@@ -66,11 +66,34 @@ export interface Ubicacion extends UbicacionResumen {
 
 /* ---- Catálogo ---- */
 
+/** Una categoría de gasto: solo agrupa. No sale en el sitio. */
+export interface CategoriaGasto {
+  readonly id: number;
+  readonly nombre: string;
+  readonly orden: number;
+  readonly activa: boolean;
+}
+
+/** Una categoría del catálogo, con la tarjeta que le toca en la portada del sitio. */
 export interface Categoria {
   readonly id: number;
   readonly nombre: string;
   readonly orden: number;
   readonly activa: boolean;
+  /** «Galletas de Amaranto». Vacío: la tarjeta del sitio usa el `nombre`. */
+  readonly titulo: string;
+  /** La píldora de la tarjeta: «Tradición dulce». */
+  readonly insignia: string;
+  /** El ícono de Material Symbols que la acompaña. */
+  readonly insigniaIcono: string;
+  /** El párrafo de la tarjeta. */
+  readonly descripcion: string;
+  /** El texto del enlace. Vacío: se arma «Ver {nombre}». */
+  readonly cta: string;
+  /** La foto de la tarjeta, o `null` si no tiene: sin foto no hay tarjeta. */
+  readonly imagen: ImagenProducto | null;
+  /** El texto alternativo guardado, haya foto o no. */
+  readonly imagenAlt: string;
 }
 
 export interface CostosProducto {
@@ -283,8 +306,30 @@ export interface VentaDetalle extends VentaResumen {
  */
 export interface CatalogoPublico {
   /** Las activas, en el orden en que se muestran. Puede haber alguna sin productos. */
-  readonly categorias: readonly string[];
+  readonly categorias: readonly CategoriaPublica[];
   readonly productos: readonly ProductoPublico[];
+}
+
+export interface CategoriaPublica {
+  /** El nombre con el que se filtra el catálogo. Es el `categoria` de cada producto. */
+  readonly nombre: string;
+  /** Su tarjeta en la portada, o `null` si no tiene foto: sin foto no hay tarjeta. */
+  readonly vitrina: VitrinaPublica | null;
+}
+
+/** Una tarjeta de «Nuestras Categorías Dulces». El color lo decide el sitio. */
+export interface VitrinaPublica {
+  /** Ya resuelto: si no se capturó, es el nombre de la categoría. */
+  readonly titulo: string;
+  /** La píldora: «Tradición dulce». Vacío: el sitio no la pinta. */
+  readonly insignia: string;
+  /** El ícono de Material Symbols que la acompaña. Vacío: no se pinta. */
+  readonly icono: string;
+  /** El párrafo de la tarjeta. */
+  readonly descripcion: string;
+  /** Ya resuelto: si no se capturó, es «Ver {nombre}». */
+  readonly cta: string;
+  readonly imagen: ImagenProducto;
 }
 
 export interface ProductoPublico {

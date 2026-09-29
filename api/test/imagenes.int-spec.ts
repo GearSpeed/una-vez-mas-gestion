@@ -28,6 +28,25 @@ function foto(ancho = 2000, alto = 1500, color = '#c8913c'): Promise<Buffer> {
     .toBuffer();
 }
 
+/** La tarjeta que el sitio dibujaría hoy para esa categoría, o `null` si no la dibuja. */
+async function vitrinaDe(app: INestApplication, nombre: string) {
+  const publico = await request(app.getHttpServer()).get('/api/publico/catalogo');
+  return publico.body.categorias.find((c: { nombre: string }) => c.nombre === nombre)?.vitrina;
+}
+
+/** Una categoría con todos los textos de su tarjeta. Lo que falta es la foto. */
+const conTarjeta = (extra: object = {}) => ({
+  nombre: 'Galletas',
+  orden: 1,
+  activa: true,
+  titulo: 'Galletas de Amaranto',
+  insignia: 'Tradición dulce',
+  insigniaIcono: 'cookie',
+  descripcion: 'Todas llevan amaranto.',
+  cta: 'Ver nuestras galletas',
+  ...extra,
+});
+
 async function descargar(url: string): Promise<{ tipo: string | null; cuerpo: Buffer }> {
   const respuesta = await fetch(url);
   expect(respuesta.status).toBe(200);
@@ -170,6 +189,80 @@ describe('imágenes de producto', () => {
     );
     expect(avena.imagen).toMatchObject({ alt: ALT, esPlaceholder: false });
     expect(avena.imagen.url).toContain(`productos/${IDS.avena}/`);
+  });
+
+  describe('la foto de una categoría', () => {
+    const ALT_CATEGORIA = 'Galletas de amaranto en un plato de barro';
+
+    const subirCategoria = (
+      id: number,
+      archivo: Buffer | null,
+      alt: string | null = ALT_CATEGORIA,
+    ) => {
+      let peticion = request(app.getHttpServer())
+        .post(`/api/categorias/${id}/imagen`)
+        .set('X-Dev-Correo', ADMIN)
+        .set('Sec-Fetch-Site', 'same-origin');
+      if (alt !== null) peticion = peticion.field('alt', alt);
+      if (archivo) peticion = peticion.attach('archivo', archivo, 'foto.jpg');
+      return peticion;
+    };
+
+    it('la foto enciende la tarjeta, y llega entera hasta el sitio', async () => {
+      await como(app, ADMIN).put('/categorias/1', conTarjeta());
+      expect(await vitrinaDe(app, 'Galletas')).toBeNull();
+
+      const subida = await subirCategoria(1, await foto());
+      expect(subida.status).toBe(201);
+      expect(subida.body.imagen.url).toContain('categorias/1/');
+
+      expect(await vitrinaDe(app, 'Galletas')).toMatchObject({
+        titulo: 'Galletas de Amaranto',
+        insignia: 'Tradición dulce',
+        icono: 'cookie',
+        descripcion: 'Todas llevan amaranto.',
+        cta: 'Ver nuestras galletas',
+        imagen: { alt: ALT_CATEGORIA },
+      });
+      // Y la foto está de verdad en el bucket, en los dos tamaños.
+      const { tipo, cuerpo } = await descargar((await vitrinaDe(app, 'Galletas')).imagen.url);
+      expect(tipo).toBe('image/webp');
+      expect((await sharp(cuerpo).metadata()).width).toBe(1200);
+    });
+
+    it('sin título ni enlace propios, se resuelven con el nombre', async () => {
+      await como(app, ADMIN).put('/categorias/1', conTarjeta({ titulo: '', cta: '' }));
+      await subirCategoria(1, await foto());
+
+      expect(await vitrinaDe(app, 'Galletas')).toMatchObject({
+        titulo: 'Galletas',
+        cta: 'Ver galletas',
+      });
+    });
+
+    it('al cambiar la foto, la anterior se va del bucket', async () => {
+      const primera = await subirCategoria(1, await foto());
+      const urlVieja = primera.body.imagen.url;
+      const segunda = await subirCategoria(1, await foto(1800, 1200, '#4c2a12'));
+      expect(segunda.body.imagen.url).not.toBe(urlVieja);
+      expect((await fetch(urlVieja)).status).toBe(404);
+    });
+
+    it('al quitar la foto desaparece la tarjeta, y la categoría se queda', async () => {
+      await como(app, ADMIN).put('/categorias/1', conTarjeta());
+      await subirCategoria(1, await foto());
+      expect(await vitrinaDe(app, 'Galletas')).not.toBeNull();
+
+      const quitada = await como(app, ADMIN).delete('/categorias/1/imagen');
+      expect(quitada.status).toBe(200);
+      expect(quitada.body).toMatchObject({ imagen: null, imagenAlt: '' });
+      expect(await vitrinaDe(app, 'Galletas')).toBeNull();
+
+      const publico = await request(app.getHttpServer()).get('/api/publico/catalogo');
+      expect(publico.body.categorias.map((c: { nombre: string }) => c.nombre)).toContain(
+        'Galletas',
+      );
+    });
   });
 
   it('rechaza lo que no es JPG, PNG o WebP', async () => {

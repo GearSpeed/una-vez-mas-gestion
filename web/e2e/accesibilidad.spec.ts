@@ -51,6 +51,17 @@ for (const { ruta, boton } of DIALOGOS) {
   });
 }
 
+test('el diálogo «Editar categoría» pasa axe', async ({ page }) => {
+  // No está en DIALOGOS porque se abre desde una pestaña, no desde un botón de la barra.
+  await entrarComo(page, 'admin');
+  await page.goto('/productos');
+  await esperarCarga(page);
+  await page.getByRole('tab', { name: 'Categorías' }).click();
+  await page.getByRole('button', { name: 'Editar' }).first().click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await sinViolaciones(page);
+});
+
 test('el calendario de un filtro de fechas pasa axe', async ({ page }) => {
   await entrarComo(page, 'admin');
   await page.goto('/ventas');
