@@ -21,7 +21,9 @@ import {
   coincideBusqueda,
   type ComisionPago,
   comisionDeCobro,
+  type Categoria,
   comparar,
+  descuentoPorVolumen,
   type Decimal,
   type Existencia,
   type ExistenciasRespuesta,
@@ -29,6 +31,7 @@ import {
   METODOS_PAGO,
   type MetodoPago,
   redondear,
+  multiplicar,
   restar,
   sumar,
   totalVenta,
@@ -123,26 +126,90 @@ export class NuevaVenta {
     );
   });
 
+  /** Los escalones de descuento por volumen, que se capturan en cada categoría. */
+  private readonly categorias = httpResource<Categoria[]>(() => '/api/categorias');
+  private readonly escalones = computed(
+    () =>
+      new Map(
+        (this.categorias.value() ?? []).map((c) => [
+          c.id,
+          {
+            desde1: c.descuentoDesde1,
+            tasa1: c.descuentoTasa1,
+            desde2: c.descuentoDesde2,
+            tasa2: c.descuentoTasa2,
+          },
+        ]),
+      ),
+  );
+
   protected readonly carrito = signal<ReadonlyMap<number, LineaCarrito>>(new Map());
   protected readonly lineas = computed(() => {
     const porId = new Map(this.disponibles().map((f) => [f.productoId, f]));
-    return [...this.carrito()].flatMap(([productoId, linea]) => {
+    const enCarrito = [...this.carrito()].flatMap(([productoId, linea]) => {
       const producto = porId.get(productoId);
       if (!producto?.precioVenta) return [];
+      return [
+        {
+          productoId,
+          categoriaId: producto.categoriaId,
+          producto: producto.producto,
+          cantidad: linea.cantidad,
+          precioUnitario: producto.precioVenta,
+          descuentoManual: linea.descuento || '0',
+        },
+      ];
+    });
+
+    // La misma función que usa el servidor: si aquí se cobrara un centavo distinto, la
+    // venta se rechazaría por no cuadrar con los pagos.
+    const porVolumen = descuentoPorVolumen(enCarrito, this.escalones());
+
+    return enCarrito.map((linea) => {
+      const volumen = porVolumen.get(linea.productoId) ?? '0';
+      // Quien compra nunca recibe menos de lo que le toca por volumen.
+      const descuento =
+        comparar(linea.descuentoManual, volumen) > 0 ? linea.descuentoManual : volumen;
       const conPrecio = {
         cantidad: linea.cantidad,
-        precioUnitario: producto.precioVenta,
-        descuento: linea.descuento || '0',
+        precioUnitario: linea.precioUnitario,
+        descuento,
       };
-      return [
-        { productoId, producto: producto.producto, ...conPrecio, importe: importeLinea(conPrecio) },
-      ];
+      return {
+        productoId: linea.productoId,
+        producto: linea.producto,
+        descuentoVolumen: volumen,
+        ...conPrecio,
+        importe: importeLinea(conPrecio),
+      };
     });
   });
   protected readonly total = computed(() => totalVenta(this.lineas()));
   protected readonly piezas = computed(() =>
     this.lineas().reduce((suma, l) => suma + l.cantidad, 0),
   );
+
+  /**
+   * Lo que costaría sin ningún descuento, para poder enseñar de dónde sale el total.
+   * Un número que baja solo, sin decir por qué, se lee como un error de la aplicación.
+   */
+  protected readonly subtotal = computed(() =>
+    sumar(this.lineas().map((l) => multiplicar(l.precioUnitario, String(l.cantidad)))),
+  );
+
+  /**
+   * El descuento de toda la venta, y qué proporción del subtotal representa.
+   *
+   * El porcentaje se saca del total y no del escalón porque una venta puede juntar dos
+   * categorías con escalones distintos: así lo que se muestra siempre cuadra con lo que
+   * se cobra, aunque sea una mezcla.
+   */
+  protected readonly descuento = computed(() => {
+    const subtotal = this.subtotal();
+    const monto = restar(subtotal, this.total());
+    if (comparar(monto, '0') <= 0) return null;
+    return { monto, proporcion: Number(monto) / Number(subtotal) };
+  });
 
   protected readonly canal = signal<CanalVenta>('whatsapp');
   protected readonly metodoPago = signal<MetodoPago>('efectivo');

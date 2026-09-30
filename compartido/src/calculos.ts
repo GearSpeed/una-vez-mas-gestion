@@ -225,6 +225,75 @@ export function totalVenta(lineas: readonly LineaVenta[]): Decimal {
 }
 
 /* -----------------------------------------------------------------------------
+   Descuento por volumen
+   -------------------------------------------------------------------------- */
+
+/** Los dos escalones de una categoría. `desde` en cero significa «sin escalón». */
+export interface EscalonesCategoria {
+  readonly desde1: number;
+  readonly tasa1: Decimal;
+  readonly desde2: number;
+  readonly tasa2: Decimal;
+}
+
+export interface LineaConCategoria {
+  readonly productoId: number;
+  readonly categoriaId: number;
+  readonly cantidad: number;
+  readonly precioUnitario: Decimal;
+}
+
+/**
+ * Cuánto se le descuenta a cada línea por llevar cantidad.
+ *
+ * **Las piezas se cuentan por categoría, no por producto**: tres de avena y tres de coco
+ * son seis galletas, y el descuento entra en las dos líneas. Es como compra la gente, y
+ * es la razón de que esto no se pueda resolver línea por línea.
+ *
+ * De los dos escalones se toma **el más alto que se alcance**. El resultado es el
+ * descuento en pesos de la línea completa, redondeado a dos decimales como todo el dinero
+ * del sistema.
+ *
+ * Vive aquí, y no en la API ni en la pantalla, porque las dos tienen que llegar al mismo
+ * número: si la pantalla cobrara un centavo distinto del que calcula el servidor, la venta
+ * se rechazaría por no cuadrar con los pagos.
+ */
+export function descuentoPorVolumen(
+  lineas: readonly LineaConCategoria[],
+  escalones: ReadonlyMap<number, EscalonesCategoria>,
+): Map<number, Decimal> {
+  const piezasPorCategoria = new Map<number, number>();
+  for (const linea of lineas) {
+    piezasPorCategoria.set(
+      linea.categoriaId,
+      (piezasPorCategoria.get(linea.categoriaId) ?? 0) + linea.cantidad,
+    );
+  }
+
+  const descuentos = new Map<number, Decimal>();
+  for (const linea of lineas) {
+    const tasa = tasaQueAplica(
+      escalones.get(linea.categoriaId),
+      piezasPorCategoria.get(linea.categoriaId) ?? 0,
+    );
+    if (tasa === null) continue;
+    descuentos.set(
+      linea.productoId,
+      fijar(big(linea.precioUnitario).times(linea.cantidad).times(tasa), DECIMALES_DINERO),
+    );
+  }
+  return descuentos;
+}
+
+/** El escalón más alto que alcanzan esas piezas, o `null` si no llega a ninguno. */
+function tasaQueAplica(escalones: EscalonesCategoria | undefined, piezas: number): Decimal | null {
+  if (!escalones) return null;
+  if (escalones.desde2 > 0 && piezas >= escalones.desde2) return escalones.tasa2;
+  if (escalones.desde1 > 0 && piezas >= escalones.desde1) return escalones.tasa1;
+  return null;
+}
+
+/* -----------------------------------------------------------------------------
    Comisión del cobro con tarjeta (Mercado Pago) y devoluciones
    -------------------------------------------------------------------------- */
 

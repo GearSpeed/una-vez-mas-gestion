@@ -100,7 +100,15 @@
           <tbody>
             @for (l of lineas(); track l.productoId) {
               <tr>
-                <td>{{ l.producto }}</td>
+                <td>
+                  {{ l.producto }}
+                  <!-- Que se vea por qué bajó el precio, y que no parezca un error. -->
+                  @if (l.descuentoVolumen !== '0') {
+                    <span class="estado bien"
+                      >−{{ l.descuentoVolumen | currency }} por volumen</span
+                    >
+                  }
+                </td>
                 <td class="numero">{{ l.cantidad }}</td>
                 @if (puedeDescontar()) {
                   <td class="numero">
@@ -197,6 +205,17 @@
           maxlength="500"
         />
       </mat-form-field>
+
+      @if (descuento(); as d) {
+        <!-- De dónde sale el total: si sólo se viera el número final, un precio más bajo
+             de lo esperado parecería un error de la aplicación. -->
+        <dl class="desglose" aria-live="polite">
+          <dt>Venta</dt>
+          <dd>{{ subtotal() | currency }}</dd>
+          <dt>Descuento ({{ d.proporcion | percent: '1.0-1' }})</dt>
+          <dd class="rebaja">−{{ d.monto | currency }}</dd>
+        </dl>
+      }
 
       <p class="total" aria-live="polite">
         {{ piezas() }} {{ piezas() === 1 ? 'pieza' : 'piezas' }} ·

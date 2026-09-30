@@ -29,6 +29,7 @@ const EXISTENCIAS: ExistenciasRespuesta = {
       slug: 'galletas-mermelada-tejocote',
       producto: 'Galletas de Mermelada de Tejocote',
       categoria: 'Galletas',
+      categoriaId: 1,
       presentacion: '6 pzas',
       precioVenta: '30.00',
       activo: true,
@@ -40,6 +41,7 @@ const EXISTENCIAS: ExistenciasRespuesta = {
       slug: 'galletas-avena',
       producto: 'Galletas de Avena',
       categoria: 'Galletas',
+      categoriaId: 1,
       presentacion: '6 pzas',
       precioVenta: null,
       activo: true,
@@ -51,10 +53,23 @@ const EXISTENCIAS: ExistenciasRespuesta = {
       slug: 'galletas-coco',
       producto: 'Galletas de Coco',
       categoria: 'Galletas',
+      categoriaId: 1,
       presentacion: '6 pzas',
       precioVenta: '28.00',
       activo: true,
       cantidad: 0,
+      stockMinimo: 0,
+    },
+    {
+      productoId: 4,
+      slug: 'galletas-nuez',
+      producto: 'Galletas de Nuez',
+      categoria: 'Galletas',
+      categoriaId: 1,
+      presentacion: '6 pzas',
+      precioVenta: '30.00',
+      activo: true,
+      cantidad: 10,
       stockMinimo: 0,
     },
   ],
@@ -65,6 +80,28 @@ const TARIFAS: ComisionPago[] = [
 ];
 
 /** Deja correr las promesas pendientes y los efectos (la recarga de existencias). */
+/** Galletas con los escalones capturados: 5 % desde 6 piezas y 10 % desde 11. */
+const CATEGORIAS = [
+  {
+    id: 1,
+    nombre: 'Galletas',
+    orden: 1,
+    activa: true,
+    titulo: '',
+    insignia: '',
+    insigniaIcono: '',
+    descripcion: '',
+    cta: '',
+    imagen: null,
+    imagenAlt: '',
+    saleEnPortada: false,
+    descuentoDesde1: 6,
+    descuentoTasa1: '0.0500',
+    descuentoDesde2: 11,
+    descuentoTasa2: '0.1000',
+  },
+];
+
 async function asentar(): Promise<void> {
   await new Promise((listo) => setTimeout(listo, 0));
   TestBed.tick();
@@ -102,6 +139,7 @@ describe('NuevaVenta', () => {
     TestBed.tick();
     http.expectOne('/api/inventario/existencias').flush(EXISTENCIAS);
     http.expectOne('/api/comisiones').flush(TARIFAS);
+    http.expectOne('/api/categorias').flush(CATEGORIAS);
     await fixture.whenStable();
   });
 
@@ -114,7 +152,7 @@ describe('NuevaVenta', () => {
     const productos = [...pantalla.querySelectorAll('.producto .nombre')].map((e) =>
       e.textContent?.trim(),
     );
-    expect(productos).toEqual(['Galletas de Mermelada de Tejocote']);
+    expect(productos).toEqual(['Galletas de Mermelada de Tejocote', 'Galletas de Nuez']);
   });
 
   it('no deja agregar más de lo que trae', async () => {
@@ -144,6 +182,46 @@ describe('NuevaVenta', () => {
     expect(aviso).toContain('$2.44');
     expect(aviso).toContain('4.06');
     expect(aviso).toContain('$57.56');
+  });
+
+  it('el descuento por volumen entra solo, sumando las piezas de la categoría', async () => {
+    // Tres de tejocote y tres de nuez son seis galletas: ninguno llega a seis por su
+    // cuenta, y aun así entra el 5 % en las dos líneas.
+    const tejocote = boton('Agregar una pieza de Galletas de Mermelada de Tejocote');
+    const nuez = boton('Agregar una pieza de Galletas de Nuez');
+    for (let i = 0; i < 3; i++) {
+      tejocote?.click();
+      await fixture.whenStable();
+    }
+    // Con cinco piezas todavía no hay descuento.
+    nuez?.click();
+    nuez?.click();
+    await fixture.whenStable();
+    expect(pantalla.textContent).not.toContain('por volumen');
+
+    nuez?.click();
+    await fixture.whenStable();
+    const avisos = [...pantalla.querySelectorAll('tbody .estado')].map((e) =>
+      e.textContent?.trim(),
+    );
+    expect(avisos).toEqual(['−$4.50 por volumen', '−$4.50 por volumen']);
+
+    // Y el total dice de dónde sale: sin eso, un precio más bajo del esperado se lee
+    // como un error de la aplicación.
+    const desglose = [...pantalla.querySelectorAll('.desglose dt, .desglose dd')].map((e) =>
+      e.textContent?.trim(),
+    );
+    expect(desglose).toEqual(['Venta', '$180.00', 'Descuento (5%)', '−$9.00']);
+    expect(pantalla.querySelector('.total')?.textContent).toContain('$171.00');
+
+    // Y lo que se cobra ya viene con el descuento: 180 − 9 = 171.
+    pantalla.querySelector<HTMLButtonElement>('button.registrar')?.click();
+    const peticion = http.expectOne('/api/ventas');
+    expect(peticion.request.body.pagos).toEqual([{ metodoPago: 'efectivo', importe: '171.00' }]);
+    peticion.flush({ folio: 'V-000003', total: '171.00' });
+    await asentar();
+    http.expectOne('/api/inventario/existencias').flush(EXISTENCIAS);
+    await fixture.whenStable();
   });
 
   it('registra la venta con lo elegido y limpia el carrito', async () => {

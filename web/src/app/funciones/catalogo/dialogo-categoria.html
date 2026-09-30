@@ -80,6 +80,70 @@
       </mat-form-field>
     </fieldset>
 
+    <fieldset class="ficha">
+      <legend>Descuento por volumen</legend>
+      <p class="ayuda">
+        Entra solo cuando la venta junta esas piezas <strong>de toda la familia</strong>: tres de
+        avena y tres de coco son seis galletas. Deja los dos en cero para no dar descuento.
+      </p>
+
+      <div class="rejilla-campos">
+        <mat-form-field>
+          <mat-label>Desde cuántas piezas</mat-label>
+          <input matInput type="number" min="0" formControlName="descuentoDesde1" />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Descuento</mat-label>
+          <input
+            matInput
+            type="number"
+            min="0"
+            max="50"
+            step="0.5"
+            formControlName="descuentoPct1"
+          />
+          <span matTextSuffix>%</span>
+          @if (formulario.controls.descuentoPct1.hasError('servidor')) {
+            <mat-error>{{ formulario.controls.descuentoPct1.getError('servidor') }}</mat-error>
+          }
+        </mat-form-field>
+      </div>
+
+      <div class="rejilla-campos">
+        <mat-form-field>
+          <mat-label>Y desde cuántas</mat-label>
+          <input matInput type="number" min="0" formControlName="descuentoDesde2" />
+          @if (formulario.controls.descuentoDesde2.hasError('servidor')) {
+            <mat-error>{{ formulario.controls.descuentoDesde2.getError('servidor') }}</mat-error>
+          }
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Descuento</mat-label>
+          <input
+            matInput
+            type="number"
+            min="0"
+            max="50"
+            step="0.5"
+            formControlName="descuentoPct2"
+          />
+          <span matTextSuffix>%</span>
+          @if (formulario.controls.descuentoPct2.hasError('servidor')) {
+            <mat-error>{{ formulario.controls.descuentoPct2.getError('servidor') }}</mat-error>
+          }
+        </mat-form-field>
+      </div>
+
+      @if (loQueDeja(); as cuentas) {
+        @for (c of cuentas; track c.pct) {
+          <p class="ayuda" [class.alerta]="c.deja <= 0">
+            Con {{ c.pct }} %, «{{ c.producto }}» —el más flaco de esta familia— te dejaría
+            <strong>{{ c.deja | currency }}</strong> por pieza, pagada con tarjeta y con comisión.
+          </p>
+        }
+      }
+    </fieldset>
+
     <p class="ayuda">
       La foto es opcional: sin ella, la tarjeta va rotando entre las fotos de los productos de esta
       familia, y así la portada cambia un poco en cada visita. Súbele una sólo si quieres que se
