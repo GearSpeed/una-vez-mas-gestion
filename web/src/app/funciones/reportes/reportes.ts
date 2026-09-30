@@ -13,12 +13,14 @@ import {
   type AgruparVentasPor,
   type Categoria,
   type ComisionVendedor,
+  comparar,
   fechaDeHoy,
   type FilaReporteCompras,
   type FilaReporteVentas,
   type EstadoResultados,
   type FilaUtilidad,
   inicioDeMes,
+  type SaldosCaja,
   sumar,
 } from '@uvm/compartido';
 import { conParametros } from '../../core/api';
@@ -29,6 +31,7 @@ import { mensajeDeError } from '../../core/errores';
 import { SesionService } from '../../core/sesion';
 import { Desplazable } from '../../ui/desplazable';
 import { Encabezado } from '../../ui/encabezado';
+import { EtiquetaPipe } from '../../ui/etiqueta.pipe';
 import { EstadoCarga } from '../../ui/estado-carga';
 import { CorteVendedor } from './corte';
 import { CALENDARIO_EN_ESPANOL } from '../../ui/intl-calendario';
@@ -47,6 +50,7 @@ const AGRUPACIONES: readonly { valor: AgruparVentasPor; etiqueta: string }[] = [
     Desplazable,
     Encabezado,
     EstadoCarga,
+    EtiquetaPipe,
     CorteVendedor,
     CurrencyPipe,
     DatePipe,
@@ -89,6 +93,25 @@ export class Reportes {
   protected readonly resultado = httpResource<EstadoResultados>(() =>
     this.verCostos() ? conParametros('/reportes/resultado', this.periodo()) : undefined,
   );
+
+  protected readonly verCapital = computed(() => this.sesion.puede('capital.ver'));
+
+  /**
+   * Cuánto dinero debería haber. Va acumulado a la fecha, no por periodo: un saldo
+   * no depende del mes que uno esté mirando.
+   */
+  protected readonly saldos = httpResource<SaldosCaja>(() =>
+    this.verCapital() ? '/api/capital/saldos' : undefined,
+  );
+
+  /** El renglón de capital solo aparece si alguien puso o sacó dinero en el periodo. */
+  protected readonly huboCapital = computed(() => {
+    const capital = this.resultado.value()?.capitalDelPeriodo;
+    return (
+      !!capital &&
+      (comparar(capital.aportaciones, '0') !== 0 || comparar(capital.retiros, '0') !== 0)
+    );
+  });
 
   /** Lo que se le debe a cada quien por vender: ganado de siempre menos pagado. */
   protected readonly comisiones = httpResource<ComisionVendedor[]>(() =>

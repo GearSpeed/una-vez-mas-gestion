@@ -95,6 +95,19 @@
             </mat-form-field>
           }
         </div>
+
+        <fieldset class="grupo">
+          <legend>Con qué se le pagó</legend>
+          <mat-button-toggle-group
+            formControlName="metodoPago"
+            aria-label="Método de pago"
+            [hideSingleSelectionIndicator]="true"
+          >
+            @for (m of metodos; track m) {
+              <mat-button-toggle [value]="m">{{ m | etiqueta: 'metodo' }}</mat-button-toggle>
+            }
+          </mat-button-toggle-group>
+        </fieldset>
       </fieldset>
 
       <fieldset class="tarjeta" formArrayName="lineas">

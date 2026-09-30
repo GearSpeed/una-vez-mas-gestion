@@ -1,0 +1,192 @@
+<div class="pagina">
+  <uvm-encabezado titulo="Capital">
+    @if (puedeRegistrar()) {
+      <button mat-flat-button type="button" (click)="nuevo()" [disabled]="!socios.value()?.length">
+        Nuevo movimiento
+      </button>
+    }
+  </uvm-encabezado>
+
+  <mat-tab-group mat-stretch-tabs="false" animationDuration="0ms">
+    <mat-tab label="Movimientos">
+      <div class="filtros pestana" role="search" aria-label="Filtrar movimientos de capital">
+        <mat-form-field>
+          <mat-label>Desde</mat-label>
+          <input
+            matInput
+            [matDatepicker]="calendarioDesde"
+            [value]="desde()"
+            (dateChange)="filtrar(() => desde.set($event.value))"
+          />
+          <mat-datepicker-toggle matIconSuffix [for]="calendarioDesde" />
+          <mat-datepicker #calendarioDesde />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Hasta</mat-label>
+          <input
+            matInput
+            [matDatepicker]="calendarioHasta"
+            [value]="hasta()"
+            (dateChange)="filtrar(() => hasta.set($event.value))"
+          />
+          <mat-datepicker-toggle matIconSuffix [for]="calendarioHasta" />
+          <mat-datepicker #calendarioHasta />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Socio</mat-label>
+          <mat-select
+            [canSelectNullableOptions]="true"
+            [value]="socioId()"
+            (valueChange)="filtrar(() => socioId.set($event))"
+          >
+            <mat-option [value]="null">Todos</mat-option>
+            @for (s of socios.value() ?? []; track s.id) {
+              <mat-option [value]="s.id">{{ s.nombre }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <uvm-estado-carga
+        [cargando]="movimientos.isLoading()"
+        [error]="movimientos.error()"
+        (reintentar)="movimientos.reload()"
+      />
+
+      @if (movimientos.value(); as lista) {
+        <section class="tarjeta resumen" aria-labelledby="titulo-resumen">
+          <h2 id="titulo-resumen" class="visualmente-oculto">Resumen del periodo</h2>
+          <p>
+            <strong>{{ lista.resumen.neto | currency }}</strong> pusieron los socios en el periodo.
+          </p>
+          <p class="ayuda">
+            {{ lista.resumen.aportaciones | currency }} de aportaciones y
+            {{ lista.resumen.retiros | currency }} de retiros. No es utilidad: es dinero puesto, no
+            ganado.
+          </p>
+        </section>
+
+        <div uvmDesplazable="Movimientos de capital">
+          <table mat-table [dataSource]="lista.filas" class="tabla">
+            <ng-container matColumnDef="folio">
+              <th mat-header-cell *matHeaderCellDef>Folio</th>
+              <td mat-cell *matCellDef="let m">{{ m.folio }}</td>
+            </ng-container>
+            <ng-container matColumnDef="fecha">
+              <th mat-header-cell *matHeaderCellDef>Fecha</th>
+              <td mat-cell *matCellDef="let m">{{ m.fecha | date: 'mediumDate' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="socio">
+              <th mat-header-cell *matHeaderCellDef>Socio</th>
+              <td mat-cell *matCellDef="let m">{{ m.socio }}</td>
+            </ng-container>
+            <ng-container matColumnDef="tipo">
+              <th mat-header-cell *matHeaderCellDef>Tipo</th>
+              <td mat-cell *matCellDef="let m">{{ m.tipo | etiqueta: 'capital' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="concepto">
+              <th mat-header-cell *matHeaderCellDef>Concepto</th>
+              <td mat-cell *matCellDef="let m">
+                {{ m.concepto }}
+                @if (m.notas) {
+                  <span class="ayuda bloque">{{ m.notas }}</span>
+                }
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="metodoPago">
+              <th mat-header-cell *matHeaderCellDef>Por dónde</th>
+              <td mat-cell *matCellDef="let m">{{ m.metodoPago | etiqueta: 'metodo' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="importe">
+              <th mat-header-cell *matHeaderCellDef class="numero">Importe</th>
+              <td mat-cell *matCellDef="let m" class="numero">{{ m.importe | currency }}</td>
+            </ng-container>
+            <ng-container matColumnDef="estado">
+              <th mat-header-cell *matHeaderCellDef>Estado</th>
+              <td mat-cell *matCellDef="let m">
+                <span class="estado" [class.alerta]="m.estado === 'cancelado'">{{
+                  m.estado | etiqueta: 'estado'
+                }}</span>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="acciones">
+              <th mat-header-cell *matHeaderCellDef></th>
+              <td mat-cell *matCellDef="let m">
+                @if (m.estado === 'vigente') {
+                  <button
+                    mat-button
+                    type="button"
+                    (click)="cancelar(m)"
+                    [attr.aria-label]="'Cancelar el movimiento ' + m.folio"
+                  >
+                    Cancelar
+                  </button>
+                }
+              </td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="columnas()"></tr>
+            <tr mat-row *matRowDef="let fila; columns: columnas()"></tr>
+            <tr class="mat-row" *matNoDataRow>
+              <td class="mat-cell" [attr.colspan]="columnas().length">
+                No hubo movimientos de capital en este periodo.
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        @if (lista.total > lista.porPagina) {
+          <mat-paginator
+            [length]="lista.total"
+            [pageSize]="lista.porPagina"
+            [pageIndex]="lista.pagina - 1"
+            [hidePageSize]="true"
+            (page)="cambiarPagina($event)"
+            aria-label="Páginas de movimientos de capital"
+          />
+        }
+      }
+    </mat-tab>
+
+    <mat-tab label="Socios">
+      <div class="pestana">
+        <p class="ayuda">
+          Quien pone dinero en el negocio. No son usuarios del sistema: alguien puede poner capital
+          sin tener con qué entrar aquí. El saldo es lo que lleva puesto desde siempre.
+        </p>
+        <ul class="categorias">
+          @for (s of socios.value() ?? []; track s.id) {
+            <li class="tarjeta">
+              <span>
+                {{ s.nombre }}
+                <span class="ayuda bloque">{{ s.saldo | currency }} puestos</span>
+              </span>
+              @if (puedeRegistrar()) {
+                <mat-slide-toggle [checked]="s.activo" (change)="cambiarSocio(s, $event.checked)">
+                  Activo
+                </mat-slide-toggle>
+              } @else {
+                <span class="estado">{{ s.activo ? 'Activo' : 'Inactivo' }}</span>
+              }
+            </li>
+          }
+        </ul>
+        @if (puedeRegistrar()) {
+          <form
+            class="acciones"
+            [formGroup]="formularioSocio"
+            (ngSubmit)="agregarSocio()"
+            novalidate
+          >
+            <mat-form-field>
+              <mat-label>Nuevo socio</mat-label>
+              <input matInput formControlName="nombre" maxlength="120" />
+            </mat-form-field>
+            <button mat-stroked-button type="submit" [disabled]="formularioSocio.invalid">
+              Agregar
+            </button>
+          </form>
+        }
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</div>

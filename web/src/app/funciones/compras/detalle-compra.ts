@@ -13,6 +13,7 @@ import { DialogoMotivo, type DatosDialogoMotivo } from '../../ui/dialogo-motivo'
 import { Desplazable } from '../../ui/desplazable';
 import { Encabezado } from '../../ui/encabezado';
 import { EstadoCarga } from '../../ui/estado-carga';
+import { EtiquetaPipe } from '../../ui/etiqueta.pipe';
 
 @Component({
   selector: 'uvm-detalle-compra',
@@ -20,6 +21,7 @@ import { EstadoCarga } from '../../ui/estado-carga';
     Desplazable,
     Encabezado,
     EstadoCarga,
+    EtiquetaPipe,
     CurrencyPipe,
     DatePipe,
     DecimalPipe,

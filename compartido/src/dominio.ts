@@ -34,6 +34,10 @@ export type CanalVenta = (typeof CANALES_VENTA)[number];
 export const METODOS_PAGO = ['efectivo', 'transferencia', 'tarjeta', 'otro'] as const;
 export type MetodoPago = (typeof METODOS_PAGO)[number];
 
+/** El dinero de los socios: entra al negocio o sale de él. Nunca es venta ni gasto. */
+export const TIPOS_CAPITAL = ['aportacion', 'retiro'] as const;
+export type TipoCapital = (typeof TIPOS_CAPITAL)[number];
+
 export const ESTADOS_DOCUMENTO = ['vigente', 'cancelado'] as const;
 export type EstadoDocumento = (typeof ESTADOS_DOCUMENTO)[number];
 
@@ -51,6 +55,11 @@ export const ETIQUETAS_MOVIMIENTO: Readonly<Record<TipoMovimiento, string>> = {
   cancelacion_compra: 'Compra cancelada',
   cancelacion_venta: 'Venta cancelada',
   devolucion: 'Devolución de cliente',
+};
+
+export const ETIQUETAS_CAPITAL: Readonly<Record<TipoCapital, string>> = {
+  aportacion: 'Aportación',
+  retiro: 'Retiro',
 };
 
 export const ETIQUETAS_MOTIVO: Readonly<Record<MotivoAjuste, string>> = {

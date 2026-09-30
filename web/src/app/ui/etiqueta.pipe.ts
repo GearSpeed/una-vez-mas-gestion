@@ -1,6 +1,7 @@
 import { Pipe, type PipeTransform } from '@angular/core';
 import {
   ETIQUETAS_CANAL,
+  ETIQUETAS_CAPITAL,
   ETIQUETAS_ESTADO,
   ETIQUETAS_METODO_PAGO,
   ETIQUETAS_MOTIVO,
@@ -10,6 +11,7 @@ import {
 
 const CATALOGOS = {
   canal: ETIQUETAS_CANAL,
+  capital: ETIQUETAS_CAPITAL,
   metodo: ETIQUETAS_METODO_PAGO,
   estado: ETIQUETAS_ESTADO,
   movimiento: ETIQUETAS_MOVIMIENTO,

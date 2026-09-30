@@ -38,6 +38,10 @@
         <dd>{{ c.ubicacion }}</dd>
       </div>
       <div>
+        <dt>Se pagó con</dt>
+        <dd>{{ c.metodoPago | etiqueta: 'metodo' }}</dd>
+      </div>
+      <div>
         <dt>Vehículo</dt>
         <dd>{{ c.vehiculo ?? 'Sin vehículo' }}</dd>
       </div>

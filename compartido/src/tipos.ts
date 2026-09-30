@@ -10,6 +10,7 @@ import type {
   EstadoDocumento,
   MetodoPago,
   MotivoAjuste,
+  TipoCapital,
   TipoMovimiento,
   TipoUbicacion,
 } from './dominio.js';
@@ -224,6 +225,8 @@ export interface LineaCompraDetalle {
 
 export interface CompraDetalle extends CompraResumen {
   readonly proveedorId: number;
+  /** Con qué se le pagó al proveedor. */
+  readonly metodoPago: MetodoPago;
   readonly vehiculoId: number | null;
   readonly ubicacionId: number;
   readonly precioGasolina: Decimal | null;
@@ -508,6 +511,71 @@ export interface Gasto {
   readonly cancelacion: Cancelacion | null;
 }
 
+/** Quien pone dinero en el negocio. No es usuario del sistema. */
+export interface Socio {
+  readonly id: number;
+  readonly nombre: string;
+  readonly activo: boolean;
+  /** Lo que lleva puesto: aportaciones menos retiros, de los movimientos vigentes. */
+  readonly saldo: Decimal;
+}
+
+/**
+ * Dinero que un socio metió o sacó. **No es ingreso ni gasto**: no entra en la utilidad,
+ * solo mueve la caja.
+ */
+export interface MovimientoCapital {
+  readonly id: number;
+  readonly folio: string;
+  readonly fecha: string;
+  readonly socioId: number;
+  readonly socio: string;
+  readonly tipo: TipoCapital;
+  readonly concepto: string;
+  readonly importe: Decimal;
+  readonly metodoPago: MetodoPago;
+  readonly notas: string;
+  readonly registradoPor: string;
+  readonly registradoEn: string;
+  readonly estado: EstadoDocumento;
+  readonly cancelacion: Cancelacion | null;
+}
+
+export interface ListaCapital extends Paginado<MovimientoCapital> {
+  readonly resumen: {
+    readonly aportaciones: Decimal;
+    readonly retiros: Decimal;
+    /** Aportaciones menos retiros: lo que los socios llevan puesto en el periodo. */
+    readonly neto: Decimal;
+  };
+  /** Cuánto lleva puesto cada socio, desde siempre. */
+  readonly porSocio: readonly { readonly socio: string; readonly saldo: Decimal }[];
+}
+
+/**
+ * Cuánto dinero debería haber, **acumulado a la fecha** y separado por dónde está: el
+ * efectivo no es lo mismo que lo que sigue en Mercado Pago.
+ *
+ * No es utilidad. Puede haber mucho dinero en caja y el negocio estar perdiendo, si ese
+ * dinero lo pusieron los socios.
+ */
+export interface SaldosCaja {
+  readonly bolsas: readonly SaldoBolsa[];
+  readonly total: Decimal;
+}
+
+export interface SaldoBolsa {
+  readonly metodoPago: MetodoPago;
+  /** Lo cobrado en ventas; con tarjeta, ya neto de lo que retiene la terminal. */
+  readonly ventas: Decimal;
+  readonly devoluciones: Decimal;
+  readonly compras: Decimal;
+  readonly gastos: Decimal;
+  readonly aportaciones: Decimal;
+  readonly retiros: Decimal;
+  readonly saldo: Decimal;
+}
+
 export interface ListaGastos extends Paginado<Gasto> {
   readonly resumen: {
     /** Total de los gastos vigentes del periodo. */
@@ -642,6 +710,16 @@ export interface EstadoResultados {
   }[];
   /** Dinero atado en mercancía, a costo: ganancia que todavía no es efectivo. */
   readonly valorInventario: Decimal;
+  /**
+   * Lo que los socios metieron y sacaron en el periodo. **No entra en la
+   * utilidad**: es dinero puesto, no ganado. Va aparte para que un mes con
+   * pérdida y con aportación no se lea como un mes bueno.
+   */
+  readonly capitalDelPeriodo: {
+    readonly aportaciones: Decimal;
+    readonly retiros: Decimal;
+    readonly neto: Decimal;
+  };
 }
 
 export interface FilaReporteCompras {
