@@ -13,6 +13,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -21,6 +22,8 @@ import {
   calcularCompra,
   type CompraDetalle,
   fechaDeHoy,
+  METODOS_PAGO,
+  type MetodoPago,
   type Producto,
   type Proveedor,
   type Ubicacion,
@@ -34,6 +37,7 @@ import { marcarErroresDelServidor, mensajeDeError } from '../../core/errores';
 import { nuevaClave, numeroONulo } from '../../ui/claves';
 import { Encabezado } from '../../ui/encabezado';
 import { EstadoCarga } from '../../ui/estado-carga';
+import { EtiquetaPipe } from '../../ui/etiqueta.pipe';
 import { CALENDARIO_EN_ESPANOL } from '../../ui/intl-calendario';
 
 /**
@@ -50,7 +54,9 @@ import { CALENDARIO_EN_ESPANOL } from '../../ui/intl-calendario';
     RouterLink,
     CurrencyPipe,
     DecimalPipe,
+    EtiquetaPipe,
     MatButtonModule,
+    MatButtonToggleModule,
     MatDatepickerModule,
     MatFormFieldModule,
     MatIconModule,
@@ -84,6 +90,8 @@ export class NuevaCompra {
     (this.ubicaciones.value() ?? []).filter((u) => u.activa && u.tipo === 'almacen'),
   );
 
+  protected readonly metodos = METODOS_PAGO;
+
   protected readonly formulario = this.fb.group({
     fecha: [fechaDeHoy(), Validators.required],
     proveedorId: this.fb.control<number | null>(null, Validators.required),
@@ -91,6 +99,7 @@ export class NuevaCompra {
     precioGasolina: this.fb.control<number | null>(null),
     distanciaKm: this.fb.control<number | null>(null),
     ubicacionId: this.fb.control<number | null>(null),
+    metodoPago: this.fb.control<MetodoPago>('efectivo', Validators.required),
     notas: [''],
     lineas: this.fb.array([this.nuevaLinea()]),
   });
@@ -176,6 +185,7 @@ export class NuevaCompra {
         precioGasolina: valor.vehiculoId === null ? null : valor.precioGasolina,
         distanciaKm: valor.vehiculoId === null ? null : valor.distanciaKm,
         ubicacionId: valor.ubicacionId,
+        metodoPago: valor.metodoPago,
         notas: valor.notas,
         lineas: valor.lineas,
       });

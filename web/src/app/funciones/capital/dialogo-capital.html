@@ -1,0 +1,102 @@
+<h2 mat-dialog-title>Movimiento de capital</h2>
+<form [formGroup]="formulario" (ngSubmit)="guardar()" novalidate>
+  <mat-dialog-content class="contenido">
+    <fieldset class="grupo">
+      <legend>¿Entró o salió dinero?</legend>
+      <mat-button-toggle-group
+        [value]="tipo()"
+        (change)="tipo.set($event.value)"
+        aria-label="Tipo de movimiento"
+        [hideSingleSelectionIndicator]="true"
+      >
+        @for (t of tipos; track t) {
+          <mat-button-toggle [value]="t">{{ t | etiqueta: 'capital' }}</mat-button-toggle>
+        }
+      </mat-button-toggle-group>
+    </fieldset>
+
+    <div class="rejilla">
+      <mat-form-field>
+        <mat-label>Fecha</mat-label>
+        <input matInput [matDatepicker]="calendario" formControlName="fecha" [max]="hoy" />
+        <mat-datepicker-toggle matIconSuffix [for]="calendario" />
+        <mat-datepicker #calendario />
+      </mat-form-field>
+
+      <mat-form-field>
+        <mat-label>Socio</mat-label>
+        <mat-select formControlName="socioId">
+          @for (s of sociosActivos; track s.id) {
+            <mat-option [value]="s.id">{{ s.nombre }}</mat-option>
+          }
+        </mat-select>
+        @if (formulario.controls.socioId.hasError('required')) {
+          <mat-error>Elige de quién es el dinero.</mat-error>
+        }
+      </mat-form-field>
+    </div>
+
+    <mat-form-field>
+      <mat-label>Concepto</mat-label>
+      <input
+        matInput
+        formControlName="concepto"
+        maxlength="200"
+        placeholder="Para las cajas de empaque"
+      />
+      @if (formulario.controls.concepto.hasError('required')) {
+        <mat-error>Escribe para qué entró o salió.</mat-error>
+      } @else if (formulario.controls.concepto.hasError('servidor')) {
+        <mat-error>{{ formulario.controls.concepto.getError('servidor') }}</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field>
+      <mat-label>Importe</mat-label>
+      <span matTextPrefix>$&nbsp;</span>
+      <input
+        matInput
+        type="number"
+        inputmode="decimal"
+        min="0.01"
+        step="0.01"
+        formControlName="importe"
+      />
+      @if (formulario.controls.importe.invalid && formulario.controls.importe.touched) {
+        <mat-error>Escribe cuánto fue.</mat-error>
+      }
+    </mat-form-field>
+
+    <fieldset class="grupo">
+      <legend>{{ tipo() === 'retiro' ? '¿De dónde salió?' : '¿Por dónde entró?' }}</legend>
+      <mat-button-toggle-group
+        [value]="metodoPago()"
+        (change)="metodoPago.set($event.value)"
+        aria-label="Método de pago"
+        [hideSingleSelectionIndicator]="true"
+      >
+        @for (m of metodos; track m) {
+          <mat-button-toggle [value]="m">{{ m | etiqueta: 'metodo' }}</mat-button-toggle>
+        }
+      </mat-button-toggle-group>
+      @if (saldoDeLaBolsa(); as saldo) {
+        <p class="ayuda">Ahí debería haber {{ saldo | currency }} ahora mismo.</p>
+      }
+    </fieldset>
+
+    <mat-form-field>
+      <mat-label>Notas (opcional)</mat-label>
+      <input matInput formControlName="notas" maxlength="500" />
+    </mat-form-field>
+
+    @if (error()) {
+      <p class="error-texto" role="alert">{{ error() }}</p>
+    }
+  </mat-dialog-content>
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" mat-dialog-close>Cancelar</button>
+    <button mat-flat-button type="submit" [disabled]="guardando()">
+      {{ guardando() ? 'Guardando…' : 'Registrar' }}
+    </button>
+  </mat-dialog-actions>
+</form>

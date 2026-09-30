@@ -1,5 +1,6 @@
 /** El resultado del periodo, renglón por renglón, como se lee un estado de cuenta. */
-.resultado {
+.resultado,
+.resultado-capital {
   display: grid;
   gap: 0.25rem;
   max-width: 32rem;
@@ -55,4 +56,10 @@ tr.desglose td {
 
 .total-comisiones {
   margin-top: 0.75rem;
+}
+
+/** El total de caja, debajo del desglose por bolsa. */
+.total-caja {
+  font: var(--mat-sys-title-medium);
+  margin: 0.75rem 0 0;
 }

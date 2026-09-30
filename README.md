@@ -140,9 +140,23 @@ probar lo que ve cada rol. Ese modo se niega a arrancar si `NODE_ENV=production`
   menos lo que ya se le pagó. El pago se registra desde ahí mismo y se liga a la persona
   (`gastos.vendedor_id`), que es lo que permite llevar el saldo. Un abono parcial es válido:
   el saldo se ajusta solo.
+- **Capital de los socios**: el dinero que alguien pone —o saca— de su bolsa. **No es venta
+  ni gasto**: no entra en la utilidad, solo mueve la caja. Es lo que permite cuadrar al
+  arrancar, cuando el negocio todavía no se paga solo: las cajas costaron $500, metí $1,000,
+  y las dos cosas quedan registradas por separado. Cada movimiento va a nombre de un socio
+  —que no es usuario del sistema: quien solo pone dinero no tiene por qué entrar aquí— y se
+  cancela con motivo, nunca se borra. Así se sabe cuánto lleva puesto cada quien, que es la
+  base para repartir después sin discutir de memoria.
 - **Resultado del periodo** (Reportes): ventas netas − costo = utilidad bruta, menos la
   comisión de tarjeta y los gastos = utilidad operativa. Aparte, lo que se le debe a quien
-  vende y el dinero atado en mercancía, que es ganancia que todavía no es efectivo.
+  vende y el dinero atado en mercancía, que es ganancia que todavía no es efectivo. El
+  capital de los socios también va aparte y con todas sus letras: un negocio que pierde
+  $2,000 al mes y al que le meten $3,000 se ve con dinero, y no lo está.
+- **Dónde está el dinero** (Reportes): cuánto **debería** haber hoy en cada bolsa —efectivo,
+  transferencia y tarjeta—, con todo lo registrado desde el principio. Ventas cobradas,
+  menos devoluciones, compras y gastos, más aportaciones y menos retiros. Lo de la terminal
+  va **neto**, que es lo que de verdad cae. Es un saldo, no un movimiento: no depende del
+  periodo que uno esté mirando.
 - **Ajustes**: si restan, al costo promedio; si suman, al costo que se indique. El
   **conteo físico** registra lo que hay y ajusta solo las diferencias.
 - **Imágenes**: una foto por producto, la misma que muestra el sitio. Se sube desde el
@@ -178,6 +192,8 @@ crea) y un usuario puede tener varios.
 | `ventas.devolver` (el vendedor, solo de sus ventas)                 |   ✓   |         |    ✓     |          |
 | `ventas.cualquier_ubicacion`, `ventas.descontar`, `ventas.cancelar` |   ✓   |         |          |          |
 | `ventas.ver_todas` / `reportes.ver`                                 |   ✓   |         |          |    ✓     |
+| `gastos.ver` / `gastos.registrar` / `gastos.cancelar`               | ✓/✓/✓ |         |          |  ✓/–/–   |
+| `capital.ver` / `capital.registrar` / `capital.cancelar`            | ✓/✓/✓ |         |          |  ✓/–/–   |
 | `usuarios.gestionar`                                                |   ✓   |         |          |          |
 
 El vendedor siempre ve sus propias ventas, su mercancía y su corte. Al darle a alguien el

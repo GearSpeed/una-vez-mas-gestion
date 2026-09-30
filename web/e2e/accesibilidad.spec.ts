@@ -18,6 +18,7 @@ const PANTALLAS: readonly { ruta: string; usuario: keyof typeof USUARIOS }[] = [
   { ruta: '/productos', usuario: 'admin' },
   { ruta: '/proveedores', usuario: 'admin' },
   { ruta: '/gastos', usuario: 'admin' },
+  { ruta: '/capital', usuario: 'admin' },
   { ruta: '/reportes', usuario: 'admin' },
   { ruta: '/reportes', usuario: 'consulta' },
   { ruta: '/usuarios', usuario: 'admin' },
@@ -50,6 +51,21 @@ for (const { ruta, boton } of DIALOGOS) {
     await sinViolaciones(page);
   });
 }
+
+test('el diálogo de capital pasa axe', async ({ page }, info) => {
+  // No está en DIALOGOS porque el botón está apagado mientras no haya un socio.
+  const nombre = `Socia de prueba (${info.project.name})`;
+  await entrarComo(page, 'admin');
+  await page.goto('/capital');
+  await esperarCarga(page);
+  await page.getByRole('tab', { name: 'Socios' }).click();
+  await page.getByLabel('Nuevo socio').fill(nombre);
+  await page.getByRole('button', { name: 'Agregar' }).click();
+  await expect(page.getByRole('listitem').filter({ hasText: nombre })).toBeVisible();
+  await page.getByRole('button', { name: 'Nuevo movimiento' }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await sinViolaciones(page);
+});
 
 test('el diálogo «Editar categoría» pasa axe', async ({ page }) => {
   // No está en DIALOGOS porque se abre desde una pestaña, no desde un botón de la barra.

@@ -148,6 +148,32 @@
               </div>
             </dl>
 
+            @let capital = r.capitalDelPeriodo;
+            @if (huboCapital()) {
+              <section class="tarjeta" aria-labelledby="titulo-capital">
+                <h3 id="titulo-capital">Capital de los socios</h3>
+                <dl class="resultado-capital">
+                  <div>
+                    <dt>Aportaciones</dt>
+                    <dd>{{ capital.aportaciones | currency }}</dd>
+                  </div>
+                  <div>
+                    <dt>− Retiros</dt>
+                    <dd>{{ capital.retiros | currency }}</dd>
+                  </div>
+                  <div class="subtotal">
+                    <dt>Quedó puesto en el periodo</dt>
+                    <dd>{{ capital.neto | currency }}</dd>
+                  </div>
+                </dl>
+                <p class="ayuda">
+                  <strong>No entra en la utilidad</strong>: es dinero que pusieron los socios, no
+                  que haya ganado el negocio. Un mes con pérdida y con aportación se ve con dinero
+                  en la caja, y no lo está.
+                </p>
+              </section>
+            }
+
             @if (r.comisionesPorPagar.length) {
               <section class="tarjeta" aria-labelledby="titulo-comisiones">
                 <h3 id="titulo-comisiones">Comisiones generadas en el periodo</h3>
@@ -185,6 +211,92 @@
           }
         </div>
       </mat-tab>
+
+      @if (verCapital()) {
+        <mat-tab label="Dónde está el dinero">
+          <div class="pestana">
+            <uvm-estado-carga
+              [cargando]="saldos.isLoading()"
+              [error]="saldos.error()"
+              (reintentar)="saldos.reload()"
+            />
+            @if (saldos.value(); as caja) {
+              <p class="ayuda">
+                Cuánto <strong>debería</strong> haber hoy en cada lado, con todo lo registrado desde
+                el principio: no depende del periodo de arriba. Lo de la terminal va neto, que es lo
+                que de verdad cae. <strong>No es utilidad</strong>: puede haber dinero en caja y el
+                negocio estar perdiendo, si ese dinero lo pusieron los socios.
+              </p>
+              <div uvmDesplazable="Dónde está el dinero">
+                <table class="tabla-simple">
+                  <caption class="visualmente-oculto">
+                    Saldo de cada bolsa
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Concepto</th>
+                      @for (b of caja.bolsas; track b.metodoPago) {
+                        <th scope="col" class="numero">{{ b.metodoPago | etiqueta: 'metodo' }}</th>
+                      }
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row">Ventas cobradas</th>
+                      @for (b of caja.bolsas; track b.metodoPago) {
+                        <td class="numero">{{ b.ventas | currency }}</td>
+                      }
+                    </tr>
+                    <tr>
+                      <th scope="row">− Devoluciones</th>
+                      @for (b of caja.bolsas; track b.metodoPago) {
+                        <td class="numero">{{ b.devoluciones | currency }}</td>
+                      }
+                    </tr>
+                    <tr>
+                      <th scope="row">− Compras</th>
+                      @for (b of caja.bolsas; track b.metodoPago) {
+                        <td class="numero">{{ b.compras | currency }}</td>
+                      }
+                    </tr>
+                    <tr>
+                      <th scope="row">− Gastos</th>
+                      @for (b of caja.bolsas; track b.metodoPago) {
+                        <td class="numero">{{ b.gastos | currency }}</td>
+                      }
+                    </tr>
+                    <tr>
+                      <th scope="row">+ Aportaciones</th>
+                      @for (b of caja.bolsas; track b.metodoPago) {
+                        <td class="numero">{{ b.aportaciones | currency }}</td>
+                      }
+                    </tr>
+                    <tr>
+                      <th scope="row">− Retiros</th>
+                      @for (b of caja.bolsas; track b.metodoPago) {
+                        <td class="numero">{{ b.retiros | currency }}</td>
+                      }
+                    </tr>
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <th scope="row">Debería haber</th>
+                      @for (b of caja.bolsas; track b.metodoPago) {
+                        <td class="numero">
+                          <strong class="saldo">{{ b.saldo | currency }}</strong>
+                        </td>
+                      }
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <p class="total-caja">
+                En total debería haber <strong>{{ caja.total | currency }}</strong>
+              </p>
+            }
+          </div>
+        </mat-tab>
+      }
 
       <mat-tab label="Comisiones">
         <div class="pestana">

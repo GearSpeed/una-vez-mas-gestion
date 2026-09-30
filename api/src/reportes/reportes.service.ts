@@ -58,6 +58,7 @@ import {
   devoluciones,
   existencias,
   movimientos,
+  movimientosCapital,
   productos,
   proveedores,
   ubicaciones,
@@ -491,62 +492,81 @@ export class ReportesService {
     );
     const netoPorVenta = this.netoPorVenta();
 
-    const [[venta], [tarjeta], porCategoria, comisiones, [inventario]] = await Promise.all([
-      this.db
-        .select({
-          ventasNetas: sql<string>`coalesce(sum(${ventaLineasNetas.importeNeto}), 0)`,
-          costo: sql<string>`coalesce(sum(${ventaLineasNetas.costoNeto}), 0)`,
-        })
-        .from(ventaLineasNetas)
-        .innerJoin(ventas, eq(ventas.id, ventaLineasNetas.ventaId))
-        .where(delPeriodo),
-      this.db
-        .select({ comision: sql<string>`coalesce(sum(${comisionNetaDeVenta}), 0)` })
-        .from(ventas)
-        .where(delPeriodo),
-      this.db
-        .select({
-          categoria: gastoCategorias.nombre,
-          importe: sql<string>`coalesce(sum(${gastos.importe}), 0)::numeric(12, 2)`,
-        })
-        .from(gastos)
-        .innerJoin(gastoCategorias, eq(gastoCategorias.id, gastos.categoriaId))
-        .where(
-          and(eq(gastos.estado, 'vigente'), gte(gastos.fecha, desde), lte(gastos.fecha, hasta)),
-        )
-        .groupBy(gastoCategorias.nombre)
-        .orderBy(desc(sql`sum(${gastos.importe})`)),
-      // Cada venta con su propia tasa: la que tenía el día que se hizo.
-      this.db
-        .with(netoPorVenta)
-        .select({
-          vendedor: vendedor.nombre,
-          tasa: ventas.comisionVendedorTasa,
-          ventasNetas: sql<string>`coalesce(sum(${netoPorVenta.importe}), 0)::numeric(12, 2)`,
-          comision: sql<string>`coalesce(
+    const [[venta], [tarjeta], porCategoria, comisiones, [inventario], [capital]] =
+      await Promise.all([
+        this.db
+          .select({
+            ventasNetas: sql<string>`coalesce(sum(${ventaLineasNetas.importeNeto}), 0)`,
+            costo: sql<string>`coalesce(sum(${ventaLineasNetas.costoNeto}), 0)`,
+          })
+          .from(ventaLineasNetas)
+          .innerJoin(ventas, eq(ventas.id, ventaLineasNetas.ventaId))
+          .where(delPeriodo),
+        this.db
+          .select({ comision: sql<string>`coalesce(sum(${comisionNetaDeVenta}), 0)` })
+          .from(ventas)
+          .where(delPeriodo),
+        this.db
+          .select({
+            categoria: gastoCategorias.nombre,
+            importe: sql<string>`coalesce(sum(${gastos.importe}), 0)::numeric(12, 2)`,
+          })
+          .from(gastos)
+          .innerJoin(gastoCategorias, eq(gastoCategorias.id, gastos.categoriaId))
+          .where(
+            and(eq(gastos.estado, 'vigente'), gte(gastos.fecha, desde), lte(gastos.fecha, hasta)),
+          )
+          .groupBy(gastoCategorias.nombre)
+          .orderBy(desc(sql`sum(${gastos.importe})`)),
+        // Cada venta con su propia tasa: la que tenía el día que se hizo.
+        this.db
+          .with(netoPorVenta)
+          .select({
+            vendedor: vendedor.nombre,
+            tasa: ventas.comisionVendedorTasa,
+            ventasNetas: sql<string>`coalesce(sum(${netoPorVenta.importe}), 0)::numeric(12, 2)`,
+            comision: sql<string>`coalesce(
             sum(round(${netoPorVenta.importe} * ${ventas.comisionVendedorTasa}, 2)), 0
           )::numeric(12, 2)`,
-        })
-        .from(ventas)
-        .innerJoin(netoPorVenta, eq(netoPorVenta.ventaId, ventas.id))
-        .innerJoin(vendedor, eq(vendedor.id, ventas.vendedorId))
-        .where(and(delPeriodo, gt(ventas.comisionVendedorTasa, '0')))
-        .groupBy(vendedor.nombre, ventas.comisionVendedorTasa)
-        // Con tasa estable el orden no cambia entre consultas: primero la más alta.
-        .orderBy(asc(vendedor.nombre), desc(ventas.comisionVendedorTasa)),
-      this.db
-        .select({
-          valor: sql<string>`coalesce(sum(${existencias.cantidad} * ${productos.costoPromedio}), 0)`,
-        })
-        .from(existencias)
-        .innerJoin(productos, eq(productos.id, existencias.productoId)),
-    ]);
+          })
+          .from(ventas)
+          .innerJoin(netoPorVenta, eq(netoPorVenta.ventaId, ventas.id))
+          .innerJoin(vendedor, eq(vendedor.id, ventas.vendedorId))
+          .where(and(delPeriodo, gt(ventas.comisionVendedorTasa, '0')))
+          .groupBy(vendedor.nombre, ventas.comisionVendedorTasa)
+          // Con tasa estable el orden no cambia entre consultas: primero la más alta.
+          .orderBy(asc(vendedor.nombre), desc(ventas.comisionVendedorTasa)),
+        this.db
+          .select({
+            valor: sql<string>`coalesce(sum(${existencias.cantidad} * ${productos.costoPromedio}), 0)`,
+          })
+          .from(existencias)
+          .innerJoin(productos, eq(productos.id, existencias.productoId)),
+        // Lo que los socios pusieron o sacaron. Va aparte: no es ganancia de nadie.
+        this.db
+          .select({
+            aportaciones: sql<string>`coalesce(sum(${movimientosCapital.importe})
+            filter (where ${movimientosCapital.tipo} = 'aportacion'), 0)::numeric(12, 2)`,
+            retiros: sql<string>`coalesce(sum(${movimientosCapital.importe})
+            filter (where ${movimientosCapital.tipo} = 'retiro'), 0)::numeric(12, 2)`,
+          })
+          .from(movimientosCapital)
+          .where(
+            and(
+              eq(movimientosCapital.estado, 'vigente'),
+              gte(movimientosCapital.fecha, desde),
+              lte(movimientosCapital.fecha, hasta),
+            ),
+          ),
+      ]);
 
     const ventasNetas = redondear(venta?.ventasNetas ?? '0');
     const costoVendido = redondear(venta?.costo ?? '0');
     const utilidadBruta = restar(ventasNetas, costoVendido);
     const comisionTarjeta = redondear(tarjeta?.comision ?? '0');
     const totalGastos = sumar(porCategoria.map((fila) => fila.importe));
+    const aportaciones = capital?.aportaciones ?? '0';
+    const retiros = capital?.retiros ?? '0';
 
     return {
       desde,
@@ -560,6 +580,7 @@ export class ReportesService {
       utilidadOperativa: restar(restar(utilidadBruta, comisionTarjeta), totalGastos),
       comisionesPorPagar: comisiones,
       valorInventario: redondear(inventario?.valor ?? '0'),
+      capitalDelPeriodo: { aportaciones, retiros, neto: restar(aportaciones, retiros) },
     };
   }
 

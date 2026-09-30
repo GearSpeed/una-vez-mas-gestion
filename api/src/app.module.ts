@@ -10,6 +10,7 @@ import { LimitePeticionesGuard } from './comun/limite-peticiones.js';
 import { ComprasModule } from './compras/compras.module.js';
 import { ConfigModule } from './config/config.module.js';
 import { ENTORNO, type Entorno } from './config/entorno.js';
+import { CapitalModule } from './capital/capital.module.js';
 import { GastosModule } from './gastos/gastos.module.js';
 import { DbModule } from './db/db.module.js';
 import { ImagenesModule } from './imagenes/imagenes.module.js';
@@ -65,6 +66,7 @@ import { VentasModule } from './ventas/ventas.module.js';
     InventarioModule,
     ComprasModule,
     VentasModule,
+    CapitalModule,
     GastosModule,
     ReportesModule,
     UsuariosModule,

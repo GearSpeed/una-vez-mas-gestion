@@ -108,6 +108,12 @@ export const routes: Routes = [
         loadComponent: () => import('./funciones/gastos/gastos').then((m) => m.Gastos),
       },
       {
+        path: 'capital',
+        title: 'Capital',
+        canMatch: [requierePermiso('capital.ver')],
+        loadComponent: () => import('./funciones/capital/capital').then((m) => m.Capital),
+      },
+      {
         path: 'reportes',
         title: 'Reportes',
         canMatch: [requierePermiso('reportes.ver')],

@@ -33,6 +33,7 @@ import {
   CANALES_VENTA,
   ESTADOS_DOCUMENTO,
   METODOS_PAGO,
+  TIPOS_CAPITAL,
   MOTIVOS_AJUSTE,
   TIPOS_MOVIMIENTO,
   TIPOS_UBICACION,
@@ -45,6 +46,7 @@ export const tipoMovimiento = gestion.enum('tipo_movimiento', TIPOS_MOVIMIENTO);
 export const motivoAjuste = gestion.enum('motivo_ajuste', MOTIVOS_AJUSTE);
 export const canalVenta = gestion.enum('canal_venta', CANALES_VENTA);
 export const metodoPago = gestion.enum('metodo_pago', METODOS_PAGO);
+export const tipoCapital = gestion.enum('tipo_capital', TIPOS_CAPITAL);
 export const estadoDocumento = gestion.enum('estado_documento', ESTADOS_DOCUMENTO);
 
 /* ---- piezas comunes ---- */
@@ -340,6 +342,11 @@ export const compras = gestion.table(
     costoTraslado: dinero().notNull(),
     subtotalMercancia: dinero().notNull(),
     total: dinero().notNull(),
+    /**
+     * Con qué se pagó. Sin esto el resumen de caja estaría adivinando: la misma compra
+     * pagada en efectivo o por transferencia deja el dinero en bolsas distintas.
+     */
+    metodoPago: metodoPago().notNull().default('efectivo'),
     piezas: integer().notNull(),
     notas: text().notNull().default(''),
     usuarioId: integer()
@@ -758,6 +765,58 @@ export const gastoCategorias = gestion.table('gasto_categorias', {
  *
  * No se edita ni se borra: se cancela con motivo, como las compras y las ventas.
  */
+/**
+ * Quien pone dinero en el negocio. **No es un usuario del sistema**: para aportar capital
+ * no hace falta tener cuenta ni entrar a la aplicación.
+ */
+export const socios = gestion.table('socios', {
+  id: id(),
+  nombre: text().notNull().unique(),
+  activo: boolean().notNull().default(true),
+});
+
+/**
+ * El dinero que los socios meten o sacan del negocio.
+ *
+ * **No es ingreso ni gasto**, y por eso vive aparte: una aportación no es utilidad de
+ * nadie, y contarla como venta haría ver ganancias que no existen. Lo que sí hace es
+ * mover la caja, que es donde se ve.
+ */
+export const movimientosCapital = gestion.table(
+  'movimientos_capital',
+  {
+    id: id(),
+    folio: folio('K'),
+    fecha: fecha().notNull(),
+    socioId: integer()
+      .notNull()
+      .references(() => socios.id),
+    /** `aportacion` entra al negocio; `retiro` sale. */
+    tipo: tipoCapital().notNull(),
+    importe: dinero().notNull(),
+    /** Por dónde entró o salió: el mismo catálogo que las ventas y los gastos. */
+    metodoPago: metodoPago().notNull(),
+    concepto: text().notNull(),
+    notas: text().notNull().default(''),
+    /** Quién lo capturó. No confundir con `socioId`, que es de quién es el dinero. */
+    usuarioId: integer()
+      .notNull()
+      .references(() => usuarios.id),
+    claveIdempotencia: claveIdempotencia('movimientos_capital'),
+    registradoEn: ahora(),
+    ...cancelacion(),
+  },
+  (t) => [
+    check('movimientos_capital_importe', sql`importe > 0`),
+    check(
+      'movimientos_capital_cancelacion',
+      sql`(estado = 'cancelado') = (cancelado_en is not null)`,
+    ),
+    index('movimientos_capital_fecha').on(t.fecha),
+    index('movimientos_capital_socio').on(t.socioId),
+  ],
+);
+
 export const gastos = gestion.table(
   'gastos',
   {

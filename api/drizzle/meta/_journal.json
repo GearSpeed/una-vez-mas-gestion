@@ -141,6 +141,20 @@
       "when": 1790724026249,
       "tag": "0019_descuento_de_volumen_en_la_linea",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790796249425,
+      "tag": "0020_capital_de_socios",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790796583670,
+      "tag": "0021_permisos_de_capital",
+      "breakpoints": true
     }
   ]
 }

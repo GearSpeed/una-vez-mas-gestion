@@ -3,7 +3,13 @@
  * petición y el front infiere de aquí los tipos de lo que manda.
  */
 import { z } from 'zod';
-import { CANALES_VENTA, ESTADOS_DOCUMENTO, METODOS_PAGO, MOTIVOS_AJUSTE } from './dominio.js';
+import {
+  CANALES_VENTA,
+  ESTADOS_DOCUMENTO,
+  METODOS_PAGO,
+  MOTIVOS_AJUSTE,
+  TIPOS_CAPITAL,
+} from './dominio.js';
 
 /** Mensajes de Zod en español. La API y el front lo llaman al arrancar. */
 export function configurarZodEnEspanol(): void {
@@ -236,6 +242,8 @@ export const esquemaNuevaCompra = z
     vehiculoId: esquemaId.nullable().default(null),
     /** Sin ubicación, la compra entra al almacén principal. */
     ubicacionId: esquemaId.nullable().default(null),
+    /** Con qué se le pagó al proveedor: de ahí sale el saldo de cada bolsa. */
+    metodoPago: z.enum(METODOS_PAGO).default('efectivo'),
     precioGasolina: decimalOpcional(2),
     /** Sin distancia se usa la del proveedor. */
     distanciaKm: decimalOpcional(2),
@@ -434,6 +442,31 @@ export const esquemaGasto = z.object({
 });
 
 /* -----------------------------------------------------------------------------
+   Capital de los socios
+   -------------------------------------------------------------------------- */
+
+export const esquemaSocio = z.object({
+  nombre: requerido(80),
+  activo: z.boolean().default(true),
+});
+
+/**
+ * El dinero que un socio mete o saca. **No es venta ni gasto**: no toca la utilidad, solo
+ * la caja.
+ */
+export const esquemaMovimientoCapital = z.object({
+  claveIdempotencia: clave,
+  fecha: esquemaFecha.optional(),
+  socioId: esquemaId,
+  tipo: z.enum(TIPOS_CAPITAL),
+  /** Para qué entró o salió: «Para las cajas de empaque». */
+  concepto: requerido(200),
+  importe: dinero,
+  metodoPago: z.enum(METODOS_PAGO),
+  notas,
+});
+
+/* -----------------------------------------------------------------------------
    Usuarios y ubicaciones
    -------------------------------------------------------------------------- */
 
@@ -480,6 +513,11 @@ export const esquemaFiltroGastos = esquemaPeriodo.extend({
   pagina,
 });
 
+export const esquemaFiltroCapital = esquemaPeriodo.extend({
+  socioId: idEnQuery,
+  pagina,
+});
+
 export const esquemaFiltroCompras = esquemaPeriodo.extend({
   proveedorId: idEnQuery,
   estado: z.enum(ESTADOS_DOCUMENTO).optional(),
@@ -510,6 +548,9 @@ export const esquemaFiltroCorte = esquemaPeriodo.extend({ ubicacionId: idEnQuery
 
 export type DatosCategoria = z.output<typeof esquemaCategoria>;
 export type DatosCategoriaGasto = z.output<typeof esquemaCategoriaGasto>;
+export type DatosSocio = z.output<typeof esquemaSocio>;
+export type DatosMovimientoCapital = z.output<typeof esquemaMovimientoCapital>;
+export type FiltroCapital = z.output<typeof esquemaFiltroCapital>;
 export type DatosGasto = z.output<typeof esquemaGasto>;
 export type FiltroGastos = z.output<typeof esquemaFiltroGastos>;
 export type DatosProducto = z.output<typeof esquemaProducto>;

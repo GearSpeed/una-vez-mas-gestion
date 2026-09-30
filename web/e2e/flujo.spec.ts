@@ -548,3 +548,48 @@ test('el menú lateral se abre y se cierra con su icono', async ({ page }, info)
     await expect(lateral).toBeVisible();
   }
 });
+
+/**
+ * El caso que lo motivó: las cajas costaron $500 y metí $1,000 para cuadrar. La
+ * caja sube $500 netos, y el capital se ve aparte de la utilidad.
+ */
+test('una aportación cuadra la caja sin inventar utilidad', async ({ page }, info) => {
+  // Los dos proyectos comparten la base: cada uno estrena su propio socio.
+  const nombre = `Socio del flujo (${info.project.name})`;
+  await entrarComo(page, 'admin');
+  await page.goto('/capital');
+  await esperarCarga(page);
+
+  await page.getByRole('tab', { name: 'Socios' }).click();
+  await page.getByLabel('Nuevo socio').fill(nombre);
+  await page.getByRole('button', { name: 'Agregar' }).click();
+  const socio = page.getByRole('listitem').filter({ hasText: nombre });
+  await expect(socio).toBeVisible();
+
+  await page.getByRole('button', { name: 'Nuevo movimiento' }).click();
+  const dialogo = page.getByRole('dialog');
+  await dialogo.getByRole('combobox', { name: 'Socio' }).click();
+  await page.getByRole('option', { name: nombre }).click();
+  await dialogo.getByLabel('Concepto').fill('Para las cajas de empaque');
+  await dialogo.getByLabel('Importe').fill('1000');
+  await dialogo.getByRole('button', { name: 'Registrar' }).click();
+  await expect(page.getByText(/Movimiento K-\d{6} registrado/)).toBeVisible();
+
+  // Lo que lleva puesto queda a su nombre.
+  await page.getByRole('tab', { name: 'Socios' }).click();
+  await expect(socio).toContainText('$1,000.00 puestos');
+
+  // Y en el resultado del periodo va aparte, con todas sus letras.
+  await page.goto('/reportes');
+  await esperarCarga(page);
+  await page.getByRole('tab', { name: 'Resultado del periodo' }).click();
+  const capital = page.getByRole('region', { name: 'Capital de los socios' });
+  await expect(capital).toContainText('No entra en la utilidad');
+  await expect(capital.getByRole('term').first()).toHaveText('Aportaciones');
+
+  // Y la caja dice dónde está ese dinero.
+  await page.getByRole('tab', { name: 'Dónde está el dinero' }).click();
+  const aportaciones = page.getByRole('row', { name: /Aportaciones/ });
+  // La primera columna es el efectivo, que es por donde entró.
+  await expect(aportaciones.getByRole('cell').first()).not.toHaveText('$0.00');
+});
