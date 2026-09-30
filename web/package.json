@@ -12,14 +12,14 @@
     "e2e": "playwright test"
   },
   "dependencies": {
-    "@angular/cdk": "^22.1.7",
-    "@angular/common": "^22.1.7",
-    "@angular/compiler": "^22.1.7",
-    "@angular/core": "^22.1.7",
-    "@angular/forms": "^22.1.7",
-    "@angular/material": "^22.1.7",
-    "@angular/platform-browser": "^22.1.7",
-    "@angular/router": "^22.1.7",
+    "@angular/cdk": "^22.2.1",
+    "@angular/common": "^22.2.1",
+    "@angular/compiler": "^22.2.1",
+    "@angular/core": "^22.2.1",
+    "@angular/forms": "^22.2.1",
+    "@angular/material": "^22.2.1",
+    "@angular/platform-browser": "^22.2.1",
+    "@angular/router": "^22.2.1",
     "@uvm/compartido": "*",
     "rxjs": "~7.8.2",
     "tslib": "^2.8.1"
