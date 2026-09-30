@@ -57,6 +57,8 @@ export interface MovimientoAplicado {
 export interface ProductoBloqueado {
   readonly id: number;
   readonly nombre: string;
+  /** Hace falta para el descuento por volumen, que cuenta las piezas por categoría. */
+  readonly categoriaId: number;
   readonly costoPromedio: Decimal;
   readonly precioVenta: Decimal | null;
   readonly activo: boolean;
@@ -109,6 +111,7 @@ export class MovimientosService {
       .select({
         id: productos.id,
         nombre: productos.nombre,
+        categoriaId: productos.categoriaId,
         costoPromedio: productos.costoPromedio,
         precioVenta: productos.precioVenta,
         activo: productos.activo,

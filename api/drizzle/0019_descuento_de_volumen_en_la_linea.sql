@@ -1,0 +1,1 @@
+ALTER TABLE "gestion"."venta_detalle" ADD COLUMN "descuento_volumen" numeric(12, 2) DEFAULT '0' NOT NULL;

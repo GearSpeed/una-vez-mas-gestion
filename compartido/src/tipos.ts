@@ -102,6 +102,11 @@ export interface Categoria {
    * la imagen. Lo calcula la API para que la pantalla no deduzca la regla por su cuenta.
    */
   readonly saleEnPortada: boolean;
+  /* Los dos escalones de descuento por volumen. `desde` en cero: sin escalón. */
+  readonly descuentoDesde1: number;
+  readonly descuentoTasa1: Decimal;
+  readonly descuentoDesde2: number;
+  readonly descuentoTasa2: Decimal;
 }
 
 export interface CostosProducto {
@@ -450,6 +455,8 @@ export interface Existencia {
   readonly slug: string;
   readonly producto: string;
   readonly categoria: string;
+  /** Hace falta para el descuento por volumen, que cuenta las piezas por categoría. */
+  readonly categoriaId: number;
   readonly presentacion: string | null;
   readonly precioVenta: Decimal | null;
   readonly activo: boolean;

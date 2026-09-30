@@ -127,6 +127,20 @@
       "when": 1790705455393,
       "tag": "0017_vitrinas_de_categoria",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790723877246,
+      "tag": "0018_descuento_por_volumen",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790724026249,
+      "tag": "0019_descuento_de_volumen_en_la_linea",
+      "breakpoints": true
     }
   ]
 }

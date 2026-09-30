@@ -17,6 +17,24 @@ import {
 } from './ayudantes.js';
 
 /** El tejocote de las pruebas cuesta $30: el cobro sale de ahí. */
+/** Galletas con sus escalones: por omisión, 5 % desde 6 piezas y 10 % desde 11. */
+const capturarEscalones = (
+  app: INestApplication,
+  desde1 = 6,
+  tasa1 = '0.05',
+  desde2 = 11,
+  tasa2 = '0.10',
+) =>
+  como(app, ADMIN).put('/categorias/1', {
+    nombre: 'Galletas',
+    orden: 1,
+    activa: true,
+    descuentoDesde1: desde1,
+    descuentoTasa1: tasa1,
+    descuentoDesde2: desde2,
+    descuentoTasa2: tasa2,
+  });
+
 const venta = (
   cantidad: number,
   {
@@ -54,6 +72,69 @@ describe('ventas', () => {
       origenId: IDS.almacen,
       destinoId: IDS.ana,
       lineas: [{ productoId: IDS.tejocote, cantidad: 6 }],
+    });
+  });
+
+  describe('descuento por volumen', () => {
+    it('lo aplica el servidor aunque la línea llegue sin descuento', async () => {
+      await capturarEscalones(app);
+      // Seis piezas a 30 son 180; el 5 % son 9, así que se cobran 171.
+      const respuesta = await como(app, ANA).post(
+        '/ventas',
+        venta(6, { importe: '171.00', lineas: [{ productoId: IDS.tejocote, cantidad: 6 }] }),
+      );
+      expect(respuesta.status).toBe(201);
+      expect(respuesta.body.total).toBe('171.00');
+      expect(respuesta.body.lineas[0]).toMatchObject({ descuento: '9.00', importe: '171.00' });
+    });
+
+    it('una pieza antes del umbral no descuenta nada', async () => {
+      await capturarEscalones(app);
+      const respuesta = await como(app, ANA).post('/ventas', venta(5));
+      expect(respuesta.status).toBe(201);
+      expect(respuesta.body.total).toBe('150.00');
+    });
+
+    it('sin escalones capturados no descuenta, por muchas piezas que sean', async () => {
+      const respuesta = await como(app, ANA).post('/ventas', venta(6, { importe: '180.00' }));
+      expect(respuesta.status).toBe(201);
+      expect(respuesta.body.total).toBe('180.00');
+    });
+
+    it('la comisión de la vendedora baja con el descuento', async () => {
+      await capturarEscalones(app);
+      const ana = (await como(app, ADMIN).get('/usuarios')).body.find(
+        (u: { correo: string }) => u.correo === ANA,
+      );
+      await como(app, ADMIN).put(`/usuarios/${ana.id}`, { ...ana, comisionVenta: '0.15' });
+      await como(app, ANA).post(
+        '/ventas',
+        venta(6, { importe: '171.00', lineas: [{ productoId: IDS.tejocote, cantidad: 6 }] }),
+      );
+      const corte = await como(app, ANA).get('/reportes/corte');
+      // 15 % de 171, no de 180: la comisión sale de lo neto.
+      expect(corte.body.comisionVendedor).toBe('25.65');
+    });
+
+    it('un descuento manual mayor gana sobre el automático', async () => {
+      await capturarEscalones(app);
+      // Lo da el admin: la vendedora no tiene el permiso de descontar a mano. Vende
+      // desde la ubicación de Ana, que es donde está la mercancía.
+      const respuesta = await como(app, ADMIN).post('/ventas', {
+        ...venta(6, { importe: '160.00' }),
+        ubicacionId: IDS.ana,
+        lineas: [{ productoId: IDS.tejocote, cantidad: 6, descuento: '20.00' }],
+      });
+      expect(respuesta.status).toBe(201);
+      expect(respuesta.body.lineas[0].descuento).toBe('20.00');
+    });
+
+    it('no se vende por debajo de lo que costó traerlo', async () => {
+      // La mitad de descuento deja la pieza en 15, y traerla costó más que eso.
+      await capturarEscalones(app, 6, '0.50', 0, '0');
+      const respuesta = await como(app, ANA).post('/ventas', venta(6, { importe: '90.00' }));
+      expect(respuesta.status).toBe(422);
+      expect(respuesta.body.mensaje).toMatch(/costó/);
     });
   });
 

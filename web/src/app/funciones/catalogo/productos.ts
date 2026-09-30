@@ -9,7 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTabsModule } from '@angular/material/tabs';
-import { type Categoria, coincideBusqueda, type Producto } from '@uvm/compartido';
+import { type Categoria, coincideBusqueda, type Producto, type Usuario } from '@uvm/compartido';
 import { ApiService } from '../../core/api';
 import { AvisosService } from '../../core/avisos';
 import { mensajeDeError } from '../../core/errores';
@@ -57,6 +57,13 @@ export class Productos {
     this.incluirInactivos() ? '/api/productos?inactivos=1' : '/api/productos',
   );
   protected readonly categorias = httpResource<Categoria[]>(() => '/api/categorias');
+  /**
+   * Sólo para calcular, al capturar un escalón de descuento, qué deja el producto más
+   * flaco. Lo pide quien puede ver la lista de usuarios; si no, la cuenta usa 0.
+   */
+  private readonly usuarios = httpResource<Usuario[]>(() =>
+    this.sesion.puede('usuarios.gestionar') ? '/api/usuarios' : undefined,
+  );
   protected readonly visibles = computed(() => {
     const q = this.busqueda();
     return (this.productos.value() ?? []).filter((p) =>
@@ -92,7 +99,15 @@ export class Productos {
 
   /** El nombre, el orden y la tarjeta que le toca en la portada del sitio. */
   protected editarCategoria(categoria: Categoria): void {
-    const datos: DatosDialogoCategoria = { categoria };
+    const datos: DatosDialogoCategoria = {
+      categoria,
+      productos: this.productos.value() ?? [],
+      // El peor caso para el margen: la comisión más alta que se le paga a alguien.
+      comisionMasAlta: Math.max(
+        0,
+        ...(this.usuarios.value() ?? []).map((u) => Number(u.comisionVenta)),
+      ),
+    };
     this.dialogo
       .open<DialogoCategoria, DatosDialogoCategoria, Categoria>(DialogoCategoria, {
         data: datos,

@@ -6,7 +6,9 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { startWith } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -14,7 +16,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import type { Categoria } from '@uvm/compartido';
+import { CurrencyPipe } from '@angular/common';
+import type { Categoria, Producto } from '@uvm/compartido';
 import { ApiService } from '../../core/api';
 import { marcarErroresDelServidor, mensajeDeError } from '../../core/errores';
 import { ImagenEditable } from './imagen-editable';
@@ -39,6 +42,23 @@ const ICONOS: readonly { readonly valor: string; readonly nombre: string }[] = [
 
 export interface DatosDialogoCategoria {
   readonly categoria: Categoria;
+  /** Para calcular en vivo qué deja cada escalón. Sólo se miran los de esta categoría. */
+  readonly productos: readonly Producto[];
+  /** La comisión más alta que se le paga a alguien: el peor caso para el margen. */
+  readonly comisionMasAlta: number;
+}
+
+/** Lo que retiene la terminal, con su IVA. Sólo pesa cuando pagan con tarjeta. */
+const TASA_TARJETA = 0.0406;
+
+/**
+ * Lo que deja una pieza con ese descuento, en el peor caso: pagada con tarjeta y con la
+ * comisión más alta que se le paga a alguien. El costo no baja con el descuento.
+ */
+function dejaPorPieza(producto: Producto, pct: number, comision: number): number {
+  const precio = Number(producto.precioVenta ?? 0) * (1 - pct / 100);
+  const costo = Number(producto.costos?.costoPromedio ?? 0);
+  return precio * (1 - comision - TASA_TARJETA) - costo;
 }
 
 /**
@@ -51,6 +71,7 @@ export interface DatosDialogoCategoria {
 @Component({
   selector: 'uvm-dialogo-categoria',
   imports: [
+    CurrencyPipe,
     ImagenEditable,
     ReactiveFormsModule,
     MatButtonModule,
@@ -90,6 +111,46 @@ export class DialogoCategoria {
     insigniaIcono: [this.categoria.insigniaIcono],
     descripcion: [this.categoria.descripcion, Validators.maxLength(300)],
     cta: [this.categoria.cta, Validators.maxLength(60)],
+    descuentoDesde1: [this.categoria.descuentoDesde1, [Validators.min(0), Validators.max(1000)]],
+    descuentoPct1: [
+      Number(this.categoria.descuentoTasa1) * 100,
+      [Validators.min(0), Validators.max(50)],
+    ],
+    descuentoDesde2: [this.categoria.descuentoDesde2, [Validators.min(0), Validators.max(1000)]],
+    descuentoPct2: [
+      Number(this.categoria.descuentoTasa2) * 100,
+      [Validators.min(0), Validators.max(50)],
+    ],
+  });
+
+  private readonly valor = toSignal(
+    this.formulario.valueChanges.pipe(startWith(this.formulario.getRawValue())),
+    { initialValue: this.formulario.getRawValue() },
+  );
+
+  /**
+   * Con los escalones que se están capturando, qué deja por pieza el producto más flaco
+   * de esta familia. Es lo que convierte la decisión en una cuenta y no en una corazonada.
+   *
+   * Descuenta lo que se va con el precio: la comisión de quien vende y, si pagan con
+   * tarjeta, lo que retiene la terminal. El costo no baja nunca.
+   */
+  protected readonly loQueDeja = computed(() => {
+    const conCosto = this.datos.productos.filter(
+      (p) => p.categoriaId === this.categoria.id && p.precioVenta !== null && p.costos,
+    );
+    if (conCosto.length === 0) return null;
+
+    const tasas = [this.valor().descuentoPct1 ?? 0, this.valor().descuentoPct2 ?? 0];
+    return tasas
+      .filter((pct) => pct > 0)
+      .map((pct) => {
+        const comision = this.datos.comisionMasAlta;
+        const peor = conCosto.reduce((flaco, p) =>
+          dejaPorPieza(p, pct, comision) < dejaPorPieza(flaco, pct, comision) ? p : flaco,
+        );
+        return { pct, producto: peor.nombre, deja: dejaPorPieza(peor, pct, comision) };
+      });
   });
 
   protected cerrar(): void {
@@ -107,10 +168,14 @@ export class DialogoCategoria {
     this.guardando.set(true);
     this.error.set(null);
     try {
-      const guardada = await this.api.put<Categoria>(
-        `/categorias/${this.categoria.id}`,
-        this.formulario.getRawValue(),
-      );
+      const { descuentoPct1, descuentoPct2, ...valor } = this.formulario.getRawValue();
+      const guardada = await this.api.put<Categoria>(`/categorias/${this.categoria.id}`, {
+        ...valor,
+        // En pantalla van en %, que es como se piensan; la API los guarda como
+        // proporción, que es como se multiplican.
+        descuentoTasa1: String(descuentoPct1 / 100),
+        descuentoTasa2: String(descuentoPct2 / 100),
+      });
       this.guardado.set(guardada);
       const conImagen = await imagen.guardarEn(this.categoria.id);
       this.referencia.close(conImagen ?? guardada);

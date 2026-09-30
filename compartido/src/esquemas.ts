@@ -68,23 +68,81 @@ function sinProductosRepetidos(
    Catálogo
    -------------------------------------------------------------------------- */
 
-export const esquemaCategoria = z.object({
-  nombre: requerido(60),
-  orden: z.number().int().min(0).default(0),
-  activa: z.boolean().default(true),
-  /* La tarjeta de la portada del sitio. Nada es obligatorio: una categoría sirve para
+export const esquemaCategoria = z
+  .object({
+    nombre: requerido(60),
+    orden: z.number().int().min(0).default(0),
+    activa: z.boolean().default(true),
+    /* La tarjeta de la portada del sitio. Nada es obligatorio: una categoría sirve para
      agrupar productos aunque nunca salga en «Nuestras Categorías Dulces». */
-  /** «Galletas de Amaranto». Vacío: la tarjeta usa el nombre. */
-  titulo: texto(80).default(''),
-  /** La píldora de la tarjeta: «Tradición dulce». */
-  insignia: texto(40).default(''),
-  /** El ícono de Material Symbols que la acompaña. */
-  insigniaIcono: texto(40).default(''),
-  /** El párrafo de la tarjeta. */
-  descripcion: texto(300).default(''),
-  /** El texto del enlace. Vacío: se arma «Ver {nombre}». */
-  cta: texto(60).default(''),
-});
+    /** «Galletas de Amaranto». Vacío: la tarjeta usa el nombre. */
+    titulo: texto(80).default(''),
+    /** La píldora de la tarjeta: «Tradición dulce». */
+    insignia: texto(40).default(''),
+    /** El ícono de Material Symbols que la acompaña. */
+    insigniaIcono: texto(40).default(''),
+    /** El párrafo de la tarjeta. */
+    descripcion: texto(300).default(''),
+    /** El texto del enlace. Vacío: se arma «Ver {nombre}». */
+    cta: texto(60).default(''),
+    /* Descuento por llevar cantidad. Las piezas se cuentan sumando toda la categoría. */
+    /** Desde cuántas piezas entra el primer escalón. `0`: sin escalón. */
+    descuentoDesde1: z.number().int().min(0).max(1000).default(0),
+    /** Proporción: `0.05` = 5 %. Medio precio es el tope, para que un dedazo no regale. */
+    descuentoTasa1: decimal(4).default('0'),
+    descuentoDesde2: z.number().int().min(0).max(1000).default(0),
+    descuentoTasa2: decimal(4).default('0'),
+  })
+  .superRefine((categoria, ctx) => {
+    const escalones = [
+      ['1', categoria.descuentoDesde1, categoria.descuentoTasa1],
+      ['2', categoria.descuentoDesde2, categoria.descuentoTasa2],
+    ] as const;
+
+    for (const [cual, desde, tasa] of escalones) {
+      // Medio precio es más de lo que cualquier escalón debería dar.
+      if (Number(tasa) > 0.5) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [`descuentoTasa${cual}`],
+          message: 'Como máximo 50 %',
+        });
+      }
+      // Una mitad sin la otra no descuenta nada y nadie entendería por qué.
+      if (desde > 0 && Number(tasa) <= 0) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [`descuentoTasa${cual}`],
+          message: 'Escribe el porcentaje de ese escalón',
+        });
+      }
+      if (Number(tasa) > 0 && desde <= 0) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [`descuentoDesde${cual}`],
+          message: 'Escribe desde cuántas piezas entra',
+        });
+      }
+    }
+
+    // El segundo tiene que premiar más que el primero, o no es un segundo escalón.
+    if (categoria.descuentoDesde2 > 0) {
+      if (categoria.descuentoDesde2 <= categoria.descuentoDesde1) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['descuentoDesde2'],
+          message: 'El segundo escalón tiene que pedir más piezas que el primero',
+        });
+      }
+      if (Number(categoria.descuentoTasa2) <= Number(categoria.descuentoTasa1)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['descuentoTasa2'],
+          message: 'El segundo escalón tiene que descontar más que el primero',
+        });
+      }
+    }
+  });
 
 /** El slug no viene aquí: la API lo genera del nombre al crear y ya no cambia. */
 export const esquemaProducto = z

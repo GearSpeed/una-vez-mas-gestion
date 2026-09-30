@@ -100,7 +100,15 @@
           <tbody>
             @for (l of lineas(); track l.productoId) {
               <tr>
-                <td>{{ l.producto }}</td>
+                <td>
+                  {{ l.producto }}
+                  <!-- Que se vea por qué bajó el precio, y que no parezca un error. -->
+                  @if (l.descuentoVolumen !== '0') {
+                    <span class="estado bien"
+                      >−{{ l.descuentoVolumen | currency }} por volumen</span
+                    >
+                  }
+                </td>
                 <td class="numero">{{ l.cantidad }}</td>
                 @if (puedeDescontar()) {
                   <td class="numero">

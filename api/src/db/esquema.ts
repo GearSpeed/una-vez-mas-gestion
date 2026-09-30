@@ -170,8 +170,27 @@ export const categorias = gestion.table(
     imagenClave: text(),
     /** Texto alternativo de la foto (accesibilidad y buscadores). */
     imagenAlt: text().notNull().default(''),
+    /* Descuento por llevar cantidad. Las piezas se cuentan sumando toda la categoría:
+       tres de avena y tres de coco son seis galletas. Lo aplica `descuentoPorVolumen`. */
+    /** Desde cuántas piezas entra el primer escalón. `0`: sin escalón. */
+    descuentoDesde1: integer().notNull().default(0),
+    /** Proporción del primer escalón: `0.0500` = 5 %. */
+    descuentoTasa1: numeric({ precision: 6, scale: 4 }).notNull().default('0'),
+    /** Desde cuántas piezas entra el segundo. `0`: sin segundo escalón. */
+    descuentoDesde2: integer().notNull().default(0),
+    /** Proporción del segundo escalón. */
+    descuentoTasa2: numeric({ precision: 6, scale: 4 }).notNull().default('0'),
   },
-  () => [check('categorias_imagen_clave', sql`imagen_clave ~ '^categorias/[0-9]+/[0-9a-f]{16}$'`)],
+  () => [
+    check('categorias_imagen_clave', sql`imagen_clave ~ '^categorias/[0-9]+/[0-9a-f]{16}$'`),
+    check('categorias_descuento_desde', sql`descuento_desde1 >= 0 and descuento_desde2 >= 0`),
+    // Medio precio es más de lo que cualquier escalón debería dar: un dedazo de más no
+    // puede regalar la mercancía.
+    check(
+      'categorias_descuento_tasa',
+      sql`descuento_tasa1 between 0 and 0.5 and descuento_tasa2 between 0 and 0.5`,
+    ),
+  ],
 );
 
 export const productos = gestion.table(
@@ -504,8 +523,13 @@ export const ventaDetalle = gestion.table(
     cantidad: integer().notNull(),
     /** El precio de lista en el momento de la venta. */
     precioUnitario: dinero().notNull(),
-    /** Descuento de toda la línea, en pesos. */
+    /** Descuento de toda la línea, en pesos: el mayor entre el de volumen y el manual. */
     descuento: dinero().notNull().default('0'),
+    /**
+     * Cuánto de ese descuento vino de la regla por volumen. Se guarda aparte para poder
+     * responder «¿cuánto me costaron los descuentos este mes?» sin adivinar.
+     */
+    descuentoVolumen: dinero().notNull().default('0'),
     importe: dinero()
       .notNull()
       .generatedAlwaysAs(sql`cantidad * precio_unitario - descuento`),

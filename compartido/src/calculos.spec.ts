@@ -5,6 +5,7 @@ import {
   comisionDeVendedor,
   comisionDevuelta,
   costoTraslado,
+  descuentoPorVolumen,
   descuentoValido,
   importeLinea,
   indicadoresPrecio,
@@ -301,5 +302,95 @@ describe('comisión de quien vende', () => {
   it('redondea al centavo', () => {
     expect(comisionDeVendedor('33.33', '0.1500')).toBe('5.00');
     expect(comisionDeVendedor('28.75', '0.1234')).toBe('3.55');
+  });
+});
+
+const GALLETAS = 1;
+const BORRACHITOS = 2;
+
+const linea = (productoId: number, categoriaId: number, cantidad: number, precio = '30.00') => ({
+  productoId,
+  categoriaId,
+  cantidad,
+  precioUnitario: precio,
+});
+
+/**
+ * Las piezas se cuentan por categoría, y de los dos escalones gana el más alto que se
+ * alcance. Los números son los de la mercancía real: galletas de 30 y de 35, con 5 % desde
+ * 6 piezas y 10 % desde 11.
+ */
+describe('descuentoPorVolumen', () => {
+  const escalones = new Map([
+    [GALLETAS, { desde1: 6, tasa1: '0.0500', desde2: 11, tasa2: '0.1000' }],
+  ]);
+
+  it('suma las piezas de la categoría, no las de cada producto', () => {
+    // Tres de avena y tres de coco son seis galletas: entra el 5 % en las dos líneas.
+    const descuentos = descuentoPorVolumen(
+      [linea(1, GALLETAS, 3), linea(2, GALLETAS, 3)],
+      escalones,
+    );
+    expect(descuentos.get(1)).toBe('4.50');
+    expect(descuentos.get(2)).toBe('4.50');
+  });
+
+  it('una pieza antes del umbral, no hay descuento', () => {
+    const descuentos = descuentoPorVolumen(
+      [linea(1, GALLETAS, 3), linea(2, GALLETAS, 2)],
+      escalones,
+    );
+    expect(descuentos.size).toBe(0);
+  });
+
+  it('justo en el umbral, sí entra', () => {
+    expect(descuentoPorVolumen([linea(1, GALLETAS, 6)], escalones).get(1)).toBe('9.00');
+  });
+
+  it('de los dos escalones gana el más alto que se alcanza', () => {
+    // 11 piezas de 30: 330 × 10 % = 33.00, no el 5 %.
+    expect(descuentoPorVolumen([linea(1, GALLETAS, 11)], escalones).get(1)).toBe('33.00');
+  });
+
+  it('cada categoría cuenta por su lado', () => {
+    // Seis galletas y dos borrachitos: los borrachitos no arrastran a nadie, y
+    // tampoco tienen escalones capturados.
+    const descuentos = descuentoPorVolumen(
+      [linea(1, GALLETAS, 6), linea(9, BORRACHITOS, 2)],
+      escalones,
+    );
+    expect(descuentos.get(1)).toBe('9.00');
+    expect(descuentos.has(9)).toBe(false);
+  });
+
+  it('una categoría sin escalones capturados no descuenta nunca', () => {
+    expect(descuentoPorVolumen([linea(9, BORRACHITOS, 50)], escalones).size).toBe(0);
+  });
+
+  it('respeta el precio de cada línea', () => {
+    // Cuatro de 30 y dos de 35 son seis galletas: 5 % sobre lo que vale cada línea.
+    const descuentos = descuentoPorVolumen(
+      [linea(1, GALLETAS, 4, '30.00'), linea(4, GALLETAS, 2, '35.00')],
+      escalones,
+    );
+    expect(descuentos.get(1)).toBe('6.00');
+    expect(descuentos.get(4)).toBe('3.50');
+  });
+
+  it('redondea al centavo', () => {
+    // 7 × 33.33 = 233.31; al 5 % son 11.6655.
+    const conPrecioFeo = new Map([
+      [GALLETAS, { desde1: 6, tasa1: '0.0500', desde2: 0, tasa2: '0' }],
+    ]);
+    expect(descuentoPorVolumen([linea(1, GALLETAS, 7, '33.33')], conPrecioFeo).get(1)).toBe(
+      '11.67',
+    );
+  });
+
+  it('un escalón en cero piezas no cuenta como escalón', () => {
+    const sinSegundo = new Map([
+      [GALLETAS, { desde1: 6, tasa1: '0.0500', desde2: 0, tasa2: '0.1000' }],
+    ]);
+    expect(descuentoPorVolumen([linea(1, GALLETAS, 50)], sinSegundo).get(1)).toBe('75.00');
   });
 });

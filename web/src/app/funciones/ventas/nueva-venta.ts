@@ -21,7 +21,9 @@ import {
   coincideBusqueda,
   type ComisionPago,
   comisionDeCobro,
+  type Categoria,
   comparar,
+  descuentoPorVolumen,
   type Decimal,
   type Existencia,
   type ExistenciasRespuesta,
@@ -123,20 +125,62 @@ export class NuevaVenta {
     );
   });
 
+  /** Los escalones de descuento por volumen, que se capturan en cada categoría. */
+  private readonly categorias = httpResource<Categoria[]>(() => '/api/categorias');
+  private readonly escalones = computed(
+    () =>
+      new Map(
+        (this.categorias.value() ?? []).map((c) => [
+          c.id,
+          {
+            desde1: c.descuentoDesde1,
+            tasa1: c.descuentoTasa1,
+            desde2: c.descuentoDesde2,
+            tasa2: c.descuentoTasa2,
+          },
+        ]),
+      ),
+  );
+
   protected readonly carrito = signal<ReadonlyMap<number, LineaCarrito>>(new Map());
   protected readonly lineas = computed(() => {
     const porId = new Map(this.disponibles().map((f) => [f.productoId, f]));
-    return [...this.carrito()].flatMap(([productoId, linea]) => {
+    const enCarrito = [...this.carrito()].flatMap(([productoId, linea]) => {
       const producto = porId.get(productoId);
       if (!producto?.precioVenta) return [];
+      return [
+        {
+          productoId,
+          categoriaId: producto.categoriaId,
+          producto: producto.producto,
+          cantidad: linea.cantidad,
+          precioUnitario: producto.precioVenta,
+          descuentoManual: linea.descuento || '0',
+        },
+      ];
+    });
+
+    // La misma función que usa el servidor: si aquí se cobrara un centavo distinto, la
+    // venta se rechazaría por no cuadrar con los pagos.
+    const porVolumen = descuentoPorVolumen(enCarrito, this.escalones());
+
+    return enCarrito.map((linea) => {
+      const volumen = porVolumen.get(linea.productoId) ?? '0';
+      // Quien compra nunca recibe menos de lo que le toca por volumen.
+      const descuento =
+        comparar(linea.descuentoManual, volumen) > 0 ? linea.descuentoManual : volumen;
       const conPrecio = {
         cantidad: linea.cantidad,
-        precioUnitario: producto.precioVenta,
-        descuento: linea.descuento || '0',
+        precioUnitario: linea.precioUnitario,
+        descuento,
       };
-      return [
-        { productoId, producto: producto.producto, ...conPrecio, importe: importeLinea(conPrecio) },
-      ];
+      return {
+        productoId: linea.productoId,
+        producto: linea.producto,
+        descuentoVolumen: volumen,
+        ...conPrecio,
+        importe: importeLinea(conPrecio),
+      };
     });
   });
   protected readonly total = computed(() => totalVenta(this.lineas()));

@@ -10,7 +10,10 @@ import {
   comisionDeCobro,
   comisionDevuelta,
   comparar,
+  type Decimal,
+  descuentoPorVolumen,
   descuentoValido,
+  type EscalonesCategoria,
   type DevolucionResumen,
   fechaDeHoy,
   type FiltroVentas,
@@ -18,6 +21,8 @@ import {
   METODOS_PAGO,
   type MetodoPago,
   type NuevaDevolucion,
+  importeLinea,
+  multiplicar,
   type NuevaVenta,
   type PagoDeVenta,
   redondear,
@@ -31,13 +36,15 @@ import {
 import { and, asc, count, desc, eq, gte, inArray, lte, type SQL, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { UsuarioSesion } from '../acceso/usuario-sesion.js';
+import type { ProductoBloqueado } from '../inventario/movimientos.service.js';
 import { registrarEnBitacora } from '../comun/bitacora.js';
 import { conCostos } from '../comun/costos.js';
 import { fechaDelDocumento } from '../comun/fechas.js';
 import { conIdempotencia } from '../comun/idempotencia.js';
-import { type BaseDatos, DB } from '../db/conexion.js';
+import { type BaseDatos, DB, type Ejecutor } from '../db/conexion.js';
 import { comisionNetaDeVenta, reembolsadoDeVenta } from '../db/consultas.js';
 import {
+  categorias,
   devolucionDetalle,
   devolucionPagos,
   devoluciones,
@@ -88,7 +95,7 @@ export class VentasService {
             tx,
             datos.lineas.map((l) => l.productoId),
           );
-          const lineas = datos.lineas.map((linea, i) => {
+          const conPrecio = datos.lineas.map((linea, i) => {
             const producto = porProducto.get(linea.productoId);
             if (!producto?.activo)
               throw campoInvalido(`lineas.${i}.productoId`, 'Ese producto está dado de baja.');
@@ -98,18 +105,47 @@ export class VentasService {
                 `${producto.nombre} todavía no tiene precio de venta.`,
               );
             }
-            const conPrecio = {
+            return {
+              productoId: linea.productoId,
+              categoriaId: producto.categoriaId,
               cantidad: linea.cantidad,
               precioUnitario: producto.precioVenta,
-              descuento: linea.descuento,
+              descuentoManual: linea.descuento,
             };
-            if (!descuentoValido(conPrecio)) {
+          });
+
+          // El descuento por volumen lo calcula el servidor aunque la pantalla ya lo
+          // haya mostrado: la línea viaja desde el navegador, y aquí es donde se decide
+          // lo que se cobra.
+          const porVolumen = descuentoPorVolumen(
+            conPrecio,
+            await this.escalonesDeCategorias(tx, conPrecio),
+          );
+
+          const lineas = conPrecio.map((linea, i) => {
+            const volumen = porVolumen.get(linea.productoId) ?? '0';
+            // Quien compra nunca recibe menos de lo que le toca por volumen, y quien
+            // tiene el permiso puede dar más.
+            const descuento =
+              comparar(linea.descuentoManual, volumen) > 0 ? linea.descuentoManual : volumen;
+            const conDescuento = {
+              cantidad: linea.cantidad,
+              precioUnitario: linea.precioUnitario,
+              descuento,
+            };
+            if (!descuentoValido(conDescuento)) {
               throw campoInvalido(
                 `lineas.${i}.descuento`,
                 'El descuento no puede ser mayor que la línea.',
               );
             }
-            return { productoId: linea.productoId, ...conPrecio };
+            const producto = porProducto.get(linea.productoId);
+            this.noVenderBajoCosto(i, producto, conDescuento);
+            return {
+              productoId: linea.productoId,
+              descuentoVolumen: volumen,
+              ...conDescuento,
+            };
           });
 
           const total = totalVenta(lineas);
@@ -172,6 +208,7 @@ export class VentasService {
               cantidad: linea.cantidad,
               precioUnitario: linea.precioUnitario,
               descuento: linea.descuento,
+              descuentoVolumen: linea.descuentoVolumen,
               costoUnitario: aplicados[i]?.costoUnitario ?? '0',
             })),
           );
@@ -654,6 +691,48 @@ export class VentasService {
    * El vendedor vende solo de su ubicación. Quien tiene
    * `ventas.cualquier_ubicacion` elige (o usa la suya si tiene).
    */
+  /** Los escalones de las categorías que aparecen en esta venta, y sólo de esas. */
+  private async escalonesDeCategorias(
+    tx: Ejecutor,
+    lineas: readonly { readonly categoriaId: number }[],
+  ): Promise<Map<number, EscalonesCategoria>> {
+    const ids = [...new Set(lineas.map((l) => l.categoriaId))];
+    if (ids.length === 0) return new Map();
+    const filas = await tx
+      .select({
+        id: categorias.id,
+        desde1: categorias.descuentoDesde1,
+        tasa1: categorias.descuentoTasa1,
+        desde2: categorias.descuentoDesde2,
+        tasa2: categorias.descuentoTasa2,
+      })
+      .from(categorias)
+      .where(inArray(categorias.id, ids));
+    return new Map(filas.map(({ id, ...escalones }) => [id, escalones]));
+  }
+
+  /**
+   * Nadie vende por debajo de lo que costó traer la pieza.
+   *
+   * Es la red que pediste para cuando entren familias nuevas sin costo capturado y un
+   * porcentaje se aplique a ciegas. De paso tapa un hueco que ya existía: un producto con
+   * precio en cero se podía vender igual.
+   */
+  private noVenderBajoCosto(
+    i: number,
+    producto: ProductoBloqueado | undefined,
+    linea: { cantidad: number; precioUnitario: Decimal; descuento: Decimal },
+  ): void {
+    if (!producto) return;
+    const cobrado = importeLinea(linea);
+    const costo = multiplicar(producto.costoPromedio, String(linea.cantidad));
+    if (comparar(cobrado, costo) >= 0) return;
+    throw campoInvalido(
+      `lineas.${i}.descuento`,
+      `${producto.nombre} quedaría en $${cobrado} y traerlo costó $${costo}.`,
+    );
+  }
+
   private ubicacionDeVenta(usuario: UsuarioSesion, pedida: number | undefined): number {
     if (usuario.puede('ventas.cualquier_ubicacion')) {
       const id = pedida ?? usuario.ubicacion?.id;
