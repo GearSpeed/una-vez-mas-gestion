@@ -31,6 +31,7 @@ import {
   METODOS_PAGO,
   type MetodoPago,
   redondear,
+  multiplicar,
   restar,
   sumar,
   totalVenta,
@@ -187,6 +188,28 @@ export class NuevaVenta {
   protected readonly piezas = computed(() =>
     this.lineas().reduce((suma, l) => suma + l.cantidad, 0),
   );
+
+  /**
+   * Lo que costaría sin ningún descuento, para poder enseñar de dónde sale el total.
+   * Un número que baja solo, sin decir por qué, se lee como un error de la aplicación.
+   */
+  protected readonly subtotal = computed(() =>
+    sumar(this.lineas().map((l) => multiplicar(l.precioUnitario, String(l.cantidad)))),
+  );
+
+  /**
+   * El descuento de toda la venta, y qué proporción del subtotal representa.
+   *
+   * El porcentaje se saca del total y no del escalón porque una venta puede juntar dos
+   * categorías con escalones distintos: así lo que se muestra siempre cuadra con lo que
+   * se cobra, aunque sea una mezcla.
+   */
+  protected readonly descuento = computed(() => {
+    const subtotal = this.subtotal();
+    const monto = restar(subtotal, this.total());
+    if (comparar(monto, '0') <= 0) return null;
+    return { monto, proporcion: Number(monto) / Number(subtotal) };
+  });
 
   protected readonly canal = signal<CanalVenta>('whatsapp');
   protected readonly metodoPago = signal<MetodoPago>('efectivo');

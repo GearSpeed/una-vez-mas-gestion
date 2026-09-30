@@ -206,6 +206,17 @@
         />
       </mat-form-field>
 
+      @if (descuento(); as d) {
+        <!-- De dónde sale el total: si sólo se viera el número final, un precio más bajo
+             de lo esperado parecería un error de la aplicación. -->
+        <dl class="desglose" aria-live="polite">
+          <dt>Venta</dt>
+          <dd>{{ subtotal() | currency }}</dd>
+          <dt>Descuento ({{ d.proporcion | percent: '1.0-1' }})</dt>
+          <dd class="rebaja">−{{ d.monto | currency }}</dd>
+        </dl>
+      }
+
       <p class="total" aria-live="polite">
         {{ piezas() }} {{ piezas() === 1 ? 'pieza' : 'piezas' }} ·
         <strong>{{ total() | currency }}</strong>

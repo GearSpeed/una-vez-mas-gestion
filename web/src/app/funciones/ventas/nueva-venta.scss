@@ -118,6 +118,26 @@
   }
 }
 
+/** De dónde sale el total: lo que valía y lo que se le quitó. */
+.desglose {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.125rem 1rem;
+  margin: 0 0 0.25rem;
+  font: var(--mat-sys-body-medium);
+  color: var(--mat-sys-on-surface-variant);
+
+  dd {
+    margin: 0;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rebaja {
+    color: var(--mat-sys-tertiary);
+  }
+}
+
 .total {
   margin: 0;
   font: var(--mat-sys-title-large);

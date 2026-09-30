@@ -206,6 +206,14 @@ describe('NuevaVenta', () => {
     );
     expect(avisos).toEqual(['−$4.50 por volumen', '−$4.50 por volumen']);
 
+    // Y el total dice de dónde sale: sin eso, un precio más bajo del esperado se lee
+    // como un error de la aplicación.
+    const desglose = [...pantalla.querySelectorAll('.desglose dt, .desglose dd')].map((e) =>
+      e.textContent?.trim(),
+    );
+    expect(desglose).toEqual(['Venta', '$180.00', 'Descuento (5%)', '−$9.00']);
+    expect(pantalla.querySelector('.total')?.textContent).toContain('$171.00');
+
     // Y lo que se cobra ya viene con el descuento: 180 − 9 = 171.
     pantalla.querySelector<HTMLButtonElement>('button.registrar')?.click();
     const peticion = http.expectOne('/api/ventas');
