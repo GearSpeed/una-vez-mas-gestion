@@ -4,6 +4,7 @@ import sharp from 'sharp';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { BaseDatos } from '../src/db/conexion.js';
+import { insistiendo } from '../src/imagenes/insistir.js';
 import {
   ADMIN,
   ANA,
@@ -53,9 +54,18 @@ const conTarjeta = (extra: object = {}) => ({
   ...extra,
 });
 
+/**
+ * Lee del bucket sin credenciales, como lo haría el sitio. Va por el `fetch` de Node,
+ * que reutiliza conexiones y no tiene la red de reintentos del SDK: por eso insiste.
+ * Lo que se reintenta es que se caiga la conexión, nunca una respuesta que no guste.
+ */
+async function leerDelBucket(url: string): Promise<Response> {
+  return insistiendo(() => fetch(url));
+}
+
 async function descargar(url: string): Promise<{ tipo: string | null; cuerpo: Buffer }> {
-  const respuesta = await fetch(url);
-  expect(respuesta.status).toBe(200);
+  const respuesta = await leerDelBucket(url);
+  expect(respuesta.status, `No se pudo descargar ${url}`).toBe(200);
   return {
     tipo: respuesta.headers.get('content-type'),
     cuerpo: Buffer.from(await respuesta.arrayBuffer()),
@@ -95,10 +105,19 @@ describe('imágenes de producto', () => {
     return peticion;
   };
 
+  /**
+   * Sube una foto del camino feliz y devuelve lo que quedó guardado. Afirma el 201
+   * aquí para que un tropiezo diga el código y el cuerpo: deshaciendo `body.imagen`
+   * a secas, un 429 o un 500 salían como «Cannot read properties of undefined».
+   */
+  const subirFoto = async (...args: Parameters<typeof subir>) => {
+    const respuesta = await subir(...args);
+    expect(respuesta.status, `No se subió la foto: ${JSON.stringify(respuesta.body)}`).toBe(201);
+    return respuesta.body.imagen as { url: string; urlChica: string; alt: string };
+  };
+
   it('la optimiza a WebP de 1200 y 600 px, sin metadatos, y la sirve el bucket', async () => {
-    const respuesta = await subir(IDS.avena, await foto());
-    expect(respuesta.status).toBe(201);
-    const { imagen } = respuesta.body;
+    const imagen = await subirFoto(IDS.avena, await foto());
     expect(imagen.alt).toBe(ALT);
     expect(imagen.url).toMatch(/\/imagenes\/productos\/1\/[0-9a-f]{16}-1200\.webp$/);
     expect(imagen.urlChica).toBe(imagen.url.replace('-1200.webp', '-600.webp'));
@@ -123,20 +142,19 @@ describe('imágenes de producto', () => {
     })
       .png()
       .toBuffer();
-    const respuesta = await subir(IDS.coco, png, ALT, ADMIN, 'coco.png');
-    expect(respuesta.status).toBe(201);
-    const datos = await sharp((await descargar(respuesta.body.imagen.url)).cuerpo).metadata();
+    const imagen = await subirFoto(IDS.coco, png, ALT, ADMIN, 'coco.png');
+    const datos = await sharp((await descargar(imagen.url)).cuerpo).metadata();
     expect(datos.width).toBe(400);
   });
 
   it('la misma foto conserva su URL; al cambiarla, la anterior se borra del bucket', async () => {
-    const primera = await subir(IDS.avena, await foto());
-    const otraVez = await subir(IDS.avena, await foto());
-    expect(otraVez.body.imagen.url).toBe(primera.body.imagen.url);
+    const primera = await subirFoto(IDS.avena, await foto());
+    const otraVez = await subirFoto(IDS.avena, await foto());
+    expect(otraVez.url).toBe(primera.url);
 
-    const nueva = await subir(IDS.avena, await foto(2000, 1500, '#3c6ec8'));
-    expect(nueva.body.imagen.url).not.toBe(primera.body.imagen.url);
-    expect((await fetch(primera.body.imagen.url)).status).toBe(404);
+    const nueva = await subirFoto(IDS.avena, await foto(2000, 1500, '#3c6ec8'));
+    expect(nueva.url).not.toBe(primera.url);
+    expect((await leerDelBucket(primera.url)).status).toBe(404);
   });
 
   /** Lo que el sitio lee de la avena en publico.catalogo. */
@@ -159,10 +177,10 @@ describe('imágenes de producto', () => {
       imagen_alt: null,
     });
 
-    const { body } = await subir(IDS.avena, await foto());
+    const imagen = await subirFoto(IDS.avena, await foto());
     const fila = await leer();
     expect(fila).toMatchObject({ id: IDS.avena, imagen_alt: ALT });
-    expect(body.imagen.url).toMatch(new RegExp(`/${String(fila?.['imagen'])}$`));
+    expect(imagen.url).toMatch(new RegExp(`/${String(fila?.['imagen'])}$`));
     expect(fila?.['imagen_chica']).toMatch(/^productos\/1\/[0-9a-f]{16}-600\.webp$/);
   });
 
@@ -188,7 +206,7 @@ describe('imágenes de producto', () => {
   });
 
   it('con foto propia, el catálogo del sitio ya no manda el logo', async () => {
-    await subir(IDS.avena, await foto());
+    await subirFoto(IDS.avena, await foto());
     const respuesta = await request(app.getHttpServer()).get('/api/publico/catalogo');
     const avena = respuesta.body.productos.find(
       (p: { slug: string }) => p.slug === 'galletas-avena',
@@ -214,10 +232,17 @@ describe('imágenes de producto', () => {
       return peticion;
     };
 
+    /** Como `subirFoto`, para la foto propia de una categoría. */
+    const subirFotoCategoria = async (...args: Parameters<typeof subirCategoria>) => {
+      const respuesta = await subirCategoria(...args);
+      expect(respuesta.status, `No se subió la foto: ${JSON.stringify(respuesta.body)}`).toBe(201);
+      return respuesta.body.imagen as { url: string; urlChica: string; alt: string };
+    };
+
     it('la descripción es la que enciende la tarjeta, no la foto', async () => {
       // Galletas de Avena es de Galletas, así que su foto ya le sirve de imagen a la
       // familia. Sin descripción, aun así no hay tarjeta.
-      await subir(IDS.avena, await foto());
+      await subirFoto(IDS.avena, await foto());
       expect(await vitrinaDe(app, 'Galletas')).toBeNull();
       expect(await saleEnPortada(app, 'Galletas')).toBe(false);
 
@@ -255,12 +280,11 @@ describe('imágenes de producto', () => {
     });
 
     it('la foto propia de la categoría manda sobre el sorteo', async () => {
-      await subir(IDS.avena, await foto());
+      await subirFoto(IDS.avena, await foto());
       await como(app, ADMIN).put('/categorias/1', conTarjeta());
 
-      const subida = await subirCategoria(1, await foto(1800, 1200, '#4c2a12'));
-      expect(subida.status).toBe(201);
-      expect(subida.body.imagen.url).toContain('categorias/1/');
+      const subida = await subirFotoCategoria(1, await foto(1800, 1200, '#4c2a12'));
+      expect(subida.url).toContain('categorias/1/');
 
       const vitrina = await vitrinaDe(app, 'Galletas');
       expect(vitrina.imagen).toMatchObject({ alt: ALT_CATEGORIA });
@@ -272,9 +296,9 @@ describe('imágenes de producto', () => {
     });
 
     it('al quitarle la foto propia, la tarjeta se queda y vuelve al sorteo', async () => {
-      await subir(IDS.avena, await foto());
+      await subirFoto(IDS.avena, await foto());
       await como(app, ADMIN).put('/categorias/1', conTarjeta());
-      await subirCategoria(1, await foto(1800, 1200, '#4c2a12'));
+      await subirFotoCategoria(1, await foto(1800, 1200, '#4c2a12'));
       expect((await vitrinaDe(app, 'Galletas')).imagen).not.toBeNull();
 
       const quitada = await como(app, ADMIN).delete('/categorias/1/imagen');
@@ -287,7 +311,7 @@ describe('imágenes de producto', () => {
     });
 
     it('sin título ni enlace propios, se resuelven con el nombre', async () => {
-      await subir(IDS.avena, await foto());
+      await subirFoto(IDS.avena, await foto());
       await como(app, ADMIN).put('/categorias/1', conTarjeta({ titulo: '', cta: '' }));
 
       expect(await vitrinaDe(app, 'Galletas')).toMatchObject({
@@ -297,11 +321,10 @@ describe('imágenes de producto', () => {
     });
 
     it('al cambiar la foto propia, la anterior se va del bucket', async () => {
-      const primera = await subirCategoria(1, await foto());
-      const urlVieja = primera.body.imagen.url;
-      const segunda = await subirCategoria(1, await foto(1800, 1200, '#4c2a12'));
-      expect(segunda.body.imagen.url).not.toBe(urlVieja);
-      expect((await fetch(urlVieja)).status).toBe(404);
+      const urlVieja = (await subirFotoCategoria(1, await foto())).url;
+      const segunda = await subirFotoCategoria(1, await foto(1800, 1200, '#4c2a12'));
+      expect(segunda.url).not.toBe(urlVieja);
+      expect((await leerDelBucket(urlVieja)).status).toBe(404);
     });
   });
 
@@ -340,18 +363,18 @@ describe('imágenes de producto', () => {
   });
 
   it('se cambia el texto alternativo, y al quitarla el archivo se borra del bucket', async () => {
-    const { body } = await subir(IDS.avena, await foto());
+    const imagen = await subirFoto(IDS.avena, await foto());
     const alt = await como(app, ADMIN).put(`/productos/${IDS.avena}/imagen`, {
       alt: 'Galletas de avena recién horneadas',
     });
-    expect(alt.body.imagen).toEqual({ ...body.imagen, alt: 'Galletas de avena recién horneadas' });
+    expect(alt.body.imagen).toEqual({ ...imagen, alt: 'Galletas de avena recién horneadas' });
 
     const quitada = await request(app.getHttpServer())
       .delete(`/api/productos/${IDS.avena}/imagen`)
       .set('X-Dev-Correo', ADMIN);
     expect(quitada.status).toBe(200);
     expect(quitada.body.imagen).toBeNull();
-    expect((await fetch(body.imagen.url)).status).toBe(404);
+    expect((await leerDelBucket(imagen.url)).status).toBe(404);
 
     const owner = conexion('owner');
     try {
