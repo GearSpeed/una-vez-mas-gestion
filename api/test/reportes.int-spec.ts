@@ -347,7 +347,12 @@ describe('reportes', () => {
   });
 
   it('exporta a CSV para Excel', async () => {
-    const respuesta = await como(app, ADMIN).get('/reportes/compras?formato=csv');
+    // Con rango explícito: la compra de la semilla es del 19 de septiembre y el
+    // periodo por omisión es el mes en curso, así que sin esto la prueba empieza a
+    // fallar sola al cambiar de mes. El año justo es lo más ancho que deja el tope.
+    const respuesta = await como(app, ADMIN).get(
+      '/reportes/compras?formato=csv&desde=2026-01-01&hasta=2026-12-31',
+    );
     expect(respuesta.headers['content-type']).toBe('text/csv; charset=utf-8');
     expect(respuesta.headers['content-disposition']).toBe('attachment; filename="compras.csv"');
     expect(respuesta.text).toBe(
