@@ -29,9 +29,13 @@ las **categorías activas**, en el orden en que se muestran, y una entrada por p
         "descripcion": "Todas llevan amaranto: avena, chocolate, coco y nuez.",
         "cta": "Ver nuestras galletas",
         "imagen": null
-      }
+      },
+      "descuentoVolumen": [
+        { "desde": 6, "tasa": "0.1000" },
+        { "desde": 12, "tasa": "0.1500" }
+      ]
     },
-    { "nombre": "Obleas", "vitrina": null }
+    { "nombre": "Obleas", "vitrina": null, "descuentoVolumen": [] }
   ],
   "productos": [
     {
@@ -82,6 +86,12 @@ sea `false`**, y tomar el `alt` del producto elegido, que ya está escrito.
 «Ver {nombre}». `insignia` e `icono` pueden venir vacíos, y entonces no se pintan; el ícono
 es un nombre de Material Symbols. El **color** de cada tarjeta no viaja: lo decide el sitio
 según el lugar que ocupa en la fila.
+
+**`descuentoVolumen` son los escalones de su descuento por llevar cantidad**, de menor a
+mayor piezas. Lista vacía: no tiene. Las piezas se cuentan sumando toda la categoría, no
+por producto (tres galletas de avena y tres de coco cuentan como seis). Cada escalón trae
+`desde` (entero) y `tasa` (texto decimal crudo, `"0.1000"` = 10 %); el sitio decide cómo
+redondearla y cómo mostrar uno o los dos escalones.
 
 Los campos de cada producto:
 
@@ -191,6 +201,7 @@ declararla, de una de estas dos formas:
 | 2026-09-28 | Se agrega `destacado`: quién sale en «Los Favoritos de la Casa» se elige en la aplicación                  |
 | 2026-09-29 | **Cambio que rompe**: `categorias` pasa de nombres a objetos, cada uno con su `vitrina`                    |
 | 2026-09-29 | La tarjeta se enciende con la `descripcion`, y su `imagen` llega `null` cuando sale de los productos       |
+| 2026-10-01 | Se agrega `descuentoVolumen` en cada categoría: sus escalones de descuento por volumen (`desde`, `tasa`)   |
 
 ## La vista `publico.catalogo` (uso interno)
 

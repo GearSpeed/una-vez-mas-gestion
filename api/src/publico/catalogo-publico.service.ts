@@ -4,6 +4,7 @@ import {
   type CategoriaPublica,
   comparar,
   type Decimal,
+  type EscalonDescuentoPublico,
   type ImagenPublica,
   PIEZAS_ULTIMAS,
   type ProductoPublico,
@@ -51,27 +52,51 @@ export class CatalogoPublicoService {
         imagenClave: categorias.imagenClave,
         imagenAlt: categorias.imagenAlt,
         conTarjeta: saleEnPortada,
+        descuentoDesde1: categorias.descuentoDesde1,
+        descuentoTasa1: categorias.descuentoTasa1,
+        descuentoDesde2: categorias.descuentoDesde2,
+        descuentoTasa2: categorias.descuentoTasa2,
       })
       .from(categorias)
       .where(eq(categorias.activa, true))
       .orderBy(asc(categorias.orden), asc(categorias.nombre));
 
-    return filas.map(({ nombre, imagenClave, imagenAlt, titulo, cta, conTarjeta, ...resto }) => ({
-      nombre,
-      // La categoría sale siempre —sirve para filtrar el catálogo—; la tarjeta, sólo si
-      // hay con qué armarla (ver `saleEnPortada`).
-      vitrina: conTarjeta
-        ? {
-            ...resto,
-            // Resueltos aquí, para que el sitio no tenga que conocer estas reglas.
-            titulo: titulo || nombre,
-            cta: cta || `Ver ${nombre.toLocaleLowerCase('es-MX')}`,
-            // Su foto propia manda; `null` es «sácala de sus productos», y de eso se
-            // encarga el sitio, que es donde el sorteo puede cambiar por visitante.
-            imagen: imagenClave ? { ...this.almacen.urls(imagenClave), alt: imagenAlt } : null,
-          }
-        : null,
-    }));
+    return filas.map(
+      ({
+        nombre,
+        imagenClave,
+        imagenAlt,
+        titulo,
+        cta,
+        conTarjeta,
+        descuentoDesde1,
+        descuentoTasa1,
+        descuentoDesde2,
+        descuentoTasa2,
+        ...resto
+      }) => ({
+        nombre,
+        // La categoría sale siempre —sirve para filtrar el catálogo—; la tarjeta, sólo si
+        // hay con qué armarla (ver `saleEnPortada`).
+        vitrina: conTarjeta
+          ? {
+              ...resto,
+              // Resueltos aquí, para que el sitio no tenga que conocer estas reglas.
+              titulo: titulo || nombre,
+              cta: cta || `Ver ${nombre.toLocaleLowerCase('es-MX')}`,
+              // Su foto propia manda; `null` es «sácala de sus productos», y de eso se
+              // encarga el sitio, que es donde el sorteo puede cambiar por visitante.
+              imagen: imagenClave ? { ...this.almacen.urls(imagenClave), alt: imagenAlt } : null,
+            }
+          : null,
+        descuentoVolumen: escalonesDescuento({
+          descuentoDesde1,
+          descuentoTasa1,
+          descuentoDesde2,
+          descuentoTasa2,
+        }),
+      }),
+    );
   }
 
   private async productos(): Promise<ProductoPublico[]> {
@@ -150,4 +175,24 @@ export class CatalogoPublicoService {
 function precioPublicable(precio: Decimal | null): Decimal | null {
   if (precio === null) return null;
   return comparar(precio, '0') > 0 ? precio : null;
+}
+
+/**
+ * Sólo los escalones activos (`desde > 0`), ya en orden: el esquema de captura
+ * garantiza que el segundo pide más piezas y descuenta más que el primero cuando existe.
+ */
+function escalonesDescuento(cat: {
+  descuentoDesde1: number;
+  descuentoTasa1: Decimal;
+  descuentoDesde2: number;
+  descuentoTasa2: Decimal;
+}): EscalonDescuentoPublico[] {
+  const escalones: EscalonDescuentoPublico[] = [];
+  if (cat.descuentoDesde1 > 0) {
+    escalones.push({ desde: cat.descuentoDesde1, tasa: cat.descuentoTasa1 });
+  }
+  if (cat.descuentoDesde2 > 0) {
+    escalones.push({ desde: cat.descuentoDesde2, tasa: cat.descuentoTasa2 });
+  }
+  return escalones;
 }
