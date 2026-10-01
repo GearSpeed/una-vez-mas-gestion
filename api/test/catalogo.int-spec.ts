@@ -212,7 +212,7 @@ describe('slug de los productos', () => {
       const galletas = publico.body.categorias.find(
         (c: { nombre: string }) => c.nombre === 'Galletas',
       );
-      expect(galletas).toEqual({ nombre: 'Galletas', vitrina: null });
+      expect(galletas).toEqual({ nombre: 'Galletas', vitrina: null, descuentoVolumen: [] });
     });
 
     it('la categoría de gasto no lleva nada de la tarjeta', async () => {
@@ -225,6 +225,54 @@ describe('slug de los productos', () => {
       });
       expect(creada.status).toBe(201);
       expect(creada.body).not.toHaveProperty('titulo');
+    });
+  });
+
+  describe('el descuento por volumen de la categoría', () => {
+    it('sin escalones, sale un arreglo vacío, no null', async () => {
+      const publico = await request(app.getHttpServer()).get('/api/publico/catalogo');
+      const galletas = publico.body.categorias.find(
+        (c: { nombre: string }) => c.nombre === 'Galletas',
+      );
+      expect(galletas.descuentoVolumen).toEqual([]);
+    });
+
+    it('con los dos escalones activos, salen en orden en la categoría pública', async () => {
+      const guardada = await como(app, ADMIN).put('/categorias/1', {
+        nombre: 'Galletas',
+        orden: 1,
+        activa: true,
+        descuentoDesde1: 6,
+        descuentoTasa1: '0.10',
+        descuentoDesde2: 12,
+        descuentoTasa2: '0.15',
+      });
+      expect(guardada.status).toBe(200);
+
+      const publico = await request(app.getHttpServer()).get('/api/publico/catalogo');
+      const galletas = publico.body.categorias.find(
+        (c: { nombre: string }) => c.nombre === 'Galletas',
+      );
+      expect(galletas.descuentoVolumen).toEqual([
+        { desde: 6, tasa: '0.1000' },
+        { desde: 12, tasa: '0.1500' },
+      ]);
+    });
+
+    it('solo con el primer escalón activo, el segundo no sale', async () => {
+      await como(app, ADMIN).put('/categorias/1', {
+        nombre: 'Galletas',
+        orden: 1,
+        activa: true,
+        descuentoDesde1: 6,
+        descuentoTasa1: '0.10',
+      });
+
+      const publico = await request(app.getHttpServer()).get('/api/publico/catalogo');
+      const galletas = publico.body.categorias.find(
+        (c: { nombre: string }) => c.nombre === 'Galletas',
+      );
+      expect(galletas.descuentoVolumen).toEqual([{ desde: 6, tasa: '0.1000' }]);
     });
   });
 

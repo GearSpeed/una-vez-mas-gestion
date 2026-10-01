@@ -331,6 +331,20 @@ export interface CategoriaPublica {
   readonly nombre: string;
   /** Su tarjeta en la portada, o `null` si no tiene foto: sin foto no hay tarjeta. */
   readonly vitrina: VitrinaPublica | null;
+  /**
+   * Los escalones de su descuento por llevar cantidad, de menor a mayor piezas. Vacío:
+   * no tiene. Las piezas se cuentan sumando toda la categoría, no por producto (ver
+   * `descuentoPorVolumen` en `compartido`).
+   */
+  readonly descuentoVolumen: readonly EscalonDescuentoPublico[];
+}
+
+/** Un escalón del descuento por volumen de una categoría. */
+export interface EscalonDescuentoPublico {
+  /** Piezas de la categoría a partir de las cuales entra este escalón. */
+  readonly desde: number;
+  /** Proporción cruda del descuento: `"0.1000"` = 10 %. El sitio decide cómo mostrarla. */
+  readonly tasa: Decimal;
 }
 
 /** Una tarjeta de «Nuestras Categorías Dulces». El color lo decide el sitio. */
