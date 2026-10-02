@@ -3,8 +3,16 @@ import { ThrottlerGuard } from '@nestjs/throttler';
 import type { Request } from 'express';
 import type { SolicitudConUsuario } from '../acceso/decoradores.js';
 
-/** Subir fotos cuesta CPU y memoria: 30 cada 5 minutos por usuario. */
-export const LIMITE_IMAGENES = { default: { limit: 30, ttl: 5 * 60_000 } };
+/**
+ * Subir fotos cuesta CPU y memoria: 30 cada 5 minutos por usuario.
+ *
+ * En pruebas el tope sube mucho: la ventana no se reinicia entre pruebas de un
+ * mismo archivo, y `imagenes.int-spec.ts` ya sube varias decenas de fotos como
+ * ADMIN. Con 30 chocaba con un 429 según qué más se agregara a la suite.
+ */
+export const LIMITE_IMAGENES = {
+  default: { limit: process.env['NODE_ENV'] === 'test' ? 1000 : 30, ttl: 5 * 60_000 },
+};
 
 /** La ruta pública la puede llamar cualquiera, y la cachea Cloudflare: 60 por minuto. */
 export const LIMITE_PUBLICO = { default: { limit: 60, ttl: 60_000 } };
