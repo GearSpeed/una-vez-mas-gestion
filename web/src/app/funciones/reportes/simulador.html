@@ -1,0 +1,157 @@
+<p class="ayuda">
+  No registra ninguna venta ni mueve existencias: es solo el cálculo de cuánto quedaría si se
+  vendiera esto, con el mismo descuento por volumen y la misma comisión que usa una venta real.
+</p>
+
+<div class="filtros">
+  <mat-form-field>
+    <mat-label>Buscar por nombre o ID</mat-label>
+    <mat-icon matPrefix aria-hidden="true">search</mat-icon>
+    <input
+      matInput
+      type="search"
+      autocomplete="off"
+      [value]="busqueda()"
+      (input)="busqueda.set($any($event.target).value)"
+    />
+  </mat-form-field>
+  <button mat-stroked-button type="button" (click)="usarInventarioActual()">
+    Usar mi inventario actual
+  </button>
+  <button mat-button type="button" (click)="vaciar()">Vaciar</button>
+</div>
+
+<uvm-estado-carga
+  [cargando]="existencias.isLoading()"
+  [error]="existencias.error()"
+  (reintentar)="existencias.reload()"
+/>
+
+<div class="distribucion">
+  <div uvmDesplazable="Productos a simular">
+    <table class="tabla-simple">
+      <caption class="visualmente-oculto">
+        Productos y cuánto simular vender de cada uno
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col">Producto</th>
+          <th scope="col" class="numero">Precio</th>
+          <th scope="col" class="numero">Existencia</th>
+          <th scope="col" class="numero">A vender</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (p of visibles(); track p.productoId) {
+          <tr>
+            <th scope="row">
+              {{ p.producto }}
+              <span class="ayuda bloque">{{ p.categoria }}</span>
+            </th>
+            <td class="numero">{{ p.precioVenta | currency }}</td>
+            <td class="numero">{{ p.cantidad }}</td>
+            <td class="numero">
+              <input
+                class="cantidad"
+                type="number"
+                min="0"
+                step="1"
+                inputmode="numeric"
+                [value]="cantidadDe(p.productoId) || ''"
+                (input)="cambiarCantidad(p.productoId, $any($event.target).valueAsNumber || 0)"
+                [attr.aria-label]="'Piezas a simular de ' + p.producto"
+              />
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="4">No hay productos con precio para simular.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="resumen">
+    <fieldset class="grupo">
+      <legend>Comisión del vendedor</legend>
+      @if (vendedoresActivos().length) {
+        <mat-form-field>
+          <mat-label>Vendedor</mat-label>
+          <mat-select
+            [value]="vendedorId()"
+            (valueChange)="cambiarVendedor($event)"
+            [canSelectNullableOptions]="true"
+          >
+            <mat-option [value]="null">Ninguno en particular</mat-option>
+            @for (v of vendedoresActivos(); track v.id) {
+              <mat-option [value]="v.id">
+                {{ v.nombre }} ({{ v.comisionVenta | percent: '1.0-2' }})
+              </mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      }
+      <mat-form-field>
+        <mat-label>O escribe la tasa (%)</mat-label>
+        <input
+          matInput
+          type="number"
+          min="0"
+          max="100"
+          step="0.01"
+          inputmode="decimal"
+          [value]="tasaManual() !== null ? tasaManual()! * 100 : ''"
+          (input)="cambiarTasaManual($any($event.target).value)"
+        />
+      </mat-form-field>
+    </fieldset>
+
+    @if (lineas().length > 0) {
+      <dl class="resultado">
+        <div>
+          <dt>Piezas</dt>
+          <dd>{{ piezas() }}</dd>
+        </div>
+        <div>
+          <dt>Subtotal bruto</dt>
+          <dd>{{ subtotal() | currency }}</dd>
+        </div>
+        @if (comparar(descuentoTotal(), '0') > 0) {
+          <div class="rebaja">
+            <dt>− Descuento por volumen</dt>
+            <dd>−{{ descuentoTotal() | currency }}</dd>
+          </div>
+        }
+        <div class="subtotal">
+          <dt>Venta neta</dt>
+          <dd>{{ ventaNeta() | currency }}</dd>
+        </div>
+        <div>
+          <dt>− Costo</dt>
+          <dd>−{{ costoTotal() | currency }}</dd>
+        </div>
+        <div class="subtotal">
+          <dt>Utilidad bruta</dt>
+          <dd>{{ utilidadBruta() | currency }}</dd>
+        </div>
+        <div>
+          <dt>− Comisión del vendedor ({{ tasaComision() | percent: '1.0-2' }})</dt>
+          <dd>−{{ comisionVendedor() | currency }}</dd>
+        </div>
+        <div class="total">
+          <dt>Utilidad neta (efectivo)</dt>
+          <dd>{{ utilidadNeta() | currency }}</dd>
+        </div>
+        @if (utilidadConTarjeta(); as conTarjeta) {
+          <div>
+            <dt>Si se cobrara con tarjeta</dt>
+            <dd>{{ conTarjeta | currency }}</dd>
+          </div>
+        }
+      </dl>
+    } @else {
+      <p class="ayuda">Agrega piezas, o usa el botón de inventario actual.</p>
+    }
+  </div>
+</div>
