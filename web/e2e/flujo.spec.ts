@@ -593,3 +593,39 @@ test('una aportación cuadra la caja sin inventar utilidad', async ({ page }, in
   // La primera columna es el efectivo, que es por donde entró.
   await expect(aportaciones.getByRole('cell').first()).not.toHaveText('$0.00');
 });
+
+test('el simulador de venta calcula el desglose sin registrar nada', async ({ page }) => {
+  const producto = 'Galletas de Mermelada de Piña';
+  await entrarComo(page, 'admin');
+  await page.goto('/productos');
+  await esperarCarga(page);
+  await page.getByRole('button', { name: `Editar ${producto}` }).click();
+  await page.getByLabel('Precio de venta').fill('35');
+  const guardado = page.waitForResponse(
+    (respuesta) =>
+      respuesta.request().method() === 'PUT' && respuesta.url().includes('/api/productos/'),
+  );
+  await page.getByRole('button', { name: 'Guardar' }).click();
+  await guardado;
+
+  await page.goto('/reportes');
+  await esperarCarga(page);
+  await page.getByRole('tab', { name: 'Simulador de venta' }).click();
+  await page.getByLabel(`Piezas a simular de ${producto}`).fill('4');
+
+  const resultado = page.locator('.resultado');
+  await expect(resultado).toContainText('$140.00'); // 4 × $35.00, sin descuento por volumen
+
+  // El selector de vendedor es un mat-select real: esto no se puede probar sin navegador.
+  await page.getByRole('combobox', { name: 'Vendedor' }).click();
+  await page.getByRole('option', { name: 'Ana' }).click();
+  await expect(resultado).toContainText('−$0.00'); // Ana no tiene tasa capturada
+
+  // Y la tasa escrita a mano manda sobre la del vendedor elegido.
+  await page.getByLabel('O escribe la tasa (%)').fill('15');
+  await expect(resultado).toContainText('−$21.00'); // $140.00 × 15 %
+  await expect(resultado).toContainText('$119.00'); // utilidad neta: 140 − 0 de costo − 21
+
+  // No registró ninguna venta de verdad.
+  await expect(page.getByText(/^Venta V-\d{6} registrada/)).toHaveCount(0);
+});

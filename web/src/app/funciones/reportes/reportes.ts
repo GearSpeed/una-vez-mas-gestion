@@ -34,6 +34,7 @@ import { Encabezado } from '../../ui/encabezado';
 import { EtiquetaPipe } from '../../ui/etiqueta.pipe';
 import { EstadoCarga } from '../../ui/estado-carga';
 import { CorteVendedor } from './corte';
+import { Simulador } from './simulador';
 import { CALENDARIO_EN_ESPANOL } from '../../ui/intl-calendario';
 
 const AGRUPACIONES: readonly { valor: AgruparVentasPor; etiqueta: string }[] = [
@@ -52,6 +53,7 @@ const AGRUPACIONES: readonly { valor: AgruparVentasPor; etiqueta: string }[] = [
     EstadoCarga,
     EtiquetaPipe,
     CorteVendedor,
+    Simulador,
     CurrencyPipe,
     DatePipe,
     PercentPipe,

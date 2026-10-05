@@ -96,3 +96,28 @@ test('la pestaña «Cobro con tarjeta» pasa axe', async ({ page }) => {
   await expect(page.getByLabel('IVA sobre la comisión (%)')).toHaveValue('16.00');
   await sinViolaciones(page);
 });
+
+test('la pestaña «Simulador de venta» pasa axe', async ({ page }) => {
+  // No depende de que otra prueba ya le haya puesto precio a algo: la semilla no
+  // trae ninguno, así que el simulador estaría vacío sin esto.
+  const producto = 'Galletas de Canela';
+  await entrarComo(page, 'admin');
+  await page.goto('/productos');
+  await esperarCarga(page);
+  await page.getByRole('button', { name: `Editar ${producto}` }).click();
+  await page.getByLabel('Precio de venta').fill('30');
+  const guardado = page.waitForResponse(
+    (respuesta) =>
+      respuesta.request().method() === 'PUT' && respuesta.url().includes('/api/productos/'),
+  );
+  await page.getByRole('button', { name: 'Guardar' }).click();
+  await guardado;
+
+  await page.goto('/reportes');
+  await esperarCarga(page);
+  await page.getByRole('tab', { name: 'Simulador de venta' }).click();
+  // Con el desglose ya pintado, no solo la tabla vacía.
+  await page.getByLabel(`Piezas a simular de ${producto}`).fill('2');
+  await expect(page.getByText('Utilidad neta')).toBeVisible();
+  await sinViolaciones(page);
+});

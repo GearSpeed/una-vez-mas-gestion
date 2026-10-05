@@ -1,0 +1,85 @@
+.distribucion {
+  display: grid;
+  gap: 1.25rem;
+  align-items: start;
+  margin-top: 1rem;
+
+  @media (min-width: 60rem) {
+    grid-template-columns: 1fr 22rem;
+  }
+}
+
+.resumen {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+}
+
+.grupo {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+
+  legend {
+    font: var(--mat-sys-label-large);
+    padding: 0 0 0.25rem;
+  }
+}
+
+/** La cantidad a simular, dentro de la tabla de productos. */
+.cantidad {
+  width: 5rem;
+  font: inherit;
+  text-align: end;
+  padding: 0.25rem;
+  border: 1px solid var(--mat-sys-outline);
+  border-radius: 0.5rem;
+}
+
+/** El desglose, renglón por renglón, como se lee un estado de cuenta. */
+.resultado {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+
+  > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.25rem 0;
+  }
+
+  dt {
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  dd {
+    margin: 0;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rebaja {
+    color: var(--mat-sys-tertiary);
+
+    dt {
+      color: inherit;
+    }
+  }
+
+  .subtotal,
+  .total {
+    border-top: 1px solid var(--mat-sys-outline-variant);
+    font: var(--mat-sys-title-medium);
+
+    dt {
+      color: inherit;
+    }
+  }
+
+  .total {
+    border-top-width: 2px;
+  }
+}
