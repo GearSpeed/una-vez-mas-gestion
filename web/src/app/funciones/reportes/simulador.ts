@@ -13,6 +13,7 @@ import {
   comisionDeCobro,
   comisionDeVendedor,
   comparar,
+  DECIMALES_COSTO,
   type Decimal,
   descuentoPorVolumen,
   type EscalonesCategoria,
@@ -180,12 +181,18 @@ export class Simulador {
   );
   protected readonly descuentoTotal = computed(() => restar(this.subtotal(), this.ventaNeta()));
 
+  /** Se suma con todos sus decimales y se redondea una vez, como la API: mismo centavo. */
   protected readonly costoTotal = computed(() =>
-    sumar(this.lineas().map((l) => redondear(multiplicar(l.costoUnitario, String(l.cantidad))))),
+    redondear(
+      sumar(
+        this.lineas().map((l) => multiplicar(l.costoUnitario, String(l.cantidad), DECIMALES_COSTO)),
+        DECIMALES_COSTO,
+      ),
+    ),
   );
   protected readonly utilidadBruta = computed(() => restar(this.ventaNeta(), this.costoTotal()));
   protected readonly comisionVendedor = computed(() =>
-    comisionDeVendedor(this.ventaNeta(), this.tasaComision()),
+    comisionDeVendedor(this.utilidadBruta(), this.tasaComision()),
   );
   protected readonly utilidadNeta = computed(() =>
     restar(this.utilidadBruta(), this.comisionVendedor()),

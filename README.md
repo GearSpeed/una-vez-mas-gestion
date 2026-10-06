@@ -131,11 +131,14 @@ probar lo que ve cada rol. Ese modo se niega a arrancar si `NODE_ENV=production`
 - **Gastos de operación**: lo que cuesta el negocio y no es mercancía (bolsas, servicios,
   publicidad). Se registran con su categoría y no se editan: se cancelan con motivo. Son lo
   que separa la utilidad bruta de la ganancia de verdad.
-- **Comisión de quien vende**: un porcentaje de lo que vende, configurable por persona
-  (Usuarios). Se calcula sobre lo **neto de devoluciones**, así que una devolución la baja
-  sola, y cada venta guarda la tasa que tenía ese día: cambiarla no reescribe lo pasado. La
-  vendedora la ve en su corte. Es lo que **se le debe**; cuando se le paga, se registra como
-  gasto y cuenta en el mes en que se pagó.
+- **Comisión de quien vende**: un porcentaje de la **utilidad** de lo que vende —lo cobrado,
+  neto de devoluciones, menos lo que costó la mercancía—, configurable por persona
+  (Usuarios). Una pieza con poco margen paga poca comisión, y una devolución la baja sola.
+  Nunca es negativa: si una venta queda en pérdida (una pieza devuelta dañada), la comisión
+  de esa venta es cero. La comisión de la tarjeta no se resta: la vendedora no decide cómo
+  paga el cliente. Cada venta guarda la tasa que tenía ese día: cambiarla no reescribe lo
+  pasado. La vendedora la ve en su corte. Es lo que **se le debe**; cuando se le paga, se
+  registra como gasto y cuenta en el mes en que se pagó.
 - **Cuánto se le debe a cada quien** (Reportes → Comisiones): lo que ha ganado desde siempre
   menos lo que ya se le pagó. El pago se registra desde ahí mismo y se liga a la persona
   (`gastos.vendedor_id`), que es lo que permite llevar el saldo. Un abono parcial es válido:

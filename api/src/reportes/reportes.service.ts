@@ -390,9 +390,7 @@ export class ReportesService {
       this.db
         .with(netoPorVenta)
         .select({
-          comision: sql<string>`coalesce(
-            sum(round(${netoPorVenta.importe} * ${ventas.comisionVendedorTasa}, 2)), 0
-          )`,
+          comision: sql<string>`coalesce(sum(${this.comisionDeVenta(netoPorVenta)}), 0)`,
         })
         .from(ventas)
         .innerJoin(netoPorVenta, eq(netoPorVenta.ventaId, ventas.id))
@@ -524,10 +522,12 @@ export class ReportesService {
           .select({
             vendedor: vendedor.nombre,
             tasa: ventas.comisionVendedorTasa,
-            ventasNetas: sql<string>`coalesce(sum(${netoPorVenta.importe}), 0)::numeric(12, 2)`,
+            utilidad: sql<string>`coalesce(
+              sum(greatest(${netoPorVenta.utilidad}, 0)), 0
+            )::numeric(12, 2)`,
             comision: sql<string>`coalesce(
-            sum(round(${netoPorVenta.importe} * ${ventas.comisionVendedorTasa}, 2)), 0
-          )::numeric(12, 2)`,
+              sum(${this.comisionDeVenta(netoPorVenta)}), 0
+            )::numeric(12, 2)`,
           })
           .from(ventas)
           .innerJoin(netoPorVenta, eq(netoPorVenta.ventaId, ventas.id))
@@ -599,7 +599,7 @@ export class ReportesService {
         .select({
           vendedorId: ventas.vendedorId,
           ganado: sql<string>`coalesce(
-            sum(round(${netoPorVenta.importe} * ${ventas.comisionVendedorTasa}, 2)), 0
+            sum(${this.comisionDeVenta(netoPorVenta)}), 0
           )::numeric(12, 2)`,
         })
         .from(ventas)
@@ -671,20 +671,31 @@ export class ReportesService {
   }
 
   /**
-   * Lo que quedó neto de cada venta, ya descontadas sus devoluciones. Va como CTE y
-   * no como subconsulta correlacionada: dentro de una subconsulta, un `id` suelto
-   * se resuelve contra la tabla de adentro y la cuenta sale mal sin avisar.
+   * La utilidad de cada venta, ya descontadas sus devoluciones: lo cobrado menos lo
+   * que costó la mercancía, con el costo redondeado al centavo (la misma cuenta que
+   * el simulador). Va como CTE y no como subconsulta correlacionada: dentro de una
+   * subconsulta, un `id` suelto se resuelve contra la tabla de adentro y la cuenta
+   * sale mal sin avisar.
    */
   private netoPorVenta() {
     return this.db.$with('neto_por_venta').as(
       this.db
         .select({
           ventaId: ventaLineasNetas.ventaId,
-          importe: sql<string>`sum(${ventaLineasNetas.importeNeto})`.as('importe'),
+          utilidad: sql<string>`sum(${ventaLineasNetas.importeNeto})
+            - round(sum(${ventaLineasNetas.costoNeto}), 2)`.as('utilidad'),
         })
         .from(ventaLineasNetas)
         .groupBy(ventaLineasNetas.ventaId),
     );
+  }
+
+  /**
+   * Lo que gana quien vendió por una venta: la tasa que tenía ese día sobre la
+   * utilidad, nunca bajo cero. Es `comisionDeVendedor` de `compartido`, en SQL.
+   */
+  private comisionDeVenta(neto: ReturnType<ReportesService['netoPorVenta']>) {
+    return sql`round(greatest(${neto.utilidad}, 0) * ${ventas.comisionVendedorTasa}, 2)`;
   }
 
   async compras(filtro: Periodo): Promise<FilaReporteCompras[]> {

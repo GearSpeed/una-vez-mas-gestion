@@ -207,7 +207,7 @@ describe('Simulador', () => {
     manual!.dispatchEvent(new Event('input'));
     await fixture.whenStable();
 
-    // $30.00 × 20 % = $6.00.
-    expect(pantalla.querySelector('.resultado')?.textContent).toContain('−$6.00');
+    // Sobre la utilidad, no sobre la venta: ($30.00 − $17.00 de costo) × 20 % = $2.60.
+    expect(pantalla.querySelector('.resultado')?.textContent).toContain('−$2.60');
   });
 });

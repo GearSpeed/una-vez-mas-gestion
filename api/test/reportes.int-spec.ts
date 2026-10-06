@@ -160,20 +160,22 @@ describe('reportes', () => {
       expect(body.utilidadOperativa).toBe('48.36');
     });
 
-    it('la comisión sale de lo neto, y el corte dice lo mismo que el resultado', async () => {
+    it('la comisión sale de la utilidad, y el corte dice lo mismo que el resultado', async () => {
       await cargarAAna(4);
       await comisionDeAna('0.15');
       const vendida = await vender(2);
       expect(vendida.status).toBe(201);
 
+      // $60.00 cobrados menos $35.82 de costo: $24.18 de utilidad, y el 15 % es $3.63.
       const conComision = await resultado();
       expect(conComision.body.comisionesPorPagar).toEqual([
-        { vendedor: 'Ana', tasa: '0.1500', ventasNetas: '60.00', comision: '9.00' },
+        { vendedor: 'Ana', tasa: '0.1500', utilidad: '24.18', comision: '3.63' },
       ]);
       // El corte de Ana tiene que decir exactamente lo mismo.
-      expect((await como(app, ANA).get('/reportes/corte')).body.comisionVendedor).toBe('9.00');
+      expect((await como(app, ANA).get('/reportes/corte')).body.comisionVendedor).toBe('3.63');
 
-      // Devuelve una pieza: la comisión baja sola, sin tocarla.
+      // Devuelve una pieza que regresa al inventario: se va lo cobrado y su costo, y la
+      // comisión baja sola, sin tocarla.
       await como(app, ANA).post(`/ventas/${vendida.body.id}/devoluciones`, {
         claveIdempotencia: clave(),
         motivo: 'No le gustó',
@@ -181,10 +183,28 @@ describe('reportes', () => {
       });
       const despues = await resultado();
       expect(despues.body.comisionesPorPagar[0]).toMatchObject({
-        ventasNetas: '30.00',
-        comision: '4.50',
+        utilidad: '12.09',
+        comision: '1.81',
       });
-      expect((await como(app, ANA).get('/reportes/corte')).body.comisionVendedor).toBe('4.50');
+      expect((await como(app, ANA).get('/reportes/corte')).body.comisionVendedor).toBe('1.81');
+    });
+
+    it('una pieza devuelta dañada no deja la comisión en negativo', async () => {
+      await cargarAAna(4);
+      await comisionDeAna('0.15');
+      const vendida = await vender(1);
+      // Se regresa el dinero pero la pieza no vuelve al inventario: su costo se perdió y
+      // la venta queda en pérdida. Eso es del negocio, no algo que Ana tenga que pagar.
+      await como(app, ANA).post(`/ventas/${vendida.body.id}/devoluciones`, {
+        claveIdempotencia: clave(),
+        motivo: 'Llegó rota',
+        lineas: [{ productoId: IDS.tejocote, cantidad: 1, regresaAInventario: false }],
+      });
+      expect((await como(app, ADMIN).get('/reportes/comisiones')).body[0]).toMatchObject({
+        ganado: '0.00',
+        saldo: '0.00',
+      });
+      expect((await como(app, ANA).get('/reportes/corte')).body.comisionVendedor).toBe('0.00');
     });
 
     it('cambiar la tasa no reescribe lo ya vendido', async () => {
@@ -194,18 +214,18 @@ describe('reportes', () => {
       await comisionDeAna('0.05');
       await vender(1);
 
-      // Cada venta con la tasa que tenía ese día: $4.50 y $1.50.
+      // Cada venta con la tasa que tenía ese día, sobre sus $12.09 de utilidad: $1.81 y $0.60.
       const { body } = await resultado();
       expect(body.comisionesPorPagar).toEqual([
-        { vendedor: 'Ana', tasa: '0.1500', ventasNetas: '30.00', comision: '4.50' },
-        { vendedor: 'Ana', tasa: '0.0500', ventasNetas: '30.00', comision: '1.50' },
+        { vendedor: 'Ana', tasa: '0.1500', utilidad: '12.09', comision: '1.81' },
+        { vendedor: 'Ana', tasa: '0.0500', utilidad: '12.09', comision: '0.60' },
       ]);
     });
 
     it('el saldo es lo ganado menos lo pagado, y el pago lo baja', async () => {
       await cargarAAna(4);
       const anaId = await comisionDeAna('0.15');
-      await vender(2); // $60 × 15 % = $9.00
+      await vender(2); // ($60.00 − $35.82 de costo) × 15 % = $3.63
 
       const conDeuda = await como(app, ADMIN).get('/reportes/comisiones');
       expect(conDeuda.body).toEqual([
@@ -213,20 +233,20 @@ describe('reportes', () => {
           vendedorId: anaId,
           vendedor: 'Ana',
           tasa: '0.1500',
-          ganado: '9.00',
+          ganado: '3.63',
           pagado: '0.00',
-          saldo: '9.00',
-          ganadoEnPeriodo: '9.00',
+          saldo: '3.63',
+          ganadoEnPeriodo: '3.63',
           pagosEnPeriodo: [],
         },
       ]);
 
-      // Se le abona la mitad: el saldo baja, no lo ganado.
+      // Se le abona una parte: el saldo baja, no lo ganado.
       const pago = await como(app, ADMIN).post('/gastos', {
         claveIdempotencia: clave(),
         categoriaId: 2,
         concepto: 'Comisión de Ana',
-        importe: '4.00',
+        importe: '2.00',
         metodoPago: 'efectivo',
         vendedorId: anaId,
       });
@@ -234,16 +254,16 @@ describe('reportes', () => {
       expect(pago.body.vendedor).toBe('Ana');
 
       const conAbono = (await como(app, ADMIN).get('/reportes/comisiones')).body[0];
-      expect(conAbono).toMatchObject({ ganado: '9.00', pagado: '4.00', saldo: '5.00' });
+      expect(conAbono).toMatchObject({ ganado: '3.63', pagado: '2.00', saldo: '1.63' });
       expect(conAbono.pagosEnPeriodo).toEqual([
-        { folio: pago.body.folio, fecha: pago.body.fecha, importe: '4.00' },
+        { folio: pago.body.folio, fecha: pago.body.fecha, importe: '2.00' },
       ]);
 
       // Si el pago se cancela, la deuda vuelve.
       await como(app, ADMIN).post(`/gastos/${pago.body.id}/cancelar`, { motivo: 'Me equivoqué' });
       expect((await como(app, ADMIN).get('/reportes/comisiones')).body[0]).toMatchObject({
         pagado: '0.00',
-        saldo: '9.00',
+        saldo: '3.63',
       });
     });
 
@@ -257,15 +277,15 @@ describe('reportes', () => {
         lineas: [{ productoId: IDS.tejocote, cantidad: 1 }],
       });
       expect((await como(app, ADMIN).get('/reportes/comisiones')).body[0]).toMatchObject({
-        ganado: '4.50',
-        saldo: '4.50',
+        ganado: '1.81',
+        saldo: '1.81',
       });
     });
 
     it('pagar de más deja saldo a favor de la vendedora, sin romper nada', async () => {
       await cargarAAna(4);
       const anaId = await comisionDeAna('0.15');
-      await vender(1); // $4.50
+      await vender(1); // ($30.00 − $17.91 de costo) × 15 % = $1.81
       await como(app, ADMIN).post('/gastos', {
         claveIdempotencia: clave(),
         categoriaId: 2,
@@ -275,9 +295,9 @@ describe('reportes', () => {
         vendedorId: anaId,
       });
       expect((await como(app, ADMIN).get('/reportes/comisiones')).body[0]).toMatchObject({
-        ganado: '4.50',
+        ganado: '1.81',
         pagado: '10.00',
-        saldo: '-5.50',
+        saldo: '-8.19',
       });
     });
 

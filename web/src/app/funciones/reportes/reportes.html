@@ -189,7 +189,7 @@
                       <strong>{{ c.vendedor }}</strong
                       >: {{ c.comision | currency }}
                       <span class="ayuda">
-                        ({{ c.tasa | percent: '1.0-2' }} de {{ c.ventasNetas | currency }})
+                        ({{ c.tasa | percent: '1.0-2' }} de {{ c.utilidad | currency }} de utilidad)
                       </span>
                     </li>
                   }
@@ -335,7 +335,9 @@
                     <tr>
                       <th scope="row">
                         {{ c.vendedor }}
-                        <span class="ayuda bloque">{{ c.tasa | percent: '1.0-2' }} por venta</span>
+                        <span class="ayuda bloque"
+                          >{{ c.tasa | percent: '1.0-2' }} de la utilidad</span
+                        >
                       </th>
                       <td class="numero">{{ c.ganado | currency }}</td>
                       <td class="numero">{{ c.pagado | currency }}</td>

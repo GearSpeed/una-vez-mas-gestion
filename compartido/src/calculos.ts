@@ -418,13 +418,21 @@ export function repartirProporcional(total: Decimal, pesos: readonly Decimal[]):
 }
 
 /**
- * Lo que gana quien vendió: su tasa sobre lo que quedó **neto de devoluciones**.
+ * Lo que gana quien vendió: su tasa sobre la **utilidad** de la venta, es decir lo
+ * cobrado neto de devoluciones menos lo que costó la mercancía.
  *
- * Se calcula sobre lo neto a propósito: si el cliente regresó la mitad, la mitad de
- * esa venta no se vendió, y la comisión baja sola sin tener que corregirla a mano.
+ * Sobre utilidad y no sobre venta: una pieza que deja poco margen paga poca comisión,
+ * así que el descuento o un costo alto no se comen la ganancia del negocio.
+ *
+ * Nunca es negativa. Una venta puede quedar con utilidad bajo cero —una pieza devuelta
+ * dañada baja lo cobrado pero su costo se perdió igual— y eso es pérdida del negocio,
+ * no algo que la vendedora tenga que regresar.
+ *
+ * La API hace la misma cuenta en SQL (`reportes.service.ts`): si cambia aquí, cambia allá.
  */
-export function comisionDeVendedor(ventaNeta: Decimal, tasa: Decimal): Decimal {
-  return fijar(big(ventaNeta).times(tasa), DECIMALES_DINERO);
+export function comisionDeVendedor(utilidad: Decimal, tasa: Decimal): Decimal {
+  const base = big(utilidad);
+  return fijar((base.gt(0) ? base : big(0)).times(tasa), DECIMALES_DINERO);
 }
 
 /* -----------------------------------------------------------------------------

@@ -112,8 +112,9 @@ describe('ventas', () => {
         venta(6, { importe: '171.00', lineas: [{ productoId: IDS.tejocote, cantidad: 6 }] }),
       );
       const corte = await como(app, ANA).get('/reportes/corte');
-      // 15 % de 171, no de 180: la comisión sale de lo neto.
-      expect(corte.body.comisionVendedor).toBe('25.65');
+      // Sobre la utilidad ya con el descuento: ($171.00 cobrados − $107.46 de costo) × 15 %.
+      // Sin el descuento serían ($180.00 − $107.46) × 15 % = $10.88.
+      expect(corte.body.comisionVendedor).toBe('9.53');
     });
 
     it('un descuento manual mayor gana sobre el automático', async () => {
