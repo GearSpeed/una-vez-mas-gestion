@@ -76,7 +76,10 @@ const IMPORTS = [
             formControlName="comisionPorcentaje"
           />
           <span matTextSuffix>&nbsp;%</span>
-          <mat-hint>De lo que venda, ya neto de devoluciones. Cero si no es por comisión.</mat-hint>
+          <mat-hint
+            >De la utilidad de lo que venda: lo cobrado menos lo que costó la mercancía. Cero si no
+            es por comisión.</mat-hint
+          >
         </mat-form-field>
         <mat-checkbox formControlName="activo">Activo (puede entrar)</mat-checkbox>
         <p class="ayuda">

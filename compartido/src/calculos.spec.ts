@@ -284,8 +284,9 @@ describe('repartir dinero entre varios métodos de pago', () => {
 });
 
 describe('comisión de quien vende', () => {
-  it('es su tasa sobre lo que vendió', () => {
-    expect(comisionDeVendedor('1000.00', '0.1500')).toBe('150.00');
+  it('es su tasa sobre la utilidad, no sobre lo vendido', () => {
+    // 10 galletas: $285.00 cobrados, $167.63 de costo → $117.37 de utilidad.
+    expect(comisionDeVendedor('117.37', '0.1500')).toBe('17.61');
     expect(comisionDeVendedor('56.00', '0.1000')).toBe('5.60');
   });
 
@@ -293,10 +294,13 @@ describe('comisión de quien vende', () => {
     expect(comisionDeVendedor('1000.00', '0')).toBe('0.00');
   });
 
-  /** Lo neto ya trae descontada la devolución: la comisión baja sola. */
-  it('sobre lo neto, la devolución la baja sin tocar nada más', () => {
-    expect(comisionDeVendedor('120.00', '0.1500')).toBe('18.00');
-    expect(comisionDeVendedor('90.00', '0.1500')).toBe('13.50');
+  it('una venta sin utilidad no paga comisión', () => {
+    expect(comisionDeVendedor('0.00', '0.1500')).toBe('0.00');
+  });
+
+  /** Una pieza devuelta dañada baja lo cobrado, pero su costo ya se perdió. */
+  it('con utilidad negativa la comisión es cero, nunca negativa', () => {
+    expect(comisionDeVendedor('-17.91', '0.1500')).toBe('0.00');
   });
 
   it('redondea al centavo', () => {

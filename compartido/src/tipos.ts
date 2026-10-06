@@ -718,7 +718,8 @@ export interface EstadoResultados {
   /** Lo que se le debe a cada quien por vender, y todavía no se le paga. */
   readonly comisionesPorPagar: readonly {
     readonly vendedor: string;
-    readonly ventasNetas: Decimal;
+    /** Sobre lo que se calcula la comisión: lo cobrado menos el costo, nunca bajo cero. */
+    readonly utilidad: Decimal;
     readonly tasa: Decimal;
     readonly comision: Decimal;
   }[];
