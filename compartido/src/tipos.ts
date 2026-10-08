@@ -5,6 +5,7 @@
  */
 import type { Decimal } from './calculos.js';
 import type {
+  Bolsa,
   CanalVenta,
   Disponibilidad,
   EstadoDocumento,
@@ -577,7 +578,7 @@ export interface ListaCapital extends Paginado<MovimientoCapital> {
 
 /**
  * Cuánto dinero debería haber, **acumulado a la fecha** y separado por dónde está: el
- * efectivo no es lo mismo que lo que sigue en Mercado Pago.
+ * efectivo no es lo mismo que lo que hay en el banco (Mercado Pago).
  *
  * No es utilidad. Puede haber mucho dinero en caja y el negocio estar perdiendo, si ese
  * dinero lo pusieron los socios.
@@ -588,7 +589,7 @@ export interface SaldosCaja {
 }
 
 export interface SaldoBolsa {
-  readonly metodoPago: MetodoPago;
+  readonly bolsa: Bolsa;
   /** Lo cobrado en ventas; con tarjeta, ya neto de lo que retiene la terminal. */
   readonly ventas: Decimal;
   readonly devoluciones: Decimal;

@@ -160,11 +160,13 @@ probar lo que ve cada rol. Ese modo se niega a arrancar si `NODE_ENV=production`
   vende y el dinero atado en mercancía, que es ganancia que todavía no es efectivo. El
   capital de los socios también va aparte y con todas sus letras: un negocio que pierde
   $2,000 al mes y al que le meten $3,000 se ve con dinero, y no lo está.
-- **Dónde está el dinero** (Reportes): cuánto **debería** haber hoy en cada bolsa —efectivo,
-  transferencia y tarjeta—, con todo lo registrado desde el principio. Ventas cobradas,
-  menos devoluciones, compras y gastos, más aportaciones y menos retiros. Lo de la terminal
-  va **neto**, que es lo que de verdad cae. Es un saldo, no un movimiento: no depende del
-  periodo que uno esté mirando.
+- **Dónde está el dinero** (Reportes): cuánto **debería** haber hoy en cada bolsa
+  —**efectivo** y **banco**—, con todo lo registrado desde el principio. Ventas cobradas,
+  menos devoluciones, compras y gastos, más aportaciones y menos retiros. El banco es
+  Mercado Pago: ahí caen las transferencias y los cobros con tarjeta (netos de lo que
+  retiene la terminal), y de ahí sale lo que se paga por transferencia o con tarjeta. La
+  forma de pago se sigue guardando en cada registro; la bolsa sale de ella. Es un saldo,
+  no un movimiento: no depende del periodo que uno esté mirando.
 - **Ajustes**: si restan, al costo promedio; si suman, al costo que se indique. El
   **conteo físico** registra lo que hay y ajusta solo las diferencias.
 - **Imágenes**: una foto por producto, la misma que muestra el sitio. Se sube desde el

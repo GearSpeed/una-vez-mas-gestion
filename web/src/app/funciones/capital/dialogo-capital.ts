@@ -9,6 +9,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import {
+  bolsaDe,
   fechaDeHoy,
   METODOS_PAGO,
   type MetodoPago,
@@ -75,7 +76,7 @@ export class DialogoCapital {
   /** Lo que debería haber en la bolsa elegida, para no sacar a ciegas. */
   protected readonly saldoDeLaBolsa = computed(() => {
     if (this.tipo() !== 'retiro') return null;
-    const bolsa = this.datos.saldos?.bolsas.find((b) => b.metodoPago === this.metodoPago());
+    const bolsa = this.datos.saldos?.bolsas.find((b) => b.bolsa === bolsaDe(this.metodoPago()));
     return bolsa?.saldo ?? null;
   });
 
