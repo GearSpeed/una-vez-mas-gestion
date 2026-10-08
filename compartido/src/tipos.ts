@@ -415,6 +415,15 @@ export interface ComisionPago {
   readonly tasaEfectiva: Decimal;
 }
 
+/** A dónde transfiere el cliente. El QR se pide aparte: `GET /api/transferencia/qr`. */
+export interface DatosTransferencia {
+  readonly banco: string;
+  readonly titular: string;
+  /** Los 18 dígitos, sin espacios. */
+  readonly clabe: string;
+  readonly tieneQr: boolean;
+}
+
 export interface ListaVentas extends Paginado<VentaResumen> {
   /** Totales de las ventas vigentes del filtro (no solo de la página). */
   readonly resumen: {

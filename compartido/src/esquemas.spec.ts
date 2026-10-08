@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  esquemaDatosTransferencia,
   esquemaNuevaCompra,
   esquemaNuevaVenta,
   esquemaImagenProducto,
@@ -143,5 +144,27 @@ describe('esquemaImagenProducto', () => {
     });
     expect(esquemaImagenProducto.safeParse({ alt: ' a ' }).success).toBe(false);
     expect(esquemaImagenProducto.safeParse({ alt: 'x'.repeat(201) }).success).toBe(false);
+  });
+});
+
+describe('esquemaDatosTransferencia', () => {
+  it('guarda la CLABE solo con sus dígitos, aunque se escriba como en el estado de cuenta', () => {
+    expect(
+      esquemaDatosTransferencia.parse({
+        banco: ' Banco de Prueba ',
+        titular: 'Una Vez Más',
+        clabe: '002 180 00000000001 2',
+      }),
+    ).toEqual({ banco: 'Banco de Prueba', titular: 'Una Vez Más', clabe: '002180000000000012' });
+  });
+
+  it('rechaza una CLABE con un dígito mal tecleado', () => {
+    const resultado = esquemaDatosTransferencia.safeParse({
+      banco: 'Banco de Prueba',
+      titular: 'Una Vez Más',
+      clabe: '002180000000000013',
+    });
+    expect(resultado.success).toBe(false);
+    expect(resultado.error?.issues[0]?.message).toMatch(/dígito verificador/);
   });
 });

@@ -196,6 +196,10 @@
         }
       </fieldset>
 
+      @if (montoTransferencia(); as monto) {
+        <uvm-datos-transferencia [monto]="monto" />
+      }
+
       <mat-form-field>
         <mat-label>Notas (opcional)</mat-label>
         <input

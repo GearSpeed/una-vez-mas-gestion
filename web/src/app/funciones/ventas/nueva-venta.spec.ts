@@ -5,7 +5,13 @@ import localeEsMx from '@angular/common/locales/es-MX';
 import { DEFAULT_CURRENCY_CODE, LOCALE_ID, signal } from '@angular/core';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import type { ComisionPago, ExistenciasRespuesta, Permiso, Sesion } from '@uvm/compartido';
+import type {
+  ComisionPago,
+  DatosTransferencia,
+  ExistenciasRespuesta,
+  Permiso,
+  Sesion,
+} from '@uvm/compartido';
 import { SesionService } from '../../core/sesion';
 import { NuevaVenta } from './nueva-venta';
 
@@ -182,6 +188,49 @@ describe('NuevaVenta', () => {
     expect(aviso).toContain('$2.44');
     expect(aviso).toContain('4.06');
     expect(aviso).toContain('$57.56');
+  });
+
+  it('con transferencia muestra la cuenta y abre el QR', async () => {
+    const agregar = boton('Agregar una pieza de Galletas de Mermelada de Tejocote');
+    agregar?.click();
+    agregar?.click();
+    await fixture.whenStable();
+    expect(pantalla.querySelector('uvm-datos-transferencia')).toBeNull();
+
+    const transferencia = [
+      ...pantalla.querySelectorAll<HTMLButtonElement>('mat-button-toggle button'),
+    ].find((b) => b.textContent?.trim() === 'Transferencia');
+    transferencia?.click();
+    // Sin `whenStable`: espera a las peticiones pendientes, y estas se contestan aquí.
+    fixture.detectChanges();
+    TestBed.tick();
+    // Cuenta inventada: solo su dígito verificador es correcto.
+    const cuenta: DatosTransferencia = {
+      banco: 'Banco de Prueba',
+      titular: 'Una Vez Más',
+      clabe: '002180000000000012',
+      tieneQr: true,
+    };
+    http.expectOne('/api/transferencia').flush(cuenta);
+    await asentar();
+    http.expectOne('/api/transferencia/qr').flush(new Blob(['png'], { type: 'image/png' }));
+    await asentar();
+    await fixture.whenStable();
+
+    const bloque = pantalla.querySelector('uvm-datos-transferencia')?.textContent ?? '';
+    expect(bloque).toContain('$60.00');
+    expect(bloque).toContain('Banco de Prueba');
+    expect(bloque).toContain('002 180 00000000001 2');
+
+    const mostrar = [...pantalla.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
+      b.textContent?.includes('Mostrar QR'),
+    );
+    expect(mostrar?.disabled).toBe(false);
+    mostrar?.click();
+    await fixture.whenStable();
+    const dialogo = document.querySelector('uvm-dialogo-qr');
+    expect(dialogo?.textContent).toContain('Transferir $60.00');
+    expect(dialogo?.querySelector('img')?.getAttribute('src')).toMatch(/^blob:/);
   });
 
   it('el descuento por volumen entra solo, sumando las piezas de la categoría', async () => {

@@ -128,6 +128,11 @@ probar lo que ve cada rol. Ese modo se niega a arrancar si `NODE_ENV=production`
   que pagó y Mercado Pago regresa la parte proporcional de su comisión (si se devuelve
   todo, la comisión completa), siempre que el reembolso se haga desde el cobro original
   («Devolver dinero» en la app de Mercado Pago), no como transferencia nueva.
+- **Cobro por transferencia**: el admin captura banco, titular, CLABE (se revisa su dígito
+  verificador) y el QR del banco en Productos → «Cobro con transferencia». Al elegir
+  «Transferencia» en Nueva venta, quien cobra ve esos datos con el monto, los copia para
+  mandarlos por WhatsApp o abre el QR en grande para que el cliente lo escanee. El QR se
+  guarda en la BD (PNG sin pérdida), no en el bucket público: solo lo ve quien tiene sesión.
 - **Gastos de operación**: lo que cuesta el negocio y no es mercancía (bolsas, servicios,
   publicidad). Se registran con su categoría y no se editan: se cancelan con motivo. Son lo
   que separa la utilidad bruta de la ganancia de verdad.

@@ -10,6 +10,7 @@ import {
   MOTIVOS_AJUSTE,
   TIPOS_CAPITAL,
 } from './dominio.js';
+import { clabeValida } from './texto.js';
 
 /** Mensajes de Zod en español. La API y el front lo llaman al arrancar. */
 export function configurarZodEnEspanol(): void {
@@ -301,6 +302,28 @@ export const esquemaComision = z.object({
   iva: decimal(4).refine((valor) => Number(valor) < 1, 'Debe ser menor a 100 %'),
 });
 
+/**
+ * La cuenta a la que se transfiere. La CLABE admite espacios al escribirla (así
+ * viene en el estado de cuenta) y se guarda solo con los 18 dígitos.
+ */
+export const esquemaDatosTransferencia = z.object({
+  banco: z.string().trim().min(1, 'Escribe el banco').max(80, 'Máximo 80 caracteres'),
+  titular: z
+    .string()
+    .trim()
+    .min(1, 'Escribe a nombre de quién está')
+    .max(80, 'Máximo 80 caracteres'),
+  clabe: z
+    .string()
+    .transform((valor) => valor.replace(/[\s-]/g, ''))
+    .pipe(
+      z
+        .string()
+        .regex(/^\d{18}$/, 'La CLABE lleva 18 dígitos')
+        .refine(clabeValida, 'No cuadra el dígito verificador: revisa la CLABE'),
+    ),
+});
+
 export const esquemaCancelacion = z.object({
   motivo: z.string().trim().min(3, 'Escribe el motivo').max(300),
 });
@@ -564,6 +587,7 @@ export type NuevoConteo = z.output<typeof esquemaConteo>;
 export type NuevaVenta = z.output<typeof esquemaNuevaVenta>;
 export type NuevaDevolucion = z.output<typeof esquemaDevolucion>;
 export type DatosComision = z.output<typeof esquemaComision>;
+export type EntradaDatosTransferencia = z.output<typeof esquemaDatosTransferencia>;
 export type EntradaDevolucion = z.input<typeof esquemaDevolucion>;
 export type DatosCancelacion = z.output<typeof esquemaCancelacion>;
 export type DatosUsuario = z.output<typeof esquemaUsuario>;

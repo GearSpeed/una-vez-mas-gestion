@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { UnprocessableEntityException } from '@nestjs/common';
-import sharp from 'sharp';
+import sharp, { type Sharp } from 'sharp';
 
 /** Lo más que se acepta subir. */
 export const PESO_MAXIMO_IMAGEN = 10 * 1024 * 1024;
@@ -50,7 +50,11 @@ export function procesarImagen(original: Buffer): Promise<ImagenProcesada> {
   return enCola(() => convertir(original));
 }
 
-async function convertir(original: Buffer): Promise<ImagenProcesada> {
+/**
+ * Revisa que el archivo de verdad sea JPG, PNG o WebP (por su contenido, no por la
+ * extensión) y devuelve cómo abrirlo con los mismos topes de seguridad.
+ */
+async function abrir(original: Buffer): Promise<() => Sharp> {
   if (original.length === 0) throw invalida('El archivo está vacío.');
   if (original.length > PESO_MAXIMO_IMAGEN) throw invalida('La imagen pesa más de 10 MB.');
 
@@ -64,6 +68,11 @@ async function convertir(original: Buffer): Promise<ImagenProcesada> {
   if (!formato || !FORMATOS.has(formato)) {
     throw invalida('Sube una imagen JPG, PNG o WebP.');
   }
+  return entrada;
+}
+
+async function convertir(original: Buffer): Promise<ImagenProcesada> {
+  const entrada = await abrir(original);
 
   // El original se decodifica una sola vez; la chica sale de la grande, que ya está
   // enderezada, limpia de metadatos y es mucho más barata de procesar.
@@ -78,6 +87,30 @@ async function convertir(original: Buffer): Promise<ImagenProcesada> {
     .toBuffer();
   const huella = createHash('sha256').update(original).digest('hex').slice(0, 16);
   return { huella, grande, chica };
+}
+
+/** Lo más ancho que se guarda el QR: de sobra para escanearlo de una pantalla. */
+export const ANCHO_MAXIMO_QR = 1024;
+
+/**
+ * Prepara el QR de transferencia: mismas revisiones que una foto, pero sale en PNG
+ * sin pérdida. El WebP de las fotos emborrona los bordes de los módulos y un QR
+ * así puede dejar de leerse.
+ */
+export function procesarQr(original: Buffer): Promise<Buffer> {
+  return enCola(async () => {
+    const entrada = await abrir(original);
+    return entrada()
+      .rotate()
+      .resize({
+        width: ANCHO_MAXIMO_QR,
+        height: ANCHO_MAXIMO_QR,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .png({ compressionLevel: 9 })
+      .toBuffer();
+  });
 }
 
 /** `productos/12/3f9a…` → `productos/12/3f9a…-1200.webp` */

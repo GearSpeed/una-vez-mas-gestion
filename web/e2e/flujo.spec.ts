@@ -173,6 +173,65 @@ test('una venta se cobra con efectivo y tarjeta a la vez', async ({ page, reques
   await expect(page.locator('section.tarjeta').first()).toContainText('Efectivo: $');
 });
 
+test('al cobrar por transferencia se ve la CLABE y el QR de la cuenta', async ({ page }) => {
+  // Se apoya en la primera venta: ahí quedó mercancía cargada a Ana.
+  const producto = 'Galletas de Coco';
+  // Una cuenta inventada: solo su dígito verificador es correcto.
+  await entrarComo(page, 'admin');
+  await page.goto('/productos');
+  await esperarCarga(page);
+  await page.getByRole('tab', { name: 'Cobro con transferencia' }).click();
+  await page.getByLabel('Banco', { exact: true }).fill('Banco de Prueba');
+  await page.getByLabel('A nombre de', { exact: true }).fill('Una Vez Más');
+  await page.getByLabel('CLABE', { exact: true }).fill('002 180 00000000001 2');
+  // El QR se elige en el mismo formulario y sube con el mismo «Guardar».
+  await page.locator('uvm-cobro-transferencia input[type="file"]').setInputFiles({
+    name: 'qr.png',
+    mimeType: 'image/png',
+    buffer: await sharp({
+      create: { width: 600, height: 600, channels: 3, background: '#000' },
+    })
+      .png()
+      .toBuffer(),
+  });
+  await expect(page.getByRole('img', { name: 'Vista previa del QR elegido' })).toBeVisible();
+  await sinViolaciones(page);
+  await page.getByRole('button', { name: 'Guardar' }).click();
+  await expect(page.getByText('Datos de transferencia guardados.')).toBeVisible();
+
+  // Quedó guardado de verdad: al volver a entrar se ve el QR de la cuenta.
+  await page.reload();
+  await esperarCarga(page);
+  await page.getByRole('tab', { name: 'Cobro con transferencia' }).click();
+  await expect(page.getByRole('img', { name: /QR para transferir/ })).toBeVisible();
+
+  await entrarComo(page, 'ana');
+  await page.goto('/ventas/nueva');
+  await esperarCarga(page);
+  await page.getByRole('button', { name: `Agregar una pieza de ${producto}` }).click();
+  await expect(page.getByText('1 pieza ·')).toBeVisible();
+  // Con efectivo no estorba: solo aparece al elegir transferencia.
+  await expect(page.getByText('Datos para transferir')).toHaveCount(0);
+  await page.locator('mat-button-toggle', { hasText: 'Transferencia' }).click();
+
+  const datos = page.locator('uvm-datos-transferencia');
+  await expect(datos).toContainText('Banco de Prueba');
+  await expect(datos).toContainText('002 180 00000000001 2');
+  await datos.getByRole('button', { name: 'Copiar datos' }).click();
+  await expect(page.getByText('Datos copiados.')).toBeVisible();
+
+  await datos.getByRole('button', { name: 'Mostrar QR' }).click();
+  const dialogo = page.getByRole('dialog');
+  await expect(dialogo).toContainText('Transferir $');
+  const qr = dialogo.getByRole('img', { name: /QR para transferir a Una Vez Más/ });
+  await expect(qr).toBeVisible();
+  // Se cargó de verdad (la política de contenido deja pasar el blob:).
+  expect(await qr.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(600);
+  await sinViolaciones(page);
+  await dialogo.getByRole('button', { name: 'Listo' }).click();
+  await expect(dialogo).toHaveCount(0);
+});
+
 test('un vendedor no ve pantallas de otros roles', async ({ page }) => {
   await entrarComo(page, 'ana');
   await page.goto('/compras');

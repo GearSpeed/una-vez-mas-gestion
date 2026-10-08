@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PATRON_SLUG } from './dominio.js';
-import { coincideBusqueda, slugDe } from './texto.js';
+import { clabeLegible, clabeValida, coincideBusqueda, slugDe } from './texto.js';
 
 describe('slugDe', () => {
   it.each([
@@ -35,5 +35,28 @@ describe('coincideBusqueda', () => {
     expect(coincideBusqueda('12', 12, 'Galletas de Piña')).toBe(true);
     expect(coincideBusqueda('1', 12, 'Galletas de Piña')).toBe(false);
     expect(coincideBusqueda('6', 12, 'Galletas de Piña 6 pzas')).toBe(true);
+  });
+});
+
+describe('clabeValida', () => {
+  // CLABE inventada (cuenta en ceros) con su dígito verificador correcto, y el
+  // ejemplo que publica Banxico.
+  it.each(['002180000000000012', '032180000118359719'])('%s es válida', (clabe) => {
+    expect(clabeValida(clabe)).toBe(true);
+  });
+
+  it.each([
+    ['un dígito cambiado', '002180000000000112'],
+    ['dos dígitos volteados', '002810000000000012'],
+    ['otro verificador', '002180000000000013'],
+    ['17 dígitos', '00218000000000001'],
+    ['espacios', '002 180 00000000001 2'],
+    ['letras', '00218000000000001A'],
+  ])('rechaza %s', (_caso, clabe) => {
+    expect(clabeValida(clabe)).toBe(false);
+  });
+
+  it('se lee en grupos', () => {
+    expect(clabeLegible('002180000000000012')).toBe('002 180 00000000001 2');
   });
 });
