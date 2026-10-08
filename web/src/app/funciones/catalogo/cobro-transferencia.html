@@ -6,7 +6,7 @@
 @if (!recurso.isLoading() && !recurso.error()) {
   <p>
     Cuando una venta se cobra por transferencia, quien vende ve estos datos para pasárselos al
-    cliente: puede copiar la CLABE o enseñarle el QR.
+    cliente: puede copiar la CLABE o enseñarle un QR.
   </p>
 
   @if (puedeEditar()) {
@@ -42,40 +42,19 @@
         }
       </mat-form-field>
 
-      <fieldset class="qr">
-        <legend>QR del banco (opcional)</legend>
-        @if (vistaPrevia(); as url) {
-          <img [src]="url" alt="Vista previa del QR elegido" class="vista-qr" />
-        } @else if (qr.url(); as url) {
-          <img [src]="url" alt="QR para transferir a la cuenta del negocio" class="vista-qr" />
-        } @else if (datos()?.tieneQr) {
-          <p class="ayuda">Cargando el QR…</p>
-        }
-        <input
-          #selector
-          type="file"
-          class="visualmente-oculto"
-          accept="image/jpeg,image/png,image/webp"
-          tabindex="-1"
-          aria-hidden="true"
-          (change)="alElegir($event)"
+      @for (posicion of posiciones; track posicion) {
+        <uvm-qr-de-cobro
+          [posicion]="posicion"
+          [guardado]="guardadoEn(datos(), posicion)"
+          [editable]="true"
+          (cambio)="datos.set($event)"
         />
-        <div class="acciones">
-          <button mat-stroked-button type="button" (click)="elegirQr()">
-            {{ datos()?.tieneQr || archivoQr() ? 'Cambiar QR' : 'Elegir QR' }}
-          </button>
-          @if (archivoQr(); as a) {
-            <span class="ayuda nombre-archivo">{{ a.name }}</span>
-            <button mat-button type="button" (click)="descartarQr()">Descartar</button>
-          } @else if (datos()?.tieneQr) {
-            <button mat-button type="button" (click)="quitarQr()">Quitar QR</button>
-          }
-        </div>
-        <p class="ayuda">
-          La captura del QR que da la app de tu banco: JPG, PNG o WebP de hasta 10 MB. Se guarda con
-          el botón «Guardar» y solo la ve quien entra a la plataforma.
-        </p>
-      </fieldset>
+      }
+      <p class="ayuda">
+        La captura del QR que da la app de cada banco: JPG, PNG o WebP de hasta 10 MB. Puedes poner
+        dos, por ejemplo el principal y uno de respaldo. Se guardan con el botón «Guardar» y solo
+        los ve quien entra a la plataforma.
+      </p>
 
       <div class="acciones">
         <button mat-flat-button type="submit" [disabled]="guardando()">
@@ -96,8 +75,8 @@
     } @else {
       <p class="ayuda">Todavía no hay datos de transferencia.</p>
     }
-    @if (qr.url(); as url) {
-      <img [src]="url" alt="QR para transferir a la cuenta del negocio" class="vista-qr" />
+    @for (q of datos()?.qrs ?? []; track q.posicion) {
+      <uvm-qr-de-cobro [posicion]="q.posicion" [guardado]="q" />
     }
   }
 }

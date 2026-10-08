@@ -169,6 +169,27 @@
       "when": 1791477358559,
       "tag": "0023_permisos_de_transferencia",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791495574260,
+      "tag": "0024_qr_de_transferencia",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791495577871,
+      "tag": "0025_permisos_y_qr_existente",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791495585677,
+      "tag": "0026_sin_qr_en_la_cuenta",
+      "breakpoints": true
     }
   ]
 }

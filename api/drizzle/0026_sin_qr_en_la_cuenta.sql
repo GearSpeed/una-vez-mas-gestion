@@ -1,0 +1,1 @@
+ALTER TABLE "gestion"."datos_transferencia" DROP COLUMN "qr";

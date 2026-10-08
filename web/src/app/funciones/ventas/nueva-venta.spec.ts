@@ -190,7 +190,7 @@ describe('NuevaVenta', () => {
     expect(aviso).toContain('$57.56');
   });
 
-  it('con transferencia muestra la cuenta y abre el QR', async () => {
+  it('con transferencia muestra la cuenta y un botón por cada QR', async () => {
     const agregar = boton('Agregar una pieza de Galletas de Mermelada de Tejocote');
     agregar?.click();
     agregar?.click();
@@ -209,11 +209,12 @@ describe('NuevaVenta', () => {
       banco: 'Banco de Prueba',
       titular: 'Una Vez Más',
       clabe: '002180000000000012',
-      tieneQr: true,
+      qrs: [
+        { posicion: 1, titulo: 'Mercado Pago' },
+        { posicion: 2, titulo: 'Banco de respaldo' },
+      ],
     };
     http.expectOne('/api/transferencia').flush(cuenta);
-    await asentar();
-    http.expectOne('/api/transferencia/qr').flush(new Blob(['png'], { type: 'image/png' }));
     await asentar();
     await fixture.whenStable();
 
@@ -222,14 +223,24 @@ describe('NuevaVenta', () => {
     expect(bloque).toContain('Banco de Prueba');
     expect(bloque).toContain('002 180 00000000001 2');
 
-    const mostrar = [...pantalla.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
+    const botonesQr = [...pantalla.querySelectorAll<HTMLButtonElement>('button')].filter((b) =>
       b.textContent?.includes('Mostrar QR'),
     );
-    expect(mostrar?.disabled).toBe(false);
-    mostrar?.click();
+    expect(botonesQr.map((b) => b.textContent?.trim())).toEqual([
+      'qr_code_2 Mostrar QR · Mercado Pago',
+      'qr_code_2 Mostrar QR · Banco de respaldo',
+    ]);
+    // Solo se descarga el QR que se abre.
+    http.expectNone((r) => r.url.startsWith('/api/transferencia/qr'));
+    botonesQr[1]?.click();
+    fixture.detectChanges();
+    TestBed.tick();
+    http.expectOne('/api/transferencia/qr/2').flush(new Blob(['png'], { type: 'image/png' }));
+    await asentar();
     await fixture.whenStable();
     const dialogo = document.querySelector('uvm-dialogo-qr');
     expect(dialogo?.textContent).toContain('Transferir $60.00');
+    expect(dialogo?.textContent).toContain('Banco de respaldo');
     expect(dialogo?.querySelector('img')?.getAttribute('src')).toMatch(/^blob:/);
   });
 

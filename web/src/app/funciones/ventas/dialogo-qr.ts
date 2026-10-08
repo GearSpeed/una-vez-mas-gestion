@@ -2,14 +2,14 @@ import { CurrencyPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
-import type { Decimal } from '@uvm/compartido';
+import type { Decimal, PosicionQr } from '@uvm/compartido';
+import { qrDeTransferencia } from '../../core/qr-transferencia';
 
 export interface DatosDialogoQr {
-  /** URL local (`blob:`) del QR ya descargado. */
-  readonly url: string;
+  readonly posicion: PosicionQr;
+  /** El título del QR: «Mercado Pago», «Banco Azteca». */
+  readonly titulo: string;
   readonly monto: Decimal;
-  readonly banco: string;
-  readonly titular: string;
 }
 
 /** El QR en grande, para que el cliente lo escanee de la pantalla del celular. */
@@ -20,13 +20,15 @@ export interface DatosDialogoQr {
   template: `
     <h2 mat-dialog-title>Transferir {{ datos.monto | currency }}</h2>
     <mat-dialog-content class="contenido">
-      <img
-        [src]="datos.url"
-        [alt]="'QR para transferir a ' + datos.titular + ' en ' + datos.banco"
-        class="qr"
-      />
+      @if (qr.url(); as url) {
+        <img [src]="url" [alt]="'QR de ' + datos.titulo + ' para transferir'" class="qr" />
+      } @else if (qr.recurso.error()) {
+        <p role="alert">No se pudo cargar el QR; pásale la CLABE.</p>
+      } @else {
+        <p role="status">Cargando el QR…</p>
+      }
       <p>
-        <strong>{{ datos.titular }}</strong> · {{ datos.banco }}
+        <strong>{{ datos.titulo }}</strong>
       </p>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
@@ -55,4 +57,5 @@ export interface DatosDialogoQr {
 })
 export class DialogoQr {
   protected readonly datos = inject<DatosDialogoQr>(MAT_DIALOG_DATA);
+  protected readonly qr = qrDeTransferencia(() => this.datos.posicion);
 }
