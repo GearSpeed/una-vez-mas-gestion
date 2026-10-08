@@ -34,6 +34,19 @@ export type CanalVenta = (typeof CANALES_VENTA)[number];
 export const METODOS_PAGO = ['efectivo', 'transferencia', 'tarjeta', 'otro'] as const;
 export type MetodoPago = (typeof METODOS_PAGO)[number];
 
+/**
+ * Dónde queda el dinero, que no es lo mismo que cómo se pagó: transferencias y tarjeta
+ * caen en la misma cuenta (Mercado Pago es el banco del negocio) y lo que se paga por
+ * esas vías sale de ahí.
+ */
+export const BOLSAS = ['efectivo', 'banco', 'otro'] as const;
+export type Bolsa = (typeof BOLSAS)[number];
+
+/** La bolsa a la que entra o de la que sale un pago hecho de esa forma. */
+export function bolsaDe(metodo: MetodoPago): Bolsa {
+  return metodo === 'transferencia' || metodo === 'tarjeta' ? 'banco' : metodo;
+}
+
 /** El dinero de los socios: entra al negocio o sale de él. Nunca es venta ni gasto. */
 export const TIPOS_CAPITAL = ['aportacion', 'retiro'] as const;
 export type TipoCapital = (typeof TIPOS_CAPITAL)[number];
@@ -82,6 +95,12 @@ export const ETIQUETAS_METODO_PAGO: Readonly<Record<MetodoPago, string>> = {
   efectivo: 'Efectivo',
   transferencia: 'Transferencia',
   tarjeta: 'Tarjeta',
+  otro: 'Otro',
+};
+
+export const ETIQUETAS_BOLSA: Readonly<Record<Bolsa, string>> = {
+  efectivo: 'Efectivo',
+  banco: 'Banco',
   otro: 'Otro',
 };
 

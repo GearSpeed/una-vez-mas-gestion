@@ -1,5 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
-import { multiplicar, type MetodoPago, type SaldoBolsa } from '@uvm/compartido';
+import { type Bolsa, multiplicar, restar, type SaldoBolsa } from '@uvm/compartido';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   ADMIN,
@@ -27,8 +27,8 @@ const aportacion = (extra: object = {}) => ({
   ...extra,
 });
 
-const bolsa = (cuerpo: { bolsas: SaldoBolsa[] }, metodoPago: MetodoPago) =>
-  cuerpo.bolsas.find((b) => b.metodoPago === metodoPago);
+const bolsa = (cuerpo: { bolsas: SaldoBolsa[] }, nombre: Bolsa) =>
+  cuerpo.bolsas.find((b) => b.bolsa === nombre);
 
 /**
  * El dinero que ponen y sacan los socios. No es venta ni gasto: no entra en la
@@ -139,7 +139,7 @@ describe('capital de los socios', () => {
       gastos: '500.00',
       saldo: '500.00',
     });
-    expect(bolsa(caja, 'transferencia')?.saldo).toBe('200.00');
+    expect(bolsa(caja, 'banco')?.saldo).toBe('200.00');
     expect(caja.total).toBe('700.00');
   });
 
@@ -162,11 +162,46 @@ describe('capital de los socios', () => {
       lineas: [{ productoId: IDS.tejocote, cantidad: 4 }],
     });
 
-    const tarjeta = bolsa((await como(app, ADMIN).get('/capital/saldos')).body, 'tarjeta');
+    // Lo cobrado con tarjeta cae en el banco (Mercado Pago es la cuenta del negocio).
+    const banco = bolsa((await como(app, ADMIN).get('/capital/saldos')).body, 'banco');
     // $120 menos el 3.5 % + IVA que retiene la terminal.
-    expect(Number(tarjeta?.ventas)).toBeLessThan(120);
-    expect(Number(tarjeta?.ventas)).toBeGreaterThan(114);
-    expect(tarjeta?.saldo).toBe(tarjeta?.ventas);
+    expect(Number(banco?.ventas)).toBeLessThan(120);
+    expect(Number(banco?.ventas)).toBeGreaterThan(114);
+    expect(banco?.saldo).toBe(banco?.ventas);
+  });
+
+  it('transferencia y tarjeta son la misma bolsa: el banco', async () => {
+    // El caso que lo motivó: los socios transfieren al banco y la compra se paga con
+    // la tarjeta de esa misma cuenta. Antes quedaba Tarjeta en negativo y Transferencia
+    // con dinero que no estaba.
+    await como(app, ADMIN).post(
+      '/capital',
+      aportacion({ importe: '1000.00', metodoPago: 'transferencia' }),
+    );
+    const compra = await como(app, ALMACEN).post('/compras', {
+      ...compraV001(),
+      metodoPago: 'tarjeta',
+    });
+    expect(compra.status).toBe(201);
+    await como(app, ADMIN).post('/gastos', {
+      claveIdempotencia: clave(),
+      categoriaId: EMPAQUE,
+      concepto: 'Cajas de empaque',
+      importe: '100.00',
+      metodoPago: 'tarjeta',
+    });
+
+    const caja = (await como(app, ADMIN).get('/capital/saldos')).body;
+    expect(caja.bolsas.map((b: SaldoBolsa) => b.bolsa)).toEqual(['efectivo', 'banco', 'otro']);
+    const total = compra.body.total as string;
+    expect(bolsa(caja, 'banco')).toMatchObject({
+      aportaciones: '1000.00',
+      compras: total,
+      gastos: '100.00',
+      saldo: restar('900.00', total),
+    });
+    expect(bolsa(caja, 'efectivo')?.saldo).toBe('0.00');
+    expect(caja.total).toBe(restar('900.00', total));
   });
 
   it('una aportación no toca las ventas ni la utilidad del periodo', async () => {

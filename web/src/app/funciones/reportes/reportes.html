@@ -229,9 +229,13 @@
             @if (saldos.value(); as caja) {
               <p class="ayuda">
                 Cuánto <strong>debería</strong> haber hoy en cada lado, con todo lo registrado desde
-                el principio: no depende del periodo de arriba. Lo de la terminal va neto, que es lo
-                que de verdad cae. <strong>No es utilidad</strong>: puede haber dinero en caja y el
-                negocio estar perdiendo, si ese dinero lo pusieron los socios.
+                el principio: no depende del periodo de arriba. <strong>No es utilidad</strong>:
+                puede haber dinero en caja y el negocio estar perdiendo, si ese dinero lo pusieron
+                los socios.
+              </p>
+              <p class="ayuda">
+                Transferencias y tarjeta caen en el <strong>banco</strong> (Mercado Pago), ya neto
+                de lo que retiene la terminal; lo que se paga por esas vías sale de ahí.
               </p>
               <div uvmDesplazable="Dónde está el dinero">
                 <table class="tabla-simple">
@@ -241,45 +245,45 @@
                   <thead>
                     <tr>
                       <th scope="col">Concepto</th>
-                      @for (b of caja.bolsas; track b.metodoPago) {
-                        <th scope="col" class="numero">{{ b.metodoPago | etiqueta: 'metodo' }}</th>
+                      @for (b of caja.bolsas; track b.bolsa) {
+                        <th scope="col" class="numero">{{ b.bolsa | etiqueta: 'bolsa' }}</th>
                       }
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
                       <th scope="row">Ventas cobradas</th>
-                      @for (b of caja.bolsas; track b.metodoPago) {
+                      @for (b of caja.bolsas; track b.bolsa) {
                         <td class="numero">{{ b.ventas | currency }}</td>
                       }
                     </tr>
                     <tr>
                       <th scope="row">− Devoluciones</th>
-                      @for (b of caja.bolsas; track b.metodoPago) {
+                      @for (b of caja.bolsas; track b.bolsa) {
                         <td class="numero">{{ b.devoluciones | currency }}</td>
                       }
                     </tr>
                     <tr>
                       <th scope="row">− Compras</th>
-                      @for (b of caja.bolsas; track b.metodoPago) {
+                      @for (b of caja.bolsas; track b.bolsa) {
                         <td class="numero">{{ b.compras | currency }}</td>
                       }
                     </tr>
                     <tr>
                       <th scope="row">− Gastos</th>
-                      @for (b of caja.bolsas; track b.metodoPago) {
+                      @for (b of caja.bolsas; track b.bolsa) {
                         <td class="numero">{{ b.gastos | currency }}</td>
                       }
                     </tr>
                     <tr>
                       <th scope="row">+ Aportaciones</th>
-                      @for (b of caja.bolsas; track b.metodoPago) {
+                      @for (b of caja.bolsas; track b.bolsa) {
                         <td class="numero">{{ b.aportaciones | currency }}</td>
                       }
                     </tr>
                     <tr>
                       <th scope="row">− Retiros</th>
-                      @for (b of caja.bolsas; track b.metodoPago) {
+                      @for (b of caja.bolsas; track b.bolsa) {
                         <td class="numero">{{ b.retiros | currency }}</td>
                       }
                     </tr>
@@ -287,7 +291,7 @@
                   <tfoot>
                     <tr>
                       <th scope="row">Debería haber</th>
-                      @for (b of caja.bolsas; track b.metodoPago) {
+                      @for (b of caja.bolsas; track b.bolsa) {
                         <td class="numero">
                           <strong class="saldo">{{ b.saldo | currency }}</strong>
                         </td>

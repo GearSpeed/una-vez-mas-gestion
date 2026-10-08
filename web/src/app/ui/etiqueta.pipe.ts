@@ -1,5 +1,6 @@
 import { Pipe, type PipeTransform } from '@angular/core';
 import {
+  ETIQUETAS_BOLSA,
   ETIQUETAS_CANAL,
   ETIQUETAS_CAPITAL,
   ETIQUETAS_ESTADO,
@@ -10,6 +11,7 @@ import {
 } from '@uvm/compartido';
 
 const CATALOGOS = {
+  bolsa: ETIQUETAS_BOLSA,
   canal: ETIQUETAS_CANAL,
   capital: ETIQUETAS_CAPITAL,
   metodo: ETIQUETAS_METODO_PAGO,

@@ -3,7 +3,9 @@ import {
   type DatosMovimientoCapital,
   type DatosSocio,
   type ListaCapital,
-  METODOS_PAGO,
+  type Bolsa,
+  BOLSAS,
+  bolsaDe,
   type MetodoPago,
   type MovimientoCapital,
   restar,
@@ -42,12 +44,12 @@ const saldoDeSocio = sql<string>`coalesce(sum(
     else 0 end
 ), 0)::numeric(12, 2)`;
 
-/** El importe de esa bolsa, o cero si no hubo movimiento con ese método. */
-function buscar(
+/** Lo que suman en esa bolsa los pagos de cada forma (transferencia y tarjeta, al banco). */
+function porBolsa(
   filas: readonly { metodoPago: MetodoPago; importe: string }[],
-  metodo: MetodoPago,
+  bolsa: Bolsa,
 ): string {
-  return filas.find((f) => f.metodoPago === metodo)?.importe ?? '0.00';
+  return sumar(filas.filter((f) => bolsaDe(f.metodoPago) === bolsa).map((f) => f.importe));
 }
 
 /**
@@ -199,12 +201,14 @@ export class CapitalService {
   /**
    * Cuánto dinero debería haber, acumulado desde siempre y separado por dónde está.
    *
-   * Tres bolsas distintas: el efectivo que traes, lo que sigue en Mercado Pago y lo del
-   * banco. Juntarlas daría un número que no cuadra con nada que puedas contar.
+   * Dos bolsas que no se juntan: el efectivo que traes y el banco. El banco es Mercado
+   * Pago: ahí caen las transferencias y los cobros con tarjeta, y de ahí sale lo que se
+   * paga por esas dos vías (ver `bolsaDe`). Juntar efectivo y banco daría un número que
+   * no cuadra con nada que puedas contar.
    *
-   * Lo de tarjeta va **neto de comisión**, que es lo que de verdad cae; y cuando hay una
-   * devolución, la terminal regresa parte de lo que retuvo, así que ese reembolso vuelve
-   * a esa misma bolsa.
+   * Lo cobrado con tarjeta entra **neto de comisión**, que es lo que de verdad cae; y
+   * cuando hay una devolución, la terminal regresa parte de lo que retuvo, así que ese
+   * reembolso también vuelve al banco.
    *
    * **No es utilidad.** Puede haber mucho dinero aquí y el negocio estar perdiendo, si ese
    * dinero lo pusieron los socios. Para saber si se gana está el Resultado del periodo.
@@ -261,26 +265,26 @@ export class CapitalService {
           .groupBy(movimientosCapital.metodoPago, movimientosCapital.tipo),
       ]);
 
-    const bolsas = METODOS_PAGO.map((metodoPago) => {
-      const ventasNetas = buscar(ventas, metodoPago);
-      // El reembolso de comisión solo existe en tarjeta, así que solo baja ahí.
+    const bolsas = BOLSAS.map((bolsa) => {
+      const ventasNetas = porBolsa(ventas, bolsa);
+      // La terminal regresa parte de lo que retuvo, y eso vuelve al banco.
       const devueltoNeto =
-        metodoPago === 'tarjeta'
-          ? restar(buscar(devoluciones, metodoPago), comisionDevuelta[0]?.importe ?? '0.00')
-          : buscar(devoluciones, metodoPago);
-      const comprado = buscar(compras, metodoPago);
-      const gastado = buscar(gastosPorMetodo, metodoPago);
-      const aportado = buscar(
+        bolsa === 'banco'
+          ? restar(porBolsa(devoluciones, bolsa), comisionDevuelta[0]?.importe ?? '0.00')
+          : porBolsa(devoluciones, bolsa);
+      const comprado = porBolsa(compras, bolsa);
+      const gastado = porBolsa(gastosPorMetodo, bolsa);
+      const aportado = porBolsa(
         capital.filter((f) => f.tipo === 'aportacion'),
-        metodoPago,
+        bolsa,
       );
-      const retirado = buscar(
+      const retirado = porBolsa(
         capital.filter((f) => f.tipo === 'retiro'),
-        metodoPago,
+        bolsa,
       );
 
       return {
-        metodoPago,
+        bolsa,
         ventas: ventasNetas,
         devoluciones: devueltoNeto,
         compras: comprado,
