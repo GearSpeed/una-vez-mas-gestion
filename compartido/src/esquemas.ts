@@ -324,6 +324,11 @@ export const esquemaDatosTransferencia = z.object({
     ),
 });
 
+/** El título con que se distingue cada QR de transferencia («Mercado Pago»). */
+export const esquemaQrTransferencia = z.object({
+  titulo: z.string().trim().min(1, 'Escribe un título').max(40, 'Máximo 40 caracteres'),
+});
+
 export const esquemaCancelacion = z.object({
   motivo: z.string().trim().min(3, 'Escribe el motivo').max(300),
 });
@@ -588,6 +593,7 @@ export type NuevaVenta = z.output<typeof esquemaNuevaVenta>;
 export type NuevaDevolucion = z.output<typeof esquemaDevolucion>;
 export type DatosComision = z.output<typeof esquemaComision>;
 export type EntradaDatosTransferencia = z.output<typeof esquemaDatosTransferencia>;
+export type EntradaQrTransferencia = z.output<typeof esquemaQrTransferencia>;
 export type EntradaDevolucion = z.input<typeof esquemaDevolucion>;
 export type DatosCancelacion = z.output<typeof esquemaCancelacion>;
 export type DatosUsuario = z.output<typeof esquemaUsuario>;

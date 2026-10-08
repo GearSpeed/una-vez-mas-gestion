@@ -11,6 +11,7 @@ import type {
   EstadoDocumento,
   MetodoPago,
   MotivoAjuste,
+  PosicionQr,
   TipoCapital,
   TipoMovimiento,
   TipoUbicacion,
@@ -422,7 +423,14 @@ export interface DatosTransferencia {
   readonly titular: string;
   /** Los 18 dígitos, sin espacios. */
   readonly clabe: string;
-  readonly tieneQr: boolean;
+  /** Los QR subidos, en orden de posición; puede no haber ninguno. */
+  readonly qrs: readonly QrTransferencia[];
+}
+
+export interface QrTransferencia {
+  readonly posicion: PosicionQr;
+  /** Con qué se distingue al cobrar: «Mercado Pago», «Banco Azteca». */
+  readonly titulo: string;
 }
 
 export interface ListaVentas extends Paginado<VentaResumen> {

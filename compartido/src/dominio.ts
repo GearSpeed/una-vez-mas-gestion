@@ -47,6 +47,10 @@ export function bolsaDe(metodo: MetodoPago): Bolsa {
   return metodo === 'transferencia' || metodo === 'tarjeta' ? 'banco' : metodo;
 }
 
+/** Los lugares para QR de transferencia: el de la cuenta principal y uno de respaldo. */
+export const POSICIONES_QR = [1, 2] as const;
+export type PosicionQr = (typeof POSICIONES_QR)[number];
+
 /** El dinero de los socios: entra al negocio o sale de él. Nunca es venta ni gasto. */
 export const TIPOS_CAPITAL = ['aportacion', 'retiro'] as const;
 export type TipoCapital = (typeof TIPOS_CAPITAL)[number];

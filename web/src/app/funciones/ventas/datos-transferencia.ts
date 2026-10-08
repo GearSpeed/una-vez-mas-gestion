@@ -5,14 +5,18 @@ import { ChangeDetectionStrategy, Component, computed, inject, input } from '@an
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
-import { clabeLegible, type DatosTransferencia, type Decimal } from '@uvm/compartido';
+import {
+  clabeLegible,
+  type DatosTransferencia,
+  type Decimal,
+  type QrTransferencia,
+} from '@uvm/compartido';
 import { AvisosService } from '../../core/avisos';
-import { qrDeTransferencia } from '../../core/qr-transferencia';
 import { type DatosDialogoQr, DialogoQr } from './dialogo-qr';
 
 /**
  * A dónde transfiere el cliente, a la vista de quien cobra: la CLABE para copiarla
- * y mandarla por WhatsApp, o el QR en grande para que lo escanee.
+ * y mandarla por WhatsApp, o uno de los QR en grande para que lo escanee.
  */
 @Component({
   selector: 'uvm-datos-transferencia',
@@ -35,10 +39,10 @@ import { type DatosDialogoQr, DialogoQr } from './dialogo-qr';
             <mat-icon aria-hidden="true">content_copy</mat-icon>
             Copiar datos
           </button>
-          @if (c.tieneQr) {
-            <button mat-stroked-button type="button" (click)="mostrarQr(c)" [disabled]="!qr.url()">
+          @for (q of c.qrs; track q.posicion) {
+            <button mat-stroked-button type="button" (click)="mostrarQr(q)">
               <mat-icon aria-hidden="true">qr_code_2</mat-icon>
-              Mostrar QR
+              Mostrar QR · {{ q.titulo }}
             </button>
           }
         </div>
@@ -96,7 +100,6 @@ export class DatosTransferenciaVenta {
   private readonly avisos = inject(AvisosService);
 
   protected readonly cuenta = httpResource<DatosTransferencia | null>(() => '/api/transferencia');
-  protected readonly qr = qrDeTransferencia(() => this.cuenta.value()?.tieneQr ?? false);
   protected readonly clabe = computed(() => {
     const cuenta = this.cuenta.value();
     return cuenta ? clabeLegible(cuenta.clabe) : '';
@@ -109,11 +112,10 @@ export class DatosTransferenciaVenta {
     else this.avisos.error('No se pudo copiar; díctale la CLABE.');
   }
 
-  protected mostrarQr(cuenta: DatosTransferencia): void {
-    const url = this.qr.url();
-    if (!url) return;
+  /** El diálogo descarga su QR: solo se pide el que se va a enseñar. */
+  protected mostrarQr(qr: QrTransferencia): void {
     this.dialogo.open<DialogoQr, DatosDialogoQr>(DialogoQr, {
-      data: { url, monto: this.monto(), banco: cuenta.banco, titular: cuenta.titular },
+      data: { posicion: qr.posicion, titulo: qr.titulo, monto: this.monto() },
       maxWidth: '95vw',
     });
   }

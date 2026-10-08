@@ -696,17 +696,28 @@ export const datosTransferencia = gestion.table(
     banco: text().notNull(),
     titular: text().notNull(),
     clabe: text().notNull(),
-    /**
-     * El QR del banco, en PNG. Vive en la BD y no en el bucket de fotos, que es
-     * público: así solo lo ve quien tiene sesión y viaja en el respaldo.
-     */
-    qr: bytea(),
     actualizadoEn: ahora(),
   },
   () => [
     check('datos_transferencia_una_fila', sql`id = 1`),
     check('datos_transferencia_clabe', sql`clabe ~ '^[0-9]{18}$'`),
   ],
+);
+
+/**
+ * Los QR para transferir, en PNG: el de la cuenta principal y uno de respaldo, cada
+ * uno con su título. Viven en la BD y no en el bucket de fotos, que es público: así
+ * solo los ve quien tiene sesión y viajan en el respaldo.
+ */
+export const qrTransferencia = gestion.table(
+  'qr_transferencia',
+  {
+    posicion: integer().primaryKey(),
+    titulo: text().notNull(),
+    imagen: bytea().notNull(),
+    actualizadoEn: ahora(),
+  },
+  () => [check('qr_transferencia_posicion', sql`posicion in (1, 2)`)],
 );
 
 /* -----------------------------------------------------------------------------

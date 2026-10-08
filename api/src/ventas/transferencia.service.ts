@@ -4,19 +4,25 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import type { DatosTransferencia, EntradaDatosTransferencia } from '@uvm/compartido';
-import { eq, sql } from 'drizzle-orm';
+import type {
+  DatosTransferencia,
+  EntradaDatosTransferencia,
+  EntradaQrTransferencia,
+  PosicionQr,
+  QrTransferencia,
+} from '@uvm/compartido';
+import { asc, eq } from 'drizzle-orm';
 import type { UsuarioSesion } from '../acceso/usuario-sesion.js';
 import { registrarEnBitacora } from '../comun/bitacora.js';
 import { type BaseDatos, DB } from '../db/conexion.js';
-import { datosTransferencia } from '../db/esquema.js';
+import { datosTransferencia, qrTransferencia } from '../db/esquema.js';
 import { procesarQr } from '../imagenes/procesar-imagen.js';
 
 const FILA = 1;
 
 /**
- * La cuenta a la que transfieren los clientes: banco, titular, CLABE y, si se subió,
- * el QR del banco. La captura el administrador y la ve quien cobra.
+ * La cuenta a la que transfieren los clientes: banco, titular, CLABE y hasta dos QR
+ * con su título (el principal y uno de respaldo). La captura el administrador y la ve quien cobra.
  */
 @Injectable()
 export class TransferenciaService {
@@ -29,11 +35,15 @@ export class TransferenciaService {
         banco: datosTransferencia.banco,
         titular: datosTransferencia.titular,
         clabe: datosTransferencia.clabe,
-        tieneQr: sql<boolean>`${datosTransferencia.qr} is not null`,
       })
       .from(datosTransferencia)
       .where(eq(datosTransferencia.id, FILA));
-    return fila ?? null;
+    if (!fila) return null;
+    const qrs = await this.db
+      .select({ posicion: qrTransferencia.posicion, titulo: qrTransferencia.titulo })
+      .from(qrTransferencia)
+      .orderBy(asc(qrTransferencia.posicion));
+    return { ...fila, qrs: qrs as QrTransferencia[] };
   }
 
   async guardar(
@@ -67,47 +77,79 @@ export class TransferenciaService {
     return this.obtenerOFallar();
   }
 
-  /** El PNG del QR, o null si no hay. */
-  async qr(): Promise<Buffer | null> {
+  /** El PNG del QR en esa posición, o null si no hay. */
+  async qr(posicion: PosicionQr): Promise<Buffer | null> {
     const [fila] = await this.db
-      .select({ qr: datosTransferencia.qr })
-      .from(datosTransferencia)
-      .where(eq(datosTransferencia.id, FILA));
-    return fila?.qr ?? null;
+      .select({ imagen: qrTransferencia.imagen })
+      .from(qrTransferencia)
+      .where(eq(qrTransferencia.posicion, posicion));
+    return fila?.imagen ?? null;
   }
 
-  async subirQr(usuario: UsuarioSesion, archivo: Buffer | undefined): Promise<DatosTransferencia> {
-    if (!archivo) {
-      throw new UnprocessableEntityException({
-        mensaje: 'Elige una imagen.',
-        campos: { archivo: 'Elige una imagen' },
-      });
-    }
+  /**
+   * Sube el QR de esa posición o, sin archivo, solo le cambia el título. Un lugar
+   * vacío no acepta título sin imagen.
+   */
+  async guardarQr(
+    usuario: UsuarioSesion,
+    posicion: PosicionQr,
+    { titulo }: EntradaQrTransferencia,
+    archivo: Buffer | undefined,
+  ): Promise<DatosTransferencia> {
     await this.obtenerOFallar();
-    const qr = await procesarQr(archivo);
-    await this.cambiarQr(usuario, qr, 'subir_qr_transferencia');
-    return this.obtenerOFallar();
-  }
-
-  async quitarQr(usuario: UsuarioSesion): Promise<DatosTransferencia> {
-    await this.obtenerOFallar();
-    await this.cambiarQr(usuario, null, 'quitar_qr_transferencia');
-    return this.obtenerOFallar();
-  }
-
-  private async cambiarQr(usuario: UsuarioSesion, qr: Buffer | null, accion: string) {
+    const imagen = archivo ? await procesarQr(archivo) : undefined;
     await this.db.transaction(async (tx) => {
-      await tx
-        .update(datosTransferencia)
-        .set({ qr, actualizadoEn: new Date() })
-        .where(eq(datosTransferencia.id, FILA));
+      const [antes] = await tx
+        .select({ titulo: qrTransferencia.titulo })
+        .from(qrTransferencia)
+        .where(eq(qrTransferencia.posicion, posicion));
+      if (imagen) {
+        await tx
+          .insert(qrTransferencia)
+          .values({ posicion, titulo, imagen })
+          .onConflictDoUpdate({
+            target: qrTransferencia.posicion,
+            set: { titulo, imagen, actualizadoEn: new Date() },
+          });
+      } else if (antes) {
+        await tx
+          .update(qrTransferencia)
+          .set({ titulo, actualizadoEn: new Date() })
+          .where(eq(qrTransferencia.posicion, posicion));
+      } else {
+        throw new UnprocessableEntityException({
+          mensaje: 'Elige una imagen.',
+          campos: { archivo: 'Elige una imagen' },
+        });
+      }
       await registrarEnBitacora(tx, {
         usuarioId: usuario.id,
-        accion,
-        entidad: 'datos_transferencia',
-        entidadId: FILA,
+        accion: imagen ? 'subir_qr_transferencia' : 'cambiar_titulo_qr_transferencia',
+        entidad: 'qr_transferencia',
+        entidadId: posicion,
+        datos: { antes: antes ?? null, despues: { titulo } },
       });
     });
+    return this.obtenerOFallar();
+  }
+
+  async quitarQr(usuario: UsuarioSesion, posicion: PosicionQr): Promise<DatosTransferencia> {
+    await this.obtenerOFallar();
+    await this.db.transaction(async (tx) => {
+      const quitados = await tx
+        .delete(qrTransferencia)
+        .where(eq(qrTransferencia.posicion, posicion))
+        .returning({ titulo: qrTransferencia.titulo });
+      if (quitados.length === 0) throw new NotFoundException('En ese lugar no hay QR.');
+      await registrarEnBitacora(tx, {
+        usuarioId: usuario.id,
+        accion: 'quitar_qr_transferencia',
+        entidad: 'qr_transferencia',
+        entidadId: posicion,
+        datos: { antes: quitados[0] },
+      });
+    });
+    return this.obtenerOFallar();
   }
 
   private async obtenerOFallar(): Promise<DatosTransferencia> {
