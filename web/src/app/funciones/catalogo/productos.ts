@@ -18,6 +18,7 @@ import { Desplazable } from '../../ui/desplazable';
 import { Encabezado } from '../../ui/encabezado';
 import { EstadoCarga } from '../../ui/estado-carga';
 import { CobroTarjeta } from './cobro-tarjeta';
+import { CobroTransferencia } from './cobro-transferencia';
 import { type DatosDialogoCategoria, DialogoCategoria } from './dialogo-categoria';
 import { type DatosDialogoProducto, DialogoProducto } from './dialogo-producto';
 
@@ -25,6 +26,7 @@ import { type DatosDialogoProducto, DialogoProducto } from './dialogo-producto';
   selector: 'uvm-productos',
   imports: [
     CobroTarjeta,
+    CobroTransferencia,
     Desplazable,
     Encabezado,
     EstadoCarga,

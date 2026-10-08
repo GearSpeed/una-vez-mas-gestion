@@ -97,6 +97,18 @@ test('la pestaña «Cobro con tarjeta» pasa axe', async ({ page }) => {
   await sinViolaciones(page);
 });
 
+test('la pestaña «Cobro con transferencia» pasa axe', async ({ page }) => {
+  await entrarComo(page, 'admin');
+  await page.goto('/productos');
+  await esperarCarga(page);
+  await page.getByRole('tab', { name: 'Cobro con transferencia' }).click();
+  // Con un error a la vista, que también tiene que leerse bien.
+  await page.getByLabel('CLABE', { exact: true }).fill('002180000000000013');
+  await page.getByLabel('Banco', { exact: true }).click();
+  await expect(page.getByText('No cuadra el dígito verificador')).toBeVisible();
+  await sinViolaciones(page);
+});
+
 test('la pestaña «Simulador de venta» pasa axe', async ({ page }) => {
   // No depende de que otra prueba ya le haya puesto precio a algo: la semilla no
   // trae ninguno, así que el simulador estaría vacío sin esto.

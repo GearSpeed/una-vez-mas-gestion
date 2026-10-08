@@ -155,6 +155,20 @@
       "when": 1790796583670,
       "tag": "0021_permisos_de_capital",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791477356840,
+      "tag": "0022_datos_de_transferencia",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791477358559,
+      "tag": "0023_permisos_de_transferencia",
+      "breakpoints": true
     }
   ]
 }

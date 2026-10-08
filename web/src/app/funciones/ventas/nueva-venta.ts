@@ -46,6 +46,7 @@ import { nuevaClave } from '../../ui/claves';
 import { Encabezado } from '../../ui/encabezado';
 import { EstadoCarga } from '../../ui/estado-carga';
 import { EtiquetaPipe } from '../../ui/etiqueta.pipe';
+import { DatosTransferenciaVenta } from './datos-transferencia';
 
 interface LineaCarrito {
   readonly cantidad: number;
@@ -60,6 +61,7 @@ interface LineaCarrito {
 @Component({
   selector: 'uvm-nueva-venta',
   imports: [
+    DatosTransferenciaVenta,
     Encabezado,
     EstadoCarga,
     EtiquetaPipe,
@@ -230,6 +232,13 @@ export class NuevaVenta {
         ? [{ metodoPago: metodo, importe: redondear(importe) }]
         : [];
     });
+  });
+
+  /** Lo que se cobra por transferencia: si hay, se muestran los datos de la cuenta. */
+  protected readonly montoTransferencia = computed(() => {
+    if (this.lineas().length === 0) return null;
+    const pago = this.pagos().find((p) => p.metodoPago === 'transferencia');
+    return pago && comparar(pago.importe, '0') > 0 ? pago.importe : null;
   });
 
   /** Lo que falta por cobrar (o lo que sobra, en negativo). */

@@ -17,6 +17,7 @@ import {
   bigint,
   boolean,
   check,
+  customType,
   date,
   index,
   integer,
@@ -52,6 +53,9 @@ export const estadoDocumento = gestion.enum('estado_documento', ESTADOS_DOCUMENT
 /* ---- piezas comunes ---- */
 
 const id = () => integer().primaryKey().generatedAlwaysAsIdentity();
+/** Bytes crudos: el QR de transferencia, que no va al bucket público. */
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => 'bytea' });
+
 const ahora = () => timestamp({ withTimezone: true }).notNull().defaultNow();
 /** Dinero: importes y precios. */
 const dinero = () => numeric({ precision: 12, scale: 2 });
@@ -677,6 +681,31 @@ export const comisionesPago = gestion.table(
   () => [
     check('comisiones_pago_tasa', sql`tasa >= 0 and tasa < 1`),
     check('comisiones_pago_iva', sql`iva >= 0 and iva < 1`),
+  ],
+);
+
+/* -----------------------------------------------------------------------------
+   Datos para cobrar por transferencia: una sola fila
+   -------------------------------------------------------------------------- */
+
+export const datosTransferencia = gestion.table(
+  'datos_transferencia',
+  {
+    /** Siempre 1: el negocio tiene una cuenta para recibir transferencias. */
+    id: integer().primaryKey().default(1),
+    banco: text().notNull(),
+    titular: text().notNull(),
+    clabe: text().notNull(),
+    /**
+     * El QR del banco, en PNG. Vive en la BD y no en el bucket de fotos, que es
+     * público: así solo lo ve quien tiene sesión y viaja en el respaldo.
+     */
+    qr: bytea(),
+    actualizadoEn: ahora(),
+  },
+  () => [
+    check('datos_transferencia_una_fila', sql`id = 1`),
+    check('datos_transferencia_clabe', sql`clabe ~ '^[0-9]{18}$'`),
   ],
 );
 

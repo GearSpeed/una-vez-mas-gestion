@@ -34,6 +34,27 @@ export function slugDe(nombre: string): string {
     .replace(/-+$/, '');
 }
 
+const PESOS_CLABE = [3, 7, 1] as const;
+
+/**
+ * Si una CLABE está bien escrita: 18 dígitos y el último cuadra con los otros 17
+ * (pesos 3, 7, 1 de Banxico). Atrapa casi cualquier dígito mal tecleado antes de que
+ * un cliente transfiera a una cuenta que no es.
+ */
+export function clabeValida(clabe: string): boolean {
+  if (!/^\d{18}$/.test(clabe)) return false;
+  let suma = 0;
+  for (let i = 0; i < 17; i++) {
+    suma += (Number(clabe[i]) * PESOS_CLABE[i % 3]) % 10;
+  }
+  return (10 - (suma % 10)) % 10 === Number(clabe[17]);
+}
+
+/** CLABE en grupos para leerla en voz alta: banco, plaza, cuenta y verificador. */
+export function clabeLegible(clabe: string): string {
+  return `${clabe.slice(0, 3)} ${clabe.slice(3, 6)} ${clabe.slice(6, 17)} ${clabe.slice(17)}`;
+}
+
 /** Folio legible de un documento: `V-000042`. Sale del id, nunca de la fila. */
 export function folio(prefijo: 'C' | 'V' | 'T' | 'A' | 'D', id: number): string {
   return `${prefijo}-${String(id).padStart(6, '0')}`;

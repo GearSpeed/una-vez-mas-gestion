@@ -17,8 +17,20 @@ export async function entrarComo(page: Page, usuario: keyof typeof USUARIOS): Pr
   }, correo);
 }
 
-/** Sin violaciones de axe para WCAG 2.1 A y AA. */
+/**
+ * Sin violaciones de axe para WCAG 2.1 A y AA. Antes espera a que terminen las
+ * animaciones: a medio camino, un mensaje de error que aparece o el fondo de un
+ * diálogo que se oscurece tienen colores intermedios y axe los mide como contraste
+ * insuficiente. Las animaciones infinitas (un spinner) no se esperan.
+ */
 export async function sinViolaciones(page: Page): Promise<void> {
+  await page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .every(
+        (a) => a.playState !== 'running' || a.effect?.getComputedTiming().endTime === Infinity,
+      ),
+  );
   const resultado = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
     .analyze();

@@ -1,0 +1,103 @@
+<uvm-estado-carga
+  [cargando]="recurso.isLoading()"
+  [error]="recurso.error()"
+  (reintentar)="recurso.reload()"
+/>
+@if (!recurso.isLoading() && !recurso.error()) {
+  <p>
+    Cuando una venta se cobra por transferencia, quien vende ve estos datos para pasárselos al
+    cliente: puede copiar la CLABE o enseñarle el QR.
+  </p>
+
+  @if (puedeEditar()) {
+    <form class="cuenta" [formGroup]="formulario" (ngSubmit)="guardar()" novalidate>
+      <mat-form-field>
+        <mat-label>Banco</mat-label>
+        <input matInput formControlName="banco" maxlength="80" />
+        @if (formulario.controls.banco.invalid) {
+          <mat-error>Escribe el banco.</mat-error>
+        }
+      </mat-form-field>
+      <mat-form-field>
+        <mat-label>A nombre de</mat-label>
+        <input matInput formControlName="titular" maxlength="80" autocomplete="off" />
+        @if (formulario.controls.titular.invalid) {
+          <mat-error>Escribe a nombre de quién está la cuenta.</mat-error>
+        }
+      </mat-form-field>
+      <mat-form-field>
+        <mat-label>CLABE</mat-label>
+        <input
+          matInput
+          formControlName="clabe"
+          inputmode="numeric"
+          autocomplete="off"
+          maxlength="24"
+        />
+        <mat-hint>Los 18 dígitos; puedes escribirla con espacios.</mat-hint>
+        @if (formulario.controls.clabe.hasError('verificador')) {
+          <mat-error>No cuadra el dígito verificador: revisa la CLABE.</mat-error>
+        } @else if (formulario.controls.clabe.invalid) {
+          <mat-error>La CLABE lleva 18 dígitos.</mat-error>
+        }
+      </mat-form-field>
+
+      <fieldset class="qr">
+        <legend>QR del banco (opcional)</legend>
+        @if (vistaPrevia(); as url) {
+          <img [src]="url" alt="Vista previa del QR elegido" class="vista-qr" />
+        } @else if (qr.url(); as url) {
+          <img [src]="url" alt="QR para transferir a la cuenta del negocio" class="vista-qr" />
+        } @else if (datos()?.tieneQr) {
+          <p class="ayuda">Cargando el QR…</p>
+        }
+        <input
+          #selector
+          type="file"
+          class="visualmente-oculto"
+          accept="image/jpeg,image/png,image/webp"
+          tabindex="-1"
+          aria-hidden="true"
+          (change)="alElegir($event)"
+        />
+        <div class="acciones">
+          <button mat-stroked-button type="button" (click)="elegirQr()">
+            {{ datos()?.tieneQr || archivoQr() ? 'Cambiar QR' : 'Elegir QR' }}
+          </button>
+          @if (archivoQr(); as a) {
+            <span class="ayuda nombre-archivo">{{ a.name }}</span>
+            <button mat-button type="button" (click)="descartarQr()">Descartar</button>
+          } @else if (datos()?.tieneQr) {
+            <button mat-button type="button" (click)="quitarQr()">Quitar QR</button>
+          }
+        </div>
+        <p class="ayuda">
+          La captura del QR que da la app de tu banco: JPG, PNG o WebP de hasta 10 MB. Se guarda con
+          el botón «Guardar» y solo la ve quien entra a la plataforma.
+        </p>
+      </fieldset>
+
+      <div class="acciones">
+        <button mat-flat-button type="submit" [disabled]="guardando()">
+          {{ guardando() ? 'Guardando…' : 'Guardar' }}
+        </button>
+      </div>
+    </form>
+  } @else {
+    @if (datos(); as d) {
+      <dl class="rejilla-campos">
+        <dt>Banco</dt>
+        <dd>{{ d.banco }}</dd>
+        <dt>A nombre de</dt>
+        <dd>{{ d.titular }}</dd>
+        <dt>CLABE</dt>
+        <dd class="clabe">{{ clabeLegible(d.clabe) }}</dd>
+      </dl>
+    } @else {
+      <p class="ayuda">Todavía no hay datos de transferencia.</p>
+    }
+    @if (qr.url(); as url) {
+      <img [src]="url" alt="QR para transferir a la cuenta del negocio" class="vista-qr" />
+    }
+  }
+}
