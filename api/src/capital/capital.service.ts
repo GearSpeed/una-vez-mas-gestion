@@ -249,11 +249,13 @@ export class CapitalService {
         this.db
           .select({
             metodoPago: gastosTabla.metodoPago,
+            // Un gasto con vendedora es el pago de su comisión: va en su propio renglón.
+            esComision: sql<boolean>`${gastosTabla.vendedorId} is not null`,
             importe: sql<string>`coalesce(sum(${gastosTabla.importe}), 0)::numeric(12, 2)`,
           })
           .from(gastosTabla)
           .where(eq(gastosTabla.estado, 'vigente'))
-          .groupBy(gastosTabla.metodoPago),
+          .groupBy(gastosTabla.metodoPago, sql`${gastosTabla.vendedorId} is not null`),
         this.db
           .select({
             metodoPago: movimientosCapital.metodoPago,
@@ -273,7 +275,14 @@ export class CapitalService {
           ? restar(porBolsa(devoluciones, bolsa), comisionDevuelta[0]?.importe ?? '0.00')
           : porBolsa(devoluciones, bolsa);
       const comprado = porBolsa(compras, bolsa);
-      const gastado = porBolsa(gastosPorMetodo, bolsa);
+      const gastado = porBolsa(
+        gastosPorMetodo.filter((f) => !f.esComision),
+        bolsa,
+      );
+      const comisionesPagadas = porBolsa(
+        gastosPorMetodo.filter((f) => f.esComision),
+        bolsa,
+      );
       const aportado = porBolsa(
         capital.filter((f) => f.tipo === 'aportacion'),
         bolsa,
@@ -289,11 +298,12 @@ export class CapitalService {
         devoluciones: devueltoNeto,
         compras: comprado,
         gastos: gastado,
+        comisiones: comisionesPagadas,
         aportaciones: aportado,
         retiros: retirado,
         saldo: restar(
           sumar([ventasNetas, aportado]),
-          sumar([devueltoNeto, comprado, gastado, retirado]),
+          sumar([devueltoNeto, comprado, gastado, comisionesPagadas, retirado]),
         ),
       };
     });

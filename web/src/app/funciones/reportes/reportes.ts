@@ -181,6 +181,8 @@ export class Reportes {
         this.avisos.exito(`Pago registrado: ${gasto.folio} por $${gasto.importe}.`);
         this.comisiones.reload();
         this.resultado.reload();
+        // El pago sale de una bolsa: sin esto «Dónde está el dinero» sigue con el saldo de antes.
+        this.saldos.reload();
       });
   }
 }

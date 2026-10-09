@@ -602,7 +602,10 @@ export interface SaldoBolsa {
   readonly ventas: Decimal;
   readonly devoluciones: Decimal;
   readonly compras: Decimal;
+  /** Los gastos de operación, sin los pagos de comisión. */
   readonly gastos: Decimal;
+  /** Lo pagado a quien vende por sus comisiones (gastos con vendedora). */
+  readonly comisiones: Decimal;
   readonly aportaciones: Decimal;
   readonly retiros: Decimal;
   readonly saldo: Decimal;

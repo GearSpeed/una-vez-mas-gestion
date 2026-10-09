@@ -16,6 +16,7 @@ import {
 } from './ayudantes.js';
 
 const EMPAQUE = 1;
+const COMISIONES = 2;
 
 const aportacion = (extra: object = {}) => ({
   claveIdempotencia: clave(),
@@ -202,6 +203,44 @@ describe('capital de los socios', () => {
     });
     expect(bolsa(caja, 'efectivo')?.saldo).toBe('0.00');
     expect(caja.total).toBe(restar('900.00', total));
+  });
+
+  it('el pago de una comisión baja su bolsa, en su propio renglón', async () => {
+    // El caso que lo motivó: se pagó la comisión y no se veía en qué se había ido.
+    const ana = (await como(app, ADMIN).get('/usuarios')).body.find(
+      (u: { correo: string }) => u.correo === ANA,
+    );
+    await como(app, ADMIN).post('/capital', aportacion({ metodoPago: 'transferencia' }));
+    await como(app, ADMIN).post('/gastos', {
+      claveIdempotencia: clave(),
+      categoriaId: EMPAQUE,
+      concepto: 'Cajas de empaque',
+      importe: '100.00',
+      metodoPago: 'transferencia',
+    });
+    const pago = await como(app, ADMIN).post('/gastos', {
+      claveIdempotencia: clave(),
+      categoriaId: COMISIONES,
+      concepto: 'Comisión de Ana',
+      importe: '39.55',
+      metodoPago: 'transferencia',
+      vendedorId: ana.id,
+    });
+    expect(pago.status).toBe(201);
+
+    const caja = (await como(app, ADMIN).get('/capital/saldos')).body;
+    expect(bolsa(caja, 'banco')).toMatchObject({
+      aportaciones: '1000.00',
+      gastos: '100.00',
+      comisiones: '39.55',
+      saldo: '860.45',
+    });
+    expect(bolsa(caja, 'efectivo')?.comisiones).toBe('0.00');
+
+    // Cancelado, el pago regresa a la bolsa.
+    await como(app, ADMIN).post(`/gastos/${pago.body.id}/cancelar`, { motivo: 'Se capturó mal' });
+    const despues = bolsa((await como(app, ADMIN).get('/capital/saldos')).body, 'banco');
+    expect(despues).toMatchObject({ comisiones: '0.00', saldo: '900.00' });
   });
 
   it('una aportación no toca las ventas ni la utilidad del periodo', async () => {
