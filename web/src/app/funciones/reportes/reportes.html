@@ -276,6 +276,12 @@
                       }
                     </tr>
                     <tr>
+                      <th scope="row">− Comisiones pagadas</th>
+                      @for (b of caja.bolsas; track b.bolsa) {
+                        <td class="numero">{{ b.comisiones | currency }}</td>
+                      }
+                    </tr>
+                    <tr>
                       <th scope="row">+ Aportaciones</th>
                       @for (b of caja.bolsas; track b.bolsa) {
                         <td class="numero">{{ b.aportaciones | currency }}</td>
