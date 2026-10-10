@@ -1,4 +1,5 @@
-import { StreamableFile } from '@nestjs/common';
+import type { StreamableFile } from '@nestjs/common';
+import { archivoDescarga } from './archivo.js';
 
 export interface ColumnaCsv<T> {
   readonly titulo: string;
@@ -28,8 +29,5 @@ function celda(valor: string | number | null | undefined): string {
 
 /** Respuesta de descarga: Nest pone las cabeceras. */
 export function archivoCsv(nombre: string, contenido: string): StreamableFile {
-  return new StreamableFile(Buffer.from(contenido, 'utf8'), {
-    type: 'text/csv; charset=utf-8',
-    disposition: `attachment; filename="${nombre}"`,
-  });
+  return archivoDescarga(nombre, Buffer.from(contenido, 'utf8'), 'text/csv; charset=utf-8');
 }

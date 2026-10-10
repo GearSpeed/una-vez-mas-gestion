@@ -144,7 +144,7 @@ export class Reportes {
   protected async exportar(reporte: 'ventas' | 'utilidad' | 'compras'): Promise<void> {
     const extra = reporte === 'ventas' ? { agrupar: this.agrupar() } : {};
     try {
-      await this.descargas.csv(
+      await this.descargas.descargar(
         conParametros(`/reportes/${reporte}`, { ...this.periodo(), ...extra, formato: 'csv' }),
         `${reporte}-${this.desde()}-a-${this.hasta()}.csv`,
       );

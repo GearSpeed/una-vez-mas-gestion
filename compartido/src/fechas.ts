@@ -43,3 +43,23 @@ function enUtc(fecha: string): number {
 export function diasEntre(desde: string, hasta: string): number {
   return Math.round((enUtc(hasta) - enUtc(desde)) / 86_400_000);
 }
+
+/** El primer día del mes que queda `meses` antes o después del mes de `fecha`. */
+export function sumarMeses(fecha: string, meses: number): string {
+  const [anio, mes] = fecha.split('-').map(Number);
+  const utc = new Date(Date.UTC(anio ?? 1970, (mes ?? 1) - 1 + meses, 1));
+  return utc.toISOString().slice(0, 10);
+}
+
+/** Cada día de `desde` a `hasta`, ambos incluidos. Vacío si `desde` es posterior. */
+export function diasDelRango(desde: string, hasta: string): string[] {
+  const total = diasEntre(desde, hasta);
+  return Array.from({ length: Math.max(0, total + 1) }, (_, i) => sumarDias(desde, i));
+}
+
+/** El primer día de cada mes que toca el rango, como AAAA-MM-01. */
+export function mesesDelRango(desde: string, hasta: string): string[] {
+  const meses: string[] = [];
+  for (let mes = inicioDeMes(desde); mes <= hasta; mes = sumarMeses(mes, 1)) meses.push(mes);
+  return meses;
+}

@@ -658,6 +658,87 @@ export interface Tablero {
   readonly costos?: { readonly utilidadMes: Decimal; readonly valorInventario: Decimal };
 }
 
+/**
+ * Análisis de ventas de Inicio: qué se vendió, qué se acabó primero y cómo van las
+ * piezas por día, mes y año. Lo mismo que trae el Excel que se descarga.
+ */
+export interface AnalisisVentas {
+  readonly desde: string;
+  readonly hasta: string;
+  /** La primera venta de la historia, o `null` si todavía no hay. */
+  readonly primeraVenta: string | null;
+  /**
+   * Desde cuándo se cuentan los días del periodo: `desde`, o la primera venta de la
+   * historia si es posterior (antes de abrir no había qué vender).
+   */
+  readonly inicioEfectivo: string;
+  /** Días del periodo, de `inicioEfectivo` a `hasta`, ambos incluidos. */
+  readonly dias: number;
+  readonly piezas: number;
+  /** Cobrado menos reembolsado. */
+  readonly importe: Decimal;
+  readonly costos?: { readonly utilidad: Decimal };
+  /** De más a menos piezas vendidas. */
+  readonly productos: readonly FilaAnalisisProducto[];
+  /** En el orden en que se fueron acabando dentro del periodo. */
+  readonly agotados: readonly FilaAgotamiento[];
+  /** Los 12 meses que terminan en el mes de `hasta`. */
+  readonly mensual: MatrizPiezas;
+  /** Todos los años con ventas. */
+  readonly anual: MatrizPiezas;
+  /** Cada día del periodo. */
+  readonly diario: MatrizPiezas;
+}
+
+export interface FilaAnalisisProducto {
+  readonly productoId: number;
+  readonly producto: string;
+  readonly categoria: string;
+  /** Existencia de toda la empresa al empezar el periodo. */
+  readonly inicial: number;
+  /** Lo que entró por compras dentro del periodo. */
+  readonly compradas: number;
+  /** Netas de devoluciones. */
+  readonly vendidas: number;
+  readonly importe: Decimal;
+  /** Existencia de toda la empresa hoy. */
+  readonly existencia: number;
+  /** La primera vez que se acabó dentro del periodo, o `null`. */
+  readonly agotadoEn: string | null;
+  readonly costos?: { readonly utilidad: Decimal };
+}
+
+export interface FilaAgotamiento {
+  /** 1 = el primero que se acabó. */
+  readonly lugar: number;
+  readonly productoId: number;
+  readonly producto: string;
+  readonly categoria: string;
+  /** Fecha de la entrada (casi siempre la compra) desde la que se fue vendiendo. */
+  readonly entroEl: string | null;
+  /** Cuándo se registró el movimiento que lo dejó en cero: AAAA-MM-DDTHH:MM:SS, hora de CDMX. */
+  readonly agotadoEn: string;
+  readonly diasEnAgotarse: number | null;
+  /** Piezas compradas desde esa entrada hasta que se acabó. */
+  readonly piezasCompradas: number;
+  /** Si ya volvió a entrar por una compra. */
+  readonly resurtido: boolean;
+}
+
+/** Piezas por producto y periodo. Densa: un valor por periodo aunque sea cero. */
+export interface MatrizPiezas {
+  /** Cada periodo como su primer día: AAAA-MM-DD, AAAA-MM-01 o AAAA-01-01. */
+  readonly periodos: readonly string[];
+  /** De más a menos piezas en el total. */
+  readonly filas: readonly {
+    readonly productoId: number;
+    readonly producto: string;
+    readonly piezas: readonly number[];
+    readonly total: number;
+  }[];
+  readonly totales: readonly number[];
+}
+
 export interface ImporteYConteo {
   readonly importe: Decimal;
   readonly ventas: number;

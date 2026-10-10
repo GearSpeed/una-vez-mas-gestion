@@ -1,0 +1,79 @@
+.analisis {
+  display: grid;
+  gap: 1rem;
+  // Sin esto, una tabla ancha estira la rejilla más allá de la pantalla del celular.
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pestana {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+  padding-block: 1rem;
+}
+
+.cifras {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  margin: 0;
+
+  dt {
+    font: var(--mat-sys-label-large);
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  dd {
+    margin: 0.25rem 0 0;
+    font: var(--mat-sys-headline-small);
+    font-family: 'Outfit', sans-serif;
+  }
+
+  dd.ayuda {
+    font: var(--mat-sys-body-medium);
+  }
+}
+
+.graficas {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+}
+
+.notas {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.fila {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0;
+}
+
+h3 {
+  font: var(--mat-sys-title-medium);
+  font-family: 'Outfit', sans-serif;
+}
+
+/* Lo que se va a comprar: resaltado, que es lo que se viene a buscar. */
+.sugerido {
+  background: var(--mat-sys-surface-container);
+}
+
+.lineas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   esquemaDatosTransferencia,
+  esquemaFiltroAnalisisExcel,
   esquemaNuevaCompra,
   esquemaNuevaVenta,
   esquemaImagenProducto,
@@ -166,5 +167,18 @@ describe('esquemaDatosTransferencia', () => {
     });
     expect(resultado.success).toBe(false);
     expect(resultado.error?.issues[0]?.message).toMatch(/dígito verificador/);
+  });
+});
+
+describe('esquemaFiltroAnalisisExcel', () => {
+  it('toma los días de la query como número y por omisión surte para 7', () => {
+    expect(esquemaFiltroAnalisisExcel.parse({ diasALlevar: '14' }).diasALlevar).toBe(14);
+    expect(esquemaFiltroAnalisisExcel.parse({}).diasALlevar).toBe(7);
+  });
+
+  it('rechaza cero días, más de 90 y lo que no es número', () => {
+    for (const diasALlevar of ['0', '91', 'x', '2.5']) {
+      expect(esquemaFiltroAnalisisExcel.safeParse({ diasALlevar }).success).toBe(false);
+    }
   });
 });

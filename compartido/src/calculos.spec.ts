@@ -10,15 +10,18 @@ import {
   importeLinea,
   indicadoresPrecio,
   litrosDelViaje,
+  porcentajeVendido,
   promedioTrasEntrada,
   promedioTrasRetiro,
   reembolsoDeLinea,
   repartirProporcional,
   redondear,
+  sugeridoLlevar,
   sumar,
   tasaEfectiva,
   totalVenta,
   trasladoPorPieza,
+  ventasPorDia,
 } from './calculos.js';
 
 /** El viaje V001 del Excel: 40 km de ida y vuelta, a 32 km/l, con la gasolina a $23. */
@@ -396,5 +399,34 @@ describe('descuentoPorVolumen', () => {
       [GALLETAS, { desde1: 6, tasa1: '0.0500', desde2: 0, tasa2: '0.1000' }],
     ]);
     expect(descuentoPorVolumen([linea(1, GALLETAS, 50)], sinSegundo).get(1)).toBe('75.00');
+  });
+});
+
+describe('análisis de ventas', () => {
+  it('el % vendido divide entre lo que hubo, y sin nada no hay porcentaje', () => {
+    expect(porcentajeVendido(7, 10)).toBe('0.7000');
+    expect(porcentajeVendido(2, 2)).toBe('1.0000');
+    expect(porcentajeVendido(0, 0)).toBeNull();
+  });
+
+  it('las ventas por día no dividen entre cero', () => {
+    expect(ventasPorDia(7, 5)).toBe('1.4000');
+    expect(ventasPorDia(3, 0)).toBe('0.0000');
+  });
+
+  it('el sugerido redondea hacia arriba y descuenta la existencia', () => {
+    // 7 en 5 días = 1.4 por día; para 7 días hacen falta 9.8 → 10, sin nada en mano.
+    expect(sugeridoLlevar({ vendidas: 7, dias: 5, diasALlevar: 7, existencia: 0 })).toBe(10);
+    expect(sugeridoLlevar({ vendidas: 7, dias: 5, diasALlevar: 7, existencia: 3 })).toBe(7);
+  });
+
+  it('un resultado exacto no sube por un residuo de punto flotante', () => {
+    expect(sugeridoLlevar({ vendidas: 7, dias: 7, diasALlevar: 7, existencia: 0 })).toBe(7);
+    expect(sugeridoLlevar({ vendidas: 3, dias: 10, diasALlevar: 10, existencia: 0 })).toBe(3);
+  });
+
+  it('nunca es negativo, y sin días no sugiere nada', () => {
+    expect(sugeridoLlevar({ vendidas: 6, dias: 5, diasALlevar: 7, existencia: 14 })).toBe(0);
+    expect(sugeridoLlevar({ vendidas: 6, dias: 0, diasALlevar: 7, existencia: 0 })).toBe(0);
   });
 });

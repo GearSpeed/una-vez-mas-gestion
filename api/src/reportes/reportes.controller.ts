@@ -1,8 +1,13 @@
 import { Controller, Get, Query, type StreamableFile } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import {
+  type AnalisisVentas,
   type ComisionVendedor,
   type Corte,
   type EstadoResultados,
+  esquemaFiltroAnalisis,
+  esquemaFiltroAnalisisExcel,
+  fechaDeHoy,
   esquemaFiltroCorte,
   esquemaFiltroReporteVentas,
   esquemaFormato,
@@ -10,28 +15,82 @@ import {
   type FilaReporteCompras,
   type FilaReporteVentas,
   type FilaUtilidad,
+  type FiltroAnalisis,
+  type FiltroAnalisisExcel,
   type FiltroCorte,
   type Periodo,
   type Tablero,
+  ZONA_HORARIA,
 } from '@uvm/compartido';
 import type { z } from 'zod';
 import { RequierePermiso, UsuarioActual } from '../acceso/decoradores.js';
 import { UsuarioSesion } from '../acceso/usuario-sesion.js';
+import { archivoXlsx } from '../comun/archivo.js';
 import { aCsv, archivoCsv } from '../comun/csv.js';
+import { LIMITE_EXCEL } from '../comun/limite-peticiones.js';
 import { Validar } from '../comun/validar.js';
+import { AnalisisService } from './analisis.service.js';
+import { escribirXlsx } from './excel/xlsx.js';
+import { libroDeAnalisis } from './excel/libro-analisis.js';
 import { ReportesService } from './reportes.service.js';
 
 const filtroVentas = esquemaFiltroReporteVentas.extend(esquemaFormato.shape);
 const filtroPeriodo = esquemaPeriodo.extend(esquemaFormato.shape);
 
+const formatoHora = new Intl.DateTimeFormat('es-MX', {
+  timeZone: ZONA_HORARIA,
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+const horaDeMexico = (fecha: Date) => formatoHora.format(fecha);
+
 @Controller('reportes')
 export class ReportesController {
-  constructor(private readonly reportes: ReportesService) {}
+  constructor(
+    private readonly reportes: ReportesService,
+    private readonly analisisDeVentas: AnalisisService,
+  ) {}
 
   @Get('tablero')
   @RequierePermiso('reportes.ver')
   tablero(@UsuarioActual() usuario: UsuarioSesion): Promise<Tablero> {
     return this.reportes.tablero(usuario);
+  }
+
+  /** Lo de Inicio para decidir qué surtir: ranking, agotados y piezas por periodo. */
+  @Get('analisis')
+  @RequierePermiso('reportes.ver')
+  analisis(
+    @UsuarioActual() usuario: UsuarioSesion,
+    @Query(new Validar(esquemaFiltroAnalisis)) filtro: FiltroAnalisis,
+  ): Promise<AnalisisVentas> {
+    return this.analisisDeVentas.analisis(usuario, filtro);
+  }
+
+  /** El mismo análisis en Excel, con sus gráficas. */
+  @Get('analisis/excel')
+  @RequierePermiso('reportes.ver')
+  @Throttle(LIMITE_EXCEL)
+  async analisisExcel(
+    @UsuarioActual() usuario: UsuarioSesion,
+    @Query(new Validar(esquemaFiltroAnalisisExcel)) filtro: FiltroAnalisisExcel,
+  ): Promise<StreamableFile> {
+    const analisis = await this.analisisDeVentas.analisis(usuario, filtro);
+    const datos = await this.analisisDeVentas.datosDelLibro(
+      usuario,
+      analisis.desde,
+      analisis.hasta,
+    );
+    const ahora = new Date();
+    const libro = libroDeAnalisis(analisis, datos, {
+      diasALlevar: filtro.diasALlevar,
+      generado: `${fechaDeHoy(ahora)} a las ${horaDeMexico(ahora)}`,
+    });
+    return archivoXlsx(
+      `analisis-ventas-${analisis.desde}-a-${analisis.hasta}.xlsx`,
+      escribirXlsx(libro, ahora),
+    );
   }
 
   @Get('ventas')

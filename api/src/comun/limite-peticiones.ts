@@ -14,6 +14,14 @@ export const LIMITE_IMAGENES = {
   default: { limit: process.env['NODE_ENV'] === 'test' ? 1000 : 30, ttl: 5 * 60_000 },
 };
 
+/**
+ * El Excel del análisis arma un zip con todas las líneas de venta de hasta un año:
+ * cuesta CPU y memoria. 10 por minuto por usuario sobran para quien lo descarga a mano.
+ */
+export const LIMITE_EXCEL = {
+  default: { limit: process.env['NODE_ENV'] === 'test' ? 1000 : 10, ttl: 60_000 },
+};
+
 /** La ruta pública la puede llamar cualquiera, y la cachea Cloudflare: 60 por minuto. */
 export const LIMITE_PUBLICO = { default: { limit: 60, ttl: 60_000 } };
 

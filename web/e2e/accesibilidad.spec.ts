@@ -133,3 +133,25 @@ test('la pestaña «Simulador de venta» pasa axe', async ({ page }) => {
   await expect(page.getByText('Utilidad neta')).toBeVisible();
   await sinViolaciones(page);
 });
+
+test('el análisis de ventas de Inicio pasa axe en cada pestaña', async ({ page }) => {
+  await entrarComo(page, 'admin');
+  await page.goto('/');
+  await esperarCarga(page);
+  // Va con @defer (on viewport): hasta que se ve no carga, y el escaneo de «/» no lo cubre.
+  const seccion = page.locator('uvm-analisis-ventas');
+  await page.getByRole('heading', { name: 'Análisis de ventas' }).scrollIntoViewIfNeeded();
+  await expect(seccion).toBeVisible();
+  await expect(seccion.locator('mat-progress-bar')).toHaveCount(0);
+  // Sin ventas en la BD de prueba se ve el aviso; con ventas (las del flujo), las pestañas.
+  const pestanas = seccion.getByRole('tab');
+  if ((await pestanas.count()) === 0) {
+    await expect(seccion.getByText('Todavía no hay ventas')).toBeVisible();
+    await sinViolaciones(page);
+    return;
+  }
+  for (const nombre of ['Resumen', 'Orden de agotamiento', 'Por mes', 'Por año', 'Por día']) {
+    await seccion.getByRole('tab', { name: nombre }).click();
+    await sinViolaciones(page);
+  }
+});

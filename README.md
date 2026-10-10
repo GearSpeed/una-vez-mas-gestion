@@ -146,6 +146,21 @@ probar lo que ve cada rol. Ese modo se niega a arrancar si `NODE_ENV=production`
   paga el cliente. Cada venta guarda la tasa que tenía ese día: cambiarla no reescribe lo
   pasado. La vendedora la ve en su corte. Es lo que **se le debe**; cuando se le paga, se
   registra como gasto y cuenta en el mes en que se pagó.
+- **Análisis de ventas** (Inicio, debajo del tablero; quien tiene `reportes.ver`): qué se
+  vendió más, qué se acabó primero y las piezas por día, mes y año, para decidir qué surtir.
+  Por omisión cubre los últimos 30 días; los días del periodo se cuentan desde la primera
+  venta de la historia si es posterior. «Vendidas» van netas de devoluciones. Como de un
+  producto se pueden comprar 2 piezas y de otro 20, la señal de qué gustó es el **% vendido
+  de lo disponible** (vendidas ÷ lo que había al empezar + lo comprado en el periodo) y el
+  **orden de agotamiento**: el momento en que la existencia de toda la empresa llegó a cero,
+  leyendo el kardex en el orden en que se registró, sin traspasos y sin las ventas o compras
+  canceladas. Lo que se agotó pudo venderse más, así que para eso el sugerido es un mínimo.
+  **Sugerido llevar** = ⌈vendidas × días a surtir ÷ días del periodo⌉ − existencia de hoy,
+  nunca menos de cero. La utilidad solo con `costos.ver`.
+  **Descargar Excel** da el mismo análisis con sus gráficas nativas (Resumen, Orden de
+  agotamiento, Mensual, Anual, Diario y los datos de Ventas y Compras). Desde, Hasta y Días a
+  llevar son celdas amarillas: al cambiarlas se recalcula. Anual va como valores, porque
+  cubre toda la historia. Hasta 10 descargas por minuto por usuario.
 - **Cuánto se le debe a cada quien** (Reportes → Comisiones): lo que ha ganado desde siempre
   menos lo que ya se le pagó. El pago se registra desde ahí mismo y se liga a la persona
   (`gastos.vendedor_id`), que es lo que permite llevar el saldo. Un abono parcial es válido:

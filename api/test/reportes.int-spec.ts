@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
-import { multiplicar } from '@uvm/compartido';
+import { diasEntre, inicioDeMes, multiplicar } from '@uvm/compartido';
 import { fechaDeHoy } from '@uvm/compartido';
+import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   ADMIN,
@@ -9,10 +10,12 @@ import {
   BETO,
   clave,
   como,
+  conexion,
   compraV001,
   CONSULTA,
   crearApp,
   IDS,
+  llavesDe,
   productoConPrecio,
   reiniciarBd,
 } from './ayudantes.js';
@@ -108,7 +111,7 @@ describe('reportes', () => {
       (await como(app, ADMIN).get('/reportes/ventas?desde=2026-01-01&hasta=2026-12-31')).status,
     ).toBe(200);
     // Y el tope aplica a todos los reportes, no solo a ventas.
-    for (const reporte of ['utilidad', 'resultado', 'comisiones', 'compras', 'corte']) {
+    for (const reporte of ['utilidad', 'resultado', 'comisiones', 'compras', 'corte', 'analisis']) {
       expect(
         (await como(app, ADMIN).get(`/reportes/${reporte}?desde=2020-01-01&hasta=2026-12-31`))
           .status,
@@ -378,5 +381,117 @@ describe('reportes', () => {
     expect(respuesta.text).toBe(
       '﻿Folio,Fecha,Proveedor,Piezas,Mercancía,Gasolina,Total\r\nC-000001,2026-09-19,Proveedor demo,80,1306.00,28.75,1334.75\r\n',
     );
+  });
+
+  describe('análisis de ventas', () => {
+    const hoy = fechaDeHoy();
+    const analisis = (correo = ADMIN) =>
+      como(app, correo).get(`/reportes/analisis?desde=${hoy}&hasta=${hoy}`);
+
+    it('arma el ranking, las cifras y las matrices del periodo', async () => {
+      const { body, status } = await analisis();
+      expect(status).toBe(200);
+      expect(body).toMatchObject({
+        desde: hoy,
+        hasta: hoy,
+        inicioEfectivo: hoy,
+        dias: 1,
+        piezas: 4,
+        importe: '120.00',
+        // 4 piezas al costo de V001 ($17.909375 cada una), sin comisión de cobro.
+        costos: { utilidad: '48.36' },
+        agotados: [],
+      });
+      // El único que vendió va primero; los demás de V001 aparecen con lo que había.
+      expect(body.productos[0]).toEqual({
+        productoId: IDS.tejocote,
+        producto: 'Galletas de Mermelada de Tejocote',
+        categoria: expect.any(String),
+        inicial: 10,
+        compradas: 0,
+        vendidas: 4,
+        importe: '120.00',
+        existencia: 6,
+        agotadoEn: null,
+        costos: { utilidad: '48.36' },
+      });
+      expect(body.productos).toHaveLength(7);
+
+      const fila = { productoId: IDS.tejocote, producto: 'Galletas de Mermelada de Tejocote' };
+      expect(body.diario).toEqual({
+        periodos: [hoy],
+        filas: [{ ...fila, piezas: [4], total: 4 }],
+        totales: [4],
+      });
+      expect(body.mensual.periodos).toHaveLength(12);
+      expect(body.mensual.periodos.at(-1)).toBe(inicioDeMes(hoy));
+      expect(body.mensual.totales.at(-1)).toBe(4);
+      expect(body.anual).toEqual({
+        periodos: [`${hoy.slice(0, 4)}-01-01`],
+        filas: [{ ...fila, piezas: [4], total: 4 }],
+        totales: [4],
+      });
+    });
+
+    it('cuenta lo comprado dentro del periodo', async () => {
+      await como(app, ALMACEN).post('/compras', { ...compraV001(), fecha: hoy });
+      const tejocote = (await analisis()).body.productos.find(
+        (p: { productoId: number }) => p.productoId === IDS.tejocote,
+      );
+      expect(tejocote).toMatchObject({ inicial: 10, compradas: 10, existencia: 16 });
+    });
+
+    it('sabe cuándo se acabó un producto y si ya se resurtió', async () => {
+      // A Ana le queda 1 y al almacén 5: con 5 más, Ana vende las 6 y no queda nada.
+      await cargarAAna(5);
+      expect((await vender(6)).status).toBe(201);
+
+      const { body } = await analisis();
+      expect(body.agotados).toEqual([
+        {
+          lugar: 1,
+          productoId: IDS.tejocote,
+          producto: 'Galletas de Mermelada de Tejocote',
+          categoria: expect.any(String),
+          entroEl: '2026-09-19',
+          agotadoEn: expect.stringMatching(new RegExp(`^${hoy}T\\d{2}:\\d{2}:\\d{2}$`)),
+          diasEnAgotarse: diasEntre('2026-09-19', hoy),
+          piezasCompradas: 10,
+          resurtido: false,
+        },
+      ]);
+      expect(body.productos[0].agotadoEn).toBe(body.agotados[0].agotadoEn);
+
+      await como(app, ALMACEN).post('/compras', compraV001());
+      expect((await analisis()).body.agotados[0].resurtido).toBe(true);
+    });
+
+    it('una venta cancelada no cuenta como agotado, y los traspasos tampoco', async () => {
+      // El escenario de arriba mueve 6 a Ana y regresa 1: eso solo no agota nada.
+      expect((await analisis()).body.agotados).toEqual([]);
+
+      await cargarAAna(5);
+      const venta = await vender(6);
+      await como(app, ADMIN).post(`/ventas/${venta.body.id}/cancelar`, { motivo: 'Prueba' });
+      expect((await analisis()).body.agotados).toEqual([]);
+    });
+
+    it('la vendedora no lo ve', async () => {
+      expect((await analisis(ANA)).status).toBe(403);
+    });
+
+    it('sin permiso de costos no llega la utilidad', async () => {
+      const owner = conexion('owner');
+      await owner.execute(sql`
+        delete from gestion.rol_permisos
+         where permiso = 'costos.ver'
+           and rol_id = (select id from gestion.roles where clave = 'consulta')`);
+      await owner.$client.end();
+
+      const { body, status } = await analisis(CONSULTA);
+      expect(status).toBe(200);
+      expect(body.piezas).toBe(4);
+      expect(llavesDe(body).filter((llave) => /costo|utilidad/i.test(llave))).toEqual([]);
+    });
   });
 });
