@@ -79,6 +79,7 @@ test('precio, compra, carga y venta de punta a punta', async ({ page, request })
   await mas.click();
   await mas.click();
   await expect(page.getByText('2 piezas ·')).toBeVisible();
+  await page.getByRole('button', { name: 'Cobrar', exact: true }).click();
   // Con tarjeta avisa lo que retiene Mercado Pago: $56 × 3.50 % = $1.96 + IVA $0.31.
   await page.locator('mat-button-toggle', { hasText: 'Tarjeta' }).click();
   await expect(page.getByText(/retiene \$2\.27 .*te llegan \$53\.73/)).toBeVisible();
@@ -137,6 +138,7 @@ test('una venta se cobra con efectivo y tarjeta a la vez', async ({ page, reques
   await mas.click();
   await mas.click();
   await expect(page.getByText('2 piezas ·')).toBeVisible();
+  await page.getByRole('button', { name: 'Cobrar', exact: true }).click();
 
   await page.getByRole('button', { name: 'Pagó con dos formas' }).click();
   const importe = (metodo: string) =>
@@ -219,6 +221,7 @@ test('al cobrar por transferencia se ve la CLABE y los dos QR con su título', a
   await esperarCarga(page);
   await page.getByRole('button', { name: `Agregar una pieza de ${producto}` }).click();
   await expect(page.getByText('1 pieza ·')).toBeVisible();
+  await page.getByRole('button', { name: 'Cobrar', exact: true }).click();
   // Con efectivo no estorba: solo aparece al elegir transferencia.
   await expect(page.getByText('Datos para transferir')).toHaveCount(0);
   await page.locator('mat-button-toggle', { hasText: 'Transferencia' }).click();
@@ -556,6 +559,13 @@ test('se ve cuánto se le debe a la vendedora y se le paga desde ahí', async ({
   await page.goto('/ventas/nueva');
   await esperarCarga(page);
   await page.getByRole('button', { name: 'Agregar una pieza de Galletas de Coco' }).click();
+  // Del cobro, mientras se elige, solo se ve el total: lo demás sale al tocar «Cobrar».
+  await expect(page.getByRole('button', { name: 'Registrar venta' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Cobrar', exact: true }).click();
+  // En efectivo, con lo que dio el cliente sale el cambio.
+  await page.getByLabel('Recibido').fill('1000');
+  await expect(page.locator('.cambio')).toContainText('Cambio: $');
+  await sinViolaciones(page);
   await page.getByRole('button', { name: 'Registrar venta' }).click();
   await expect(page.getByText(/Venta V-\d{6} registrada/)).toBeVisible();
 

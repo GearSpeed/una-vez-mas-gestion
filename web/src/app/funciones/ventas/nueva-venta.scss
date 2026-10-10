@@ -61,18 +61,65 @@
   padding: 1rem;
 }
 
+/* Mientras se eligen productos, del cobro solo se ve el total y «Cobrar». */
 .resumen {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   gap: 0.75rem;
 
-  // En el celular el resumen queda a la mano, pegado abajo.
+  p {
+    margin: 0;
+  }
+
+  // En el celular queda a la mano, pegado abajo; en la computadora, en su columna.
   @media (max-width: 59.99rem) {
     position: sticky;
     bottom: 0;
-    max-height: 70dvh;
-    overflow-y: auto;
     box-shadow: 0 -2px 8px rgb(0 0 0 / 12%);
   }
+
+  @media (min-width: 60rem) {
+    position: sticky;
+    top: 1rem;
+  }
+}
+
+.cobrar {
+  min-height: 3rem;
+  padding-inline: 2rem;
+}
+
+.cobro {
+  display: grid;
+  gap: 0.75rem;
+  max-inline-size: 40rem;
+  margin-inline: auto;
+  inline-size: 100%;
+  box-sizing: border-box;
+}
+
+/* «Agregar más» en la esquina superior izquierda, y el título junto. */
+.arriba {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+
+  h2 {
+    margin: 0;
+  }
+}
+
+.efectivo {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.cambio {
+  margin: 0;
+  font: var(--mat-sys-title-large);
 }
 
 .lineas {

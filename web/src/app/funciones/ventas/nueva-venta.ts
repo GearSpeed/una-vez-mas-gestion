@@ -1,12 +1,16 @@
 import { CurrencyPipe, PercentPipe } from '@angular/common';
 import { httpResource } from '@angular/common/http';
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   computed,
+  ElementRef,
   inject,
+  Injector,
   linkedSignal,
   signal,
+  viewChild,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -48,6 +52,12 @@ import { EstadoCarga } from '../../ui/estado-carga';
 import { EtiquetaPipe } from '../../ui/etiqueta.pipe';
 import { DatosTransferenciaVenta } from './datos-transferencia';
 
+/** Primero se eligen los productos; al tocar «Cobrar», se cobra. */
+type Paso = 'carrito' | 'cobro';
+
+/** Lo que se puede escribir en «Recibido»: pesos con hasta dos decimales. */
+const PESOS = /^\d+(\.\d{1,2})?$/;
+
 interface LineaCarrito {
   readonly cantidad: number;
   /** Descuento de toda la línea, en pesos (solo con `ventas.descontar`). */
@@ -55,8 +65,10 @@ interface LineaCarrito {
 }
 
 /**
- * Registrar una venta desde el celular: se toca + en lo que se entregó y se
- * registra. Solo aparece lo que hay en la ubicación del vendedor y tiene precio.
+ * Registrar una venta desde el celular: se toca + en lo que se entregó, luego
+ * «Cobrar», y se registra. Solo aparece lo que hay en la ubicación del vendedor y
+ * tiene precio. Mientras se eligen productos, del cobro solo se ve el total: el
+ * resto (canal, forma de pago, notas) ocuparía media pantalla.
  */
 @Component({
   selector: 'uvm-nueva-venta',
@@ -83,6 +95,7 @@ export class NuevaVenta {
   private readonly sesion = inject(SesionService);
   private readonly api = inject(ApiService);
   private readonly avisos = inject(AvisosService);
+  private readonly injector = inject(Injector);
 
   protected readonly canales = CANALES_VENTA;
   protected readonly metodos = METODOS_PAGO;
@@ -187,6 +200,15 @@ export class NuevaVenta {
     });
   });
   protected readonly total = computed(() => totalVenta(this.lineas()));
+
+  /** Sin productos no hay nada que cobrar: si el carrito se vacía, se vuelve a elegir. */
+  protected readonly paso = linkedSignal<boolean, Paso>({
+    source: () => this.lineas().length > 0,
+    computation: (hayProductos, anterior) =>
+      hayProductos ? (anterior?.value ?? 'carrito') : 'carrito',
+  });
+  private readonly tituloCobro = viewChild<ElementRef<HTMLElement>>('tituloCobro');
+  private readonly botonCobrar = viewChild('botonCobrar', { read: ElementRef<HTMLElement> });
   protected readonly piezas = computed(() =>
     this.lineas().reduce((suma, l) => suma + l.cantidad, 0),
   );
@@ -265,6 +287,20 @@ export class NuevaVenta {
       tasaEfectiva: conTarifa.length === 1 ? (conTarifa[0]?.tarifa.tasaEfectiva ?? null) : null,
     };
   });
+  /** Lo que se cobra en efectivo: sobre eso se calcula el cambio. */
+  protected readonly efectivo = computed(
+    () => this.pagos().find((pago) => pago.metodoPago === 'efectivo')?.importe ?? null,
+  );
+  /** Con cuánto pagó el cliente en efectivo. Solo sirve para dar el cambio: no se guarda. */
+  protected readonly recibido = signal('');
+  /** El cambio que se le da (o lo que le falta, en negativo); `null` sin un «Recibido» válido. */
+  protected readonly cambio = computed(() => {
+    const efectivo = this.efectivo();
+    const recibido = this.recibido().trim();
+    if (efectivo === null || !PESOS.test(recibido)) return null;
+    return restar(recibido, efectivo);
+  });
+
   protected readonly notas = signal('');
   protected readonly enviando = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -302,6 +338,24 @@ export class NuevaVenta {
     this.carrito.set(new Map());
   }
 
+  protected cobrar(): void {
+    if (this.lineas().length === 0) return;
+    this.paso.set('cobro');
+    // El botón que se tocó desaparece: el foco pasa al título del cobro.
+    this.enfocar(this.tituloCobro);
+  }
+
+  protected volver(): void {
+    this.paso.set('carrito');
+    this.error.set(null);
+    this.enfocar(this.botonCobrar);
+  }
+
+  protected elegirMetodo(metodo: MetodoPago): void {
+    this.metodoPago.set(metodo);
+    this.recibido.set('');
+  }
+
   protected cambiarImporte(metodo: MetodoPago, importe: string): void {
     this.importes.update((actuales) => ({ ...actuales, [metodo]: importe }));
   }
@@ -333,7 +387,9 @@ export class NuevaVenta {
       this.clave = nuevaClave();
       this.carrito.set(new Map());
       this.notas.set('');
+      this.recibido.set('');
       this.dividir(false);
+      this.volver();
       this.existencias.reload();
     } catch (error) {
       this.error.set(mensajeDeError(error));
@@ -342,6 +398,10 @@ export class NuevaVenta {
     } finally {
       this.enviando.set(false);
     }
+  }
+
+  private enfocar(elemento: () => ElementRef<HTMLElement> | undefined): void {
+    afterNextRender(() => elemento()?.nativeElement.focus(), { injector: this.injector });
   }
 
   private cambiar(productoId: number, linea: LineaCarrito | null): void {

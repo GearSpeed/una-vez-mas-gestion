@@ -1,86 +1,123 @@
 <div class="pagina">
-  <uvm-encabezado
-    titulo="Nueva venta"
-    [subtitulo]="nombreUbicacion() ? 'Se descuenta de: ' + nombreUbicacion() : null"
-  >
-    <a mat-button routerLink="/ventas">Ver ventas</a>
-  </uvm-encabezado>
+  @if (paso() === 'carrito') {
+    <uvm-encabezado
+      titulo="Nueva venta"
+      [subtitulo]="nombreUbicacion() ? 'Se descuenta de: ' + nombreUbicacion() : null"
+    >
+      <a mat-button routerLink="/ventas">Ver ventas</a>
+    </uvm-encabezado>
 
-  <div class="filtros">
-    @if (eligeUbicacion()) {
-      <mat-form-field>
-        <mat-label>Vender desde</mat-label>
-        <mat-select [value]="ubicacionId()" (valueChange)="cambiarUbicacion($event)">
-          @for (u of ubicacionesActivas(); track u.id) {
-            <mat-option [value]="u.id">{{ u.nombre }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
-    }
-    <mat-form-field>
-      <mat-label>Buscar por nombre o ID</mat-label>
-      <mat-icon matPrefix aria-hidden="true">search</mat-icon>
-      <input
-        matInput
-        type="search"
-        autocomplete="off"
-        [value]="busqueda()"
-        (input)="busqueda.set($any($event.target).value)"
-      />
-    </mat-form-field>
-  </div>
-
-  <uvm-estado-carga
-    [cargando]="existencias.isLoading()"
-    [error]="existencias.error()"
-    (reintentar)="existencias.reload()"
-  />
-
-  <div class="distribucion">
-    <ul class="productos" aria-label="Productos que puedes vender">
-      @for (p of visibles(); track p.productoId) {
-        <li class="producto" [class.elegido]="cantidadDe(p.productoId) > 0">
-          <div class="datos">
-            <span class="nombre">{{ p.producto }}</span>
-            <span class="ayuda">{{ p.precioVenta | currency }} · quedan {{ p.cantidad }}</span>
-          </div>
-          <div class="contador" role="group" [attr.aria-label]="'Piezas de ' + p.producto">
-            <button
-              mat-icon-button
-              type="button"
-              (click)="quitar(p.productoId)"
-              [disabled]="cantidadDe(p.productoId) === 0"
-              [attr.aria-label]="'Quitar una pieza de ' + p.producto"
-            >
-              <mat-icon>remove</mat-icon>
-            </button>
-            <span class="cantidad" aria-live="polite">{{ cantidadDe(p.productoId) }}</span>
-            <button
-              mat-icon-button
-              type="button"
-              (click)="agregar(p)"
-              [disabled]="cantidadDe(p.productoId) >= p.cantidad"
-              [attr.aria-label]="'Agregar una pieza de ' + p.producto"
-            >
-              <mat-icon>add</mat-icon>
-            </button>
-          </div>
-        </li>
-      } @empty {
-        @if (!existencias.isLoading()) {
-          <li class="vacio ayuda">
-            {{
-              busqueda()
-                ? 'Ningún producto coincide con la búsqueda.'
-                : 'No hay productos con existencia y precio en esta ubicación.'
-            }}
-          </li>
-        }
+    <div class="filtros">
+      @if (eligeUbicacion()) {
+        <mat-form-field>
+          <mat-label>Vender desde</mat-label>
+          <mat-select [value]="ubicacionId()" (valueChange)="cambiarUbicacion($event)">
+            @for (u of ubicacionesActivas(); track u.id) {
+              <mat-option [value]="u.id">{{ u.nombre }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
       }
-    </ul>
+      <mat-form-field>
+        <mat-label>Buscar por nombre o ID</mat-label>
+        <mat-icon matPrefix aria-hidden="true">search</mat-icon>
+        <input
+          matInput
+          type="search"
+          autocomplete="off"
+          [value]="busqueda()"
+          (input)="busqueda.set($any($event.target).value)"
+        />
+      </mat-form-field>
+    </div>
 
-    <section class="tarjeta resumen" aria-labelledby="titulo-resumen">
-      <h2 id="titulo-resumen">Esta venta</h2>
+    <uvm-estado-carga
+      [cargando]="existencias.isLoading()"
+      [error]="existencias.error()"
+      (reintentar)="existencias.reload()"
+    />
+
+    <div class="distribucion">
+      <ul class="productos" aria-label="Productos que puedes vender">
+        @for (p of visibles(); track p.productoId) {
+          <li class="producto" [class.elegido]="cantidadDe(p.productoId) > 0">
+            <div class="datos">
+              <span class="nombre">{{ p.producto }}</span>
+              <span class="ayuda">{{ p.precioVenta | currency }} · quedan {{ p.cantidad }}</span>
+            </div>
+            <div class="contador" role="group" [attr.aria-label]="'Piezas de ' + p.producto">
+              <button
+                mat-icon-button
+                type="button"
+                (click)="quitar(p.productoId)"
+                [disabled]="cantidadDe(p.productoId) === 0"
+                [attr.aria-label]="'Quitar una pieza de ' + p.producto"
+              >
+                <mat-icon>remove</mat-icon>
+              </button>
+              <span class="cantidad" aria-live="polite">{{ cantidadDe(p.productoId) }}</span>
+              <button
+                mat-icon-button
+                type="button"
+                (click)="agregar(p)"
+                [disabled]="cantidadDe(p.productoId) >= p.cantidad"
+                [attr.aria-label]="'Agregar una pieza de ' + p.producto"
+              >
+                <mat-icon>add</mat-icon>
+              </button>
+            </div>
+          </li>
+        } @empty {
+          @if (!existencias.isLoading()) {
+            <li class="vacio ayuda">
+              {{
+                busqueda()
+                  ? 'Ningún producto coincide con la búsqueda.'
+                  : 'No hay productos con existencia y precio en esta ubicación.'
+              }}
+            </li>
+          }
+        }
+      </ul>
+
+      <section class="tarjeta resumen" aria-labelledby="titulo-resumen">
+        <h2 id="titulo-resumen" class="visualmente-oculto">Esta venta</h2>
+        <div>
+          <p class="total" aria-live="polite">
+            {{ piezas() }} {{ piezas() === 1 ? 'pieza' : 'piezas' }} ·
+            <strong>{{ total() | currency }}</strong>
+          </p>
+          @if (!lineas().length) {
+            <p class="ayuda">Toca + en lo que entregaste.</p>
+          }
+          <!-- Si la venta se rechazó y el carrito quedó vacío, el motivo se lee aquí. -->
+          @if (error()) {
+            <p class="error-texto" role="alert">{{ error() }}</p>
+          }
+        </div>
+        <!-- Sigue enfocable aunque esté deshabilitado: al registrar, el foco vuelve aquí. -->
+        <button
+          mat-flat-button
+          type="button"
+          class="cobrar"
+          #botonCobrar
+          (click)="cobrar()"
+          [disabled]="lineas().length === 0"
+          [disabledInteractive]="true"
+        >
+          Cobrar
+        </button>
+      </section>
+    </div>
+  } @else {
+    <section class="tarjeta cobro" aria-labelledby="titulo-cobro">
+      <div class="arriba">
+        <button mat-button type="button" class="volver" (click)="volver()">
+          <mat-icon aria-hidden="true">arrow_back</mat-icon>
+          Agregar más
+        </button>
+        <h2 id="titulo-cobro" tabindex="-1" #tituloCobro>Cobrar</h2>
+      </div>
 
       @if (lineas().length) {
         <table class="lineas">
@@ -129,9 +166,23 @@
             }
           </tbody>
         </table>
-      } @else {
-        <p class="ayuda">Toca + en lo que entregaste.</p>
       }
+
+      @if (descuento(); as d) {
+        <!-- De dónde sale el total: si sólo se viera el número final, un precio más bajo
+           de lo esperado parecería un error de la aplicación. -->
+        <dl class="desglose" aria-live="polite">
+          <dt>Venta</dt>
+          <dd>{{ subtotal() | currency }}</dd>
+          <dt>Descuento ({{ d.proporcion | percent: '1.0-1' }})</dt>
+          <dd class="rebaja">−{{ d.monto | currency }}</dd>
+        </dl>
+      }
+
+      <p class="total" aria-live="polite">
+        {{ piezas() }} {{ piezas() === 1 ? 'pieza' : 'piezas' }} ·
+        <strong>{{ total() | currency }}</strong>
+      </p>
 
       <fieldset class="grupo">
         <legend>Canal</legend>
@@ -152,7 +203,7 @@
         @if (!dividido()) {
           <mat-button-toggle-group
             [value]="metodoPago()"
-            (change)="metodoPago.set($event.value)"
+            (change)="elegirMetodo($event.value)"
             aria-label="Método de pago"
             [hideSingleSelectionIndicator]="true"
           >
@@ -196,6 +247,35 @@
         }
       </fieldset>
 
+      @if (efectivo(); as efectivo) {
+        <div class="efectivo">
+          <mat-form-field>
+            <mat-label>Recibido</mat-label>
+            <span matTextPrefix>$&nbsp;</span>
+            <input
+              matInput
+              type="number"
+              inputmode="decimal"
+              min="0"
+              step="0.01"
+              autocomplete="off"
+              [value]="recibido()"
+              (input)="recibido.set($any($event.target).value)"
+            />
+            <mat-hint>Con cuánto pagó en efectivo ({{ efectivo | currency }})</mat-hint>
+          </mat-form-field>
+          <p class="cambio" aria-live="polite">
+            @if (cambio(); as c) {
+              @if (c.startsWith('-')) {
+                <strong class="error-texto">Faltan {{ c.slice(1) | currency }}</strong>
+              } @else {
+                Cambio: <strong>{{ c | currency }}</strong>
+              }
+            }
+          </p>
+        </div>
+      }
+
       @if (montoTransferencia(); as monto) {
         <uvm-datos-transferencia [monto]="monto" />
       }
@@ -209,22 +289,6 @@
           maxlength="500"
         />
       </mat-form-field>
-
-      @if (descuento(); as d) {
-        <!-- De dónde sale el total: si sólo se viera el número final, un precio más bajo
-             de lo esperado parecería un error de la aplicación. -->
-        <dl class="desglose" aria-live="polite">
-          <dt>Venta</dt>
-          <dd>{{ subtotal() | currency }}</dd>
-          <dt>Descuento ({{ d.proporcion | percent: '1.0-1' }})</dt>
-          <dd class="rebaja">−{{ d.monto | currency }}</dd>
-        </dl>
-      }
-
-      <p class="total" aria-live="polite">
-        {{ piezas() }} {{ piezas() === 1 ? 'pieza' : 'piezas' }} ·
-        <strong>{{ total() | currency }}</strong>
-      </p>
 
       @if (comision(); as c) {
         <p class="ayuda comision" aria-live="polite">
@@ -250,5 +314,5 @@
         {{ enviando() ? 'Registrando…' : 'Registrar venta' }}
       </button>
     </section>
-  </div>
+  }
 </div>

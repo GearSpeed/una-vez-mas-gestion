@@ -153,6 +153,37 @@ describe('NuevaVenta', () => {
 
   const boton = (etiqueta: string) =>
     pantalla.querySelector<HTMLButtonElement>(`button[aria-label="${etiqueta}"]`) ?? undefined;
+  const conTexto = (texto: string) =>
+    [...pantalla.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
+      b.textContent?.includes(texto),
+    );
+  const agregarTejocote = async (piezas: number) => {
+    for (let i = 0; i < piezas; i++) {
+      boton('Agregar una pieza de Galletas de Mermelada de Tejocote')?.click();
+      await fixture.whenStable();
+    }
+  };
+  /** Pasa del carrito al cobro, donde están el canal, la forma de pago y «Registrar». */
+  const cobrar = async () => {
+    pantalla.querySelector<HTMLButtonElement>('button.cobrar')?.click();
+    await fixture.whenStable();
+  };
+  const metodo = async (nombre: string) => {
+    [...pantalla.querySelectorAll<HTMLButtonElement>('mat-button-toggle button')]
+      .find((b) => b.textContent?.trim() === nombre)
+      ?.click();
+    await fixture.whenStable();
+  };
+  const escribir = async (campo: HTMLInputElement | null | undefined, valor: string) => {
+    if (!campo) throw new Error('Falta el campo');
+    campo.value = valor;
+    campo.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+  };
+  const recibido = () =>
+    [...pantalla.querySelectorAll<HTMLElement>('.efectivo mat-form-field')]
+      .find((c) => c.textContent?.includes('Recibido'))
+      ?.querySelector('input');
 
   it('solo ofrece lo que tiene precio y piezas', () => {
     const productos = [...pantalla.querySelectorAll('.producto .nombre')].map((e) =>
@@ -171,11 +202,82 @@ describe('NuevaVenta', () => {
     expect(pantalla.querySelector('.total')?.textContent).toContain('$90.00');
   });
 
+  it('mientras se eligen productos solo se ve el total y «Cobrar»', async () => {
+    const cobrarBoton = pantalla.querySelector<HTMLButtonElement>('button.cobrar');
+    expect(cobrarBoton?.getAttribute('aria-disabled')).toBe('true');
+    await cobrar();
+    expect(pantalla.querySelector('button.registrar')).toBeNull();
+
+    await agregarTejocote(2);
+    expect(pantalla.querySelector('.resumen .total')?.textContent).toMatch(
+      /2 piezas\s+·\s+\$60\.00/,
+    );
+    expect(pantalla.textContent).not.toContain('Cómo pagó');
+    expect(pantalla.querySelector('button.registrar')).toBeNull();
+
+    await cobrar();
+    expect(pantalla.textContent).toContain('Cómo pagó');
+    expect(pantalla.querySelector('button.registrar')).not.toBeNull();
+    // La lista de productos se va, y el foco pasa al título del cobro.
+    expect(pantalla.querySelector('.productos')).toBeNull();
+    expect(document.activeElement?.id).toBe('titulo-cobro');
+  });
+
+  it('«Agregar más» regresa a los productos sin perder lo elegido', async () => {
+    await agregarTejocote(2);
+    await cobrar();
+    conTexto('Agregar más')?.click();
+    await fixture.whenStable();
+    expect(pantalla.querySelector('button.registrar')).toBeNull();
+    expect(pantalla.querySelector('.cantidad')?.textContent?.trim()).toBe('2');
+    expect(document.activeElement).toBe(pantalla.querySelector('button.cobrar'));
+  });
+
+  it('en efectivo, con lo recibido dice cuánto dar de cambio', async () => {
+    await agregarTejocote(2);
+    await cobrar();
+    const cambio = () =>
+      pantalla.querySelector('.cambio')?.textContent?.replace(/\s+/g, ' ').trim();
+    expect(cambio()).toBe('');
+
+    await escribir(recibido(), '100');
+    expect(cambio()).toBe('Cambio: $40.00');
+    await escribir(recibido(), '60');
+    expect(cambio()).toBe('Cambio: $0.00');
+    await escribir(recibido(), '50');
+    expect(cambio()).toBe('Faltan $10.00');
+    // Es solo una ayuda: no detiene la venta.
+    expect(pantalla.querySelector<HTMLButtonElement>('button.registrar')?.disabled).toBe(false);
+
+    // Con tarjeta no hay cambio que dar.
+    await metodo('Tarjeta');
+    expect(recibido()).toBeUndefined();
+    // Y al volver a efectivo, lo de antes ya no aplica.
+    await metodo('Efectivo');
+    expect(recibido()?.value).toBe('');
+  });
+
+  it('con el pago dividido, el cambio sale solo de la parte en efectivo', async () => {
+    await agregarTejocote(2);
+    await cobrar();
+    conTexto('Pagó con dos formas')?.click();
+    await fixture.whenStable();
+    const importe = (etiqueta: string) =>
+      [...pantalla.querySelectorAll<HTMLElement>('.reparto mat-form-field')]
+        .find((campo) => campo.textContent?.includes(etiqueta))
+        ?.querySelector('input');
+    await escribir(importe('Efectivo'), '30');
+    await escribir(importe('Tarjeta'), '30');
+    await escribir(recibido(), '50');
+    expect(pantalla.querySelector('.cambio')?.textContent).toContain('$20.00');
+  });
+
   it('con tarjeta avisa cuánto retiene Mercado Pago', async () => {
     const agregar = boton('Agregar una pieza de Galletas de Mermelada de Tejocote');
     agregar?.click();
     agregar?.click();
     await fixture.whenStable();
+    await cobrar();
     expect(pantalla.querySelector('.comision')).toBeNull();
 
     const tarjeta = [
@@ -195,6 +297,7 @@ describe('NuevaVenta', () => {
     agregar?.click();
     agregar?.click();
     await fixture.whenStable();
+    await cobrar();
     expect(pantalla.querySelector('uvm-datos-transferencia')).toBeNull();
 
     const transferencia = [
@@ -261,6 +364,7 @@ describe('NuevaVenta', () => {
 
     nuez?.click();
     await fixture.whenStable();
+    await cobrar();
     const avisos = [...pantalla.querySelectorAll('tbody .estado')].map((e) =>
       e.textContent?.trim(),
     );
@@ -290,6 +394,8 @@ describe('NuevaVenta', () => {
     await fixture.whenStable();
     expect(pantalla.querySelector('.total')?.textContent).toContain('2 piezas');
 
+    await cobrar();
+    await escribir(recibido(), '100');
     pantalla.querySelector<HTMLButtonElement>('button.registrar')?.click();
     const peticion = http.expectOne('/api/ventas');
     expect(peticion.request.method).toBe('POST');
@@ -303,10 +409,18 @@ describe('NuevaVenta', () => {
 
     peticion.flush({ folio: 'V-000001', total: '60.00' });
     await asentar();
-    // Después de vender se vuelve a leer la existencia y el carrito queda vacío.
+    // Después de vender se vuelve a leer la existencia, el carrito queda vacío y se
+    // regresa a elegir productos, con el foco en «Cobrar».
     http.expectOne('/api/inventario/existencias').flush(EXISTENCIAS);
     await fixture.whenStable();
     expect(pantalla.querySelector('.total')?.textContent).toContain('0 piezas');
+    expect(pantalla.querySelector('button.registrar')).toBeNull();
+    expect(document.activeElement).toBe(pantalla.querySelector('button.cobrar'));
+
+    // La siguiente venta arranca sin el «Recibido» de la anterior.
+    await agregarTejocote(1);
+    await cobrar();
+    expect(recibido()?.value).toBe('');
   });
 
   it('divide el cobro entre dos formas de pago y no deja registrar hasta que cuadre', async () => {
@@ -314,6 +428,7 @@ describe('NuevaVenta', () => {
     boton('Agregar una pieza de Galletas de Mermelada de Tejocote')?.click();
     await fixture.whenStable();
 
+    await cobrar();
     const dividir = [...pantalla.querySelectorAll<HTMLButtonElement>('button.dividir')][0];
     dividir?.click();
     await fixture.whenStable();
@@ -355,6 +470,7 @@ describe('NuevaVenta', () => {
   it('si la API la rechaza, muestra el motivo', async () => {
     boton('Agregar una pieza de Galletas de Mermelada de Tejocote')?.click();
     await fixture.whenStable();
+    await cobrar();
     pantalla.querySelector<HTMLButtonElement>('button.registrar')?.click();
     http
       .expectOne('/api/ventas')
