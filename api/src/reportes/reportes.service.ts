@@ -19,7 +19,6 @@ import {
   type FilaUtilidad,
   type FiltroCorte,
   type FiltroReporteVentas,
-  diasEntre,
   inicioDeMes,
   inicioDeSemana,
   METODOS_PAGO,
@@ -48,6 +47,7 @@ import {
 import { alias } from 'drizzle-orm/pg-core';
 import type { UsuarioSesion } from '../acceso/usuario-sesion.js';
 import { conCostos } from '../comun/costos.js';
+import { periodo } from './periodo.js';
 import { type BaseDatos, DB } from '../db/conexion.js';
 import { comisionNetaDeVenta, formaDePagoDeVenta, reembolsadoDeVenta } from '../db/consultas.js';
 import {
@@ -76,37 +76,6 @@ function suma(tipos: readonly string[]) {
     tipos.map((t) => sql`${t}`),
     sql`, `,
   )})), 0)::int`;
-}
-
-/**
- * Lo más ancho que se puede pedir de una vez. Un reporte recorre todas las líneas
- * de venta del rango: sin tope, una sola petición puede costar lo que cuesta un año
- * entero, y se puede repetir 300 veces por minuto. Un año y un día cubre cualquier
- * comparación contra el mismo mes del año pasado; para más, se piden por tramos.
- */
-const DIAS_MAXIMOS = 366;
-
-/** Sin fechas, los reportes cubren el mes en curso. */
-function periodo(
-  filtro: Periodo,
-  porOmision: 'mes' | 'hoy' = 'mes',
-): { desde: string; hasta: string } {
-  const hoy = fechaDeHoy();
-  const hasta = filtro.hasta ?? hoy;
-  const desde = filtro.desde ?? (porOmision === 'mes' ? inicioDeMes(hasta) : hasta);
-  if (desde > hasta) {
-    throw new UnprocessableEntityException({
-      mensaje: 'La fecha inicial es posterior a la final.',
-      campos: { desde: 'Debe ser anterior a "hasta"' },
-    });
-  }
-  if (diasEntre(desde, hasta) > DIAS_MAXIMOS) {
-    throw new UnprocessableEntityException({
-      mensaje: `El periodo no puede pasar de ${DIAS_MAXIMOS} días. Pídelo por tramos.`,
-      campos: { desde: `Como mucho ${DIAS_MAXIMOS} días antes de "hasta"` },
-    });
-  }
-  return { desde, hasta };
 }
 
 /** Agrupa por vendedor las filas que traen su id, dejando fuera las que no lo traen. */

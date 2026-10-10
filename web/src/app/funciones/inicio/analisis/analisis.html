@@ -1,0 +1,316 @@
+<section class="tarjeta analisis" aria-labelledby="titulo-analisis">
+  <div class="cabecera">
+    <h2 id="titulo-analisis">Análisis de ventas</h2>
+    @if (analisis.value()?.productos?.length) {
+      <button
+        mat-stroked-button
+        type="button"
+        (click)="descargarExcel()"
+        [disabled]="descargando()"
+        [attr.aria-busy]="descargando()"
+      >
+        <mat-icon aria-hidden="true">download</mat-icon>
+        {{ descargando() ? 'Preparando…' : 'Descargar Excel' }}
+      </button>
+    }
+  </div>
+
+  <div class="filtros" role="group" aria-label="Periodo del análisis">
+    <mat-form-field>
+      <mat-label>Periodo</mat-label>
+      <mat-select [value]="clavePeriodo()" (valueChange)="cambiarPeriodo($event)">
+        @for (p of periodos; track p.valor) {
+          <mat-option [value]="p.valor">{{ p.etiqueta }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>¿Para cuántos días surtes?</mat-label>
+      <input matInput type="number" min="1" max="90" step="1" [formControl]="diasALlevar" />
+      <mat-hint>Cambia «Sugerido llevar»</mat-hint>
+      @if (diasALlevar.invalid) {
+        <mat-error>Escribe de 1 a 90 días</mat-error>
+      }
+    </mat-form-field>
+  </div>
+
+  <uvm-estado-carga
+    [cargando]="analisis.isLoading()"
+    [error]="analisis.error()"
+    (reintentar)="analisis.reload()"
+  />
+
+  @if (analisis.value(); as a) {
+    @if (!a.productos.length) {
+      <p class="ayuda">
+        Todavía no hay ventas ni compras en este periodo. Cuando las haya, aquí verás qué se vendió
+        más y podrás descargar el análisis en Excel.
+      </p>
+    } @else {
+      <mat-tab-group mat-stretch-tabs="false" animationDuration="0ms">
+        <mat-tab label="Resumen">
+          <ng-template matTabContent>
+            <div class="pestana">
+              <dl class="cifras">
+                <div>
+                  <dt>Periodo</dt>
+                  <dd>{{ a.inicioEfectivo | date: 'd MMM' }} – {{ a.hasta | date: 'd MMM y' }}</dd>
+                  <dd class="ayuda">{{ a.dias }} {{ a.dias === 1 ? 'día' : 'días' }}</dd>
+                </div>
+                <div>
+                  <dt>Piezas vendidas</dt>
+                  <dd>{{ a.piezas }}</dd>
+                </div>
+                <div>
+                  <dt>Importe</dt>
+                  <dd>{{ a.importe | currency }}</dd>
+                </div>
+                @if (a.costos; as costos) {
+                  <div>
+                    <dt>Utilidad bruta</dt>
+                    <dd>{{ costos.utilidad | currency }}</dd>
+                  </div>
+                }
+              </dl>
+
+              <div uvmDesplazable="Resumen por producto">
+                <table class="tabla-simple">
+                  <caption class="visualmente-oculto">
+                    Ventas por producto y cuánto llevar para
+                    {{
+                      dias()
+                    }}
+                    días
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Producto</th>
+                      <th scope="col" class="numero">Vendidas</th>
+                      <th scope="col" class="numero">% vendido de lo disponible</th>
+                      <th scope="col" class="numero">Existencia hoy</th>
+                      <th scope="col" class="numero">Sugerido llevar</th>
+                      <th scope="col" class="numero">Ventas por día</th>
+                      <th scope="col" class="numero">Había al inicio</th>
+                      <th scope="col" class="numero">Compradas</th>
+                      <th scope="col" class="numero">Importe</th>
+                      @if (a.costos) {
+                        <th scope="col" class="numero">Utilidad</th>
+                      }
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (f of filas(); track f.productoId) {
+                      <tr>
+                        <th scope="row">
+                          {{ f.producto }}
+                          <span class="ayuda">{{ f.categoria }}</span>
+                          @if (f.agotadoEn) {
+                            <span class="estado alerta">
+                              <span aria-hidden="true">⚠</span> Se agotó el
+                              {{ f.agotadoEn | date: 'd MMM' }}
+                            </span>
+                          }
+                        </th>
+                        <td class="numero">{{ f.vendidas }}</td>
+                        <td class="numero">
+                          {{ f.porcentaje === null ? '—' : (f.porcentaje | percent: '1.0-0') }}
+                        </td>
+                        <td class="numero">{{ f.existencia }}</td>
+                        <td class="numero sugerido">
+                          <strong>{{ f.sugerido }}</strong>
+                        </td>
+                        <td class="numero">{{ f.porDia | number: '1.1-1' }}</td>
+                        <td class="numero">{{ f.inicial }}</td>
+                        <td class="numero">{{ f.compradas }}</td>
+                        <td class="numero">{{ f.importe | currency }}</td>
+                        @if (a.costos) {
+                          <td class="numero">{{ f.costos?.utilidad | currency }}</td>
+                        }
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="graficas">
+                <uvm-grafica-barras
+                  titulo="Piezas vendidas por producto"
+                  [datos]="barrasVendidas()"
+                  columnaValor="Piezas vendidas"
+                />
+                <uvm-grafica-barras
+                  titulo="% vendido de lo disponible"
+                  [datos]="barrasPorcentaje()"
+                  [maximo]="1"
+                  columnaValor="% vendido"
+                />
+              </div>
+
+              <ul class="ayuda notas">
+                <li>
+                  «Vendidas» engaña sola: de un producto se pueden comprar 2 piezas y de otro 20. Lo
+                  que mejor dice qué gustó es el % vendido de lo disponible y el orden en que se
+                  agotaron.
+                </li>
+                <li>
+                  Lo que se agotó pudo venderse más: su venta está topada por lo que había. Para
+                  esos productos, el sugerido es un mínimo.
+                </li>
+                <li>
+                  Sugerido llevar = vendidas × {{ dias() }} días ÷ {{ a.dias }}
+                  {{ a.dias === 1 ? 'día' : 'días' }} del periodo, redondeado hacia arriba, menos la
+                  existencia de hoy.
+                </li>
+              </ul>
+            </div>
+          </ng-template>
+        </mat-tab>
+
+        <mat-tab label="Orden de agotamiento">
+          <ng-template matTabContent>
+            <div class="pestana">
+              <p class="ayuda">
+                El momento en que la existencia de toda la empresa llegó a cero. No cuentan los
+                traspasos entre ubicaciones ni las ventas o compras canceladas.
+              </p>
+              @if (a.agotados.length) {
+                <div uvmDesplazable="Orden de agotamiento">
+                  <table class="tabla-simple">
+                    <caption class="visualmente-oculto">
+                      Productos en el orden en que se agotaron
+                    </caption>
+                    <thead>
+                      <tr>
+                        <th scope="col" class="numero">Lugar</th>
+                        <th scope="col">Producto</th>
+                        <th scope="col">Entró el</th>
+                        <th scope="col">Se agotó el</th>
+                        <th scope="col" class="numero">Días en agotarse</th>
+                        <th scope="col" class="numero">Piezas compradas</th>
+                        <th scope="col">¿Ya se resurtió?</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (g of a.agotados; track g.productoId) {
+                        <tr>
+                          <td class="numero">{{ g.lugar }}</td>
+                          <th scope="row">
+                            {{ g.producto }} <span class="ayuda">{{ g.categoria }}</span>
+                          </th>
+                          <td>{{ g.entroEl ? (g.entroEl | date: 'd MMM y') : '—' }}</td>
+                          <td>{{ g.agotadoEn | date: 'd MMM y, HH:mm' }}</td>
+                          <td class="numero">{{ g.diasEnAgotarse ?? '—' }}</td>
+                          <td class="numero">{{ g.piezasCompradas }}</td>
+                          <td>{{ g.resurtido ? 'Sí' : 'No' }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+                @if (barrasAgotamiento().length) {
+                  <uvm-grafica-barras
+                    titulo="Días que tardó en agotarse (menos: se fue más rápido)"
+                    [datos]="barrasAgotamiento()"
+                    columnaValor="Días"
+                  />
+                }
+                <p class="ayuda">
+                  Ojo: un producto del que se compraron 1 o 2 piezas se agota rápido aunque no sea
+                  el favorito. Compara con «Piezas compradas».
+                </p>
+              } @else {
+                <p class="ayuda">Ningún producto se agotó en este periodo.</p>
+              }
+
+              <h3>Todavía con existencia</h3>
+              @for (f of conExistencia(); track f.productoId) {
+                <p class="fila">
+                  <span>{{ f.producto }}</span>
+                  <span class="numero">{{ f.existencia }}</span>
+                </p>
+              } @empty {
+                <p class="ayuda">Nada: todo se vendió.</p>
+              }
+            </div>
+          </ng-template>
+        </mat-tab>
+
+        <mat-tab label="Por mes">
+          <ng-template matTabContent>
+            <div class="pestana">
+              @if (mensual(); as m) {
+                <uvm-grafica-lineas
+                  titulo="Tendencia mensual: piezas totales"
+                  [periodos]="m.etiquetas"
+                  [series]="m.total"
+                />
+              }
+              <uvm-analisis-matriz [matriz]="a.mensual" unidad="mes" />
+            </div>
+          </ng-template>
+        </mat-tab>
+
+        <mat-tab label="Por año">
+          <ng-template matTabContent>
+            <div class="pestana">
+              <uvm-analisis-matriz [matriz]="a.anual" unidad="año" />
+            </div>
+          </ng-template>
+        </mat-tab>
+
+        <mat-tab label="Por día">
+          <ng-template matTabContent>
+            <div class="pestana">
+              @if (diario(); as d) {
+                <div class="lineas">
+                  <uvm-grafica-lineas
+                    titulo="Piezas vendidas por día — total"
+                    [periodos]="d.etiquetas"
+                    [series]="d.total"
+                  />
+                  @if (d.top.length) {
+                    <uvm-grafica-lineas
+                      [titulo]="'Piezas por día — ' + d.top.length + ' más vendidos'"
+                      [periodos]="d.etiquetas"
+                      [series]="d.top"
+                    />
+                  }
+                </div>
+                <div uvmDesplazable="Piezas por día">
+                  <table class="tabla-simple">
+                    <caption class="visualmente-oculto">
+                      Piezas vendidas por día, del más reciente al más antiguo
+                    </caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">Día</th>
+                        <th scope="col" class="numero">Total</th>
+                        @for (c of d.columnas; track c) {
+                          <th scope="col" class="numero">{{ c }}</th>
+                        }
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (r of d.renglones; track r.periodo) {
+                        <tr>
+                          <th scope="row">{{ r.periodo | date: 'EEE d MMM' }}</th>
+                          <td class="numero">
+                            <strong>{{ r.total }}</strong>
+                          </td>
+                          @for (p of r.piezas; track $index) {
+                            <td class="numero">{{ p }}</td>
+                          }
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+                <p class="ayuda">El detalle de todos los productos está en el Excel.</p>
+              }
+            </div>
+          </ng-template>
+        </mat-tab>
+      </mat-tab-group>
+    }
+  }
+</section>

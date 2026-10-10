@@ -8,6 +8,7 @@ import type { Corte, Permiso, Tablero } from '@uvm/compartido';
 import { SesionService } from '../../core/sesion';
 import { Encabezado } from '../../ui/encabezado';
 import { EstadoCarga } from '../../ui/estado-carga';
+import { AnalisisVentasSeccion } from './analisis/analisis';
 
 interface Acceso {
   readonly etiqueta: string;
@@ -47,6 +48,7 @@ const ACCESOS: readonly Acceso[] = [
 @Component({
   selector: 'uvm-inicio',
   imports: [
+    AnalisisVentasSeccion,
     Encabezado,
     EstadoCarga,
     RouterLink,

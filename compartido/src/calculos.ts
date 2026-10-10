@@ -436,6 +436,51 @@ export function comisionDeVendedor(utilidad: Decimal, tasa: Decimal): Decimal {
 }
 
 /* -----------------------------------------------------------------------------
+   Análisis de ventas: qué se vendió y cuánto llevar
+   -------------------------------------------------------------------------- */
+
+/**
+ * Qué parte de lo que hubo se vendió: vendidas ÷ (lo que había al empezar el periodo +
+ * lo que entró por compras). `null` si no hubo nada.
+ *
+ * Mejor señal que «Vendidas» sola: de un producto se pueden comprar 2 piezas y de otro
+ * 20, y el primero nunca podrá vender más de 2.
+ */
+export function porcentajeVendido(vendidas: number, disponibles: number): Decimal | null {
+  return dividir(String(vendidas), String(disponibles));
+}
+
+/** Piezas vendidas por día del periodo. */
+export function ventasPorDia(vendidas: number, dias: number): Decimal {
+  if (dias <= 0) return fijar(big(0), DECIMALES_PROPORCION);
+  return fijar(big(vendidas).div(dias), DECIMALES_PROPORCION);
+}
+
+export interface Sugerido {
+  readonly vendidas: number;
+  /** Días del periodo en que se vendió eso. */
+  readonly dias: number;
+  /** Para cuántos días se quiere surtir. */
+  readonly diasALlevar: number;
+  readonly existencia: number;
+}
+
+/**
+ * Cuántas piezas llevar para cubrir `diasALlevar` al ritmo del periodo, descontando lo
+ * que ya hay: `max(0, ⌈vendidas × diasALlevar ÷ dias⌉ − existencia)`.
+ *
+ * Multiplica antes de dividir, igual que la fórmula del Excel, para que un resultado
+ * exacto (7 ÷ 7 × 7) no se vuelva 8 por un residuo de punto flotante.
+ *
+ * Lo que se agotó pudo venderse más: para esos productos es un mínimo.
+ */
+export function sugeridoLlevar({ vendidas, dias, diasALlevar, existencia }: Sugerido): number {
+  if (dias <= 0) return 0;
+  const necesarias = big(vendidas).times(diasALlevar).div(dias).round(0, Big.roundUp);
+  return Math.max(0, necesarias.minus(existencia).toNumber());
+}
+
+/* -----------------------------------------------------------------------------
    Utilidades
    -------------------------------------------------------------------------- */
 

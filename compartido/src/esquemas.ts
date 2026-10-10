@@ -570,6 +570,20 @@ export const esquemaFiltroReporteVentas = esquemaPeriodo.extend({
 
 export const esquemaFiltroCorte = esquemaPeriodo.extend({ ubicacionId: idEnQuery });
 
+/** Para cuántos días se surte, si nadie dice otra cosa. */
+export const DIAS_A_LLEVAR = 7;
+
+export const esquemaFiltroAnalisis = esquemaPeriodo;
+
+export const esquemaFiltroAnalisisExcel = esquemaPeriodo.extend({
+  diasALlevar: z.coerce
+    .number('Escribe para cuántos días quieres surtir')
+    .int('Escribe días completos')
+    .min(1, 'Al menos un día')
+    .max(90, 'Hasta 90 días')
+    .default(DIAS_A_LLEVAR),
+});
+
 /* -----------------------------------------------------------------------------
    Tipos que mandan los formularios (entrada) y los que usa la API (salida)
    -------------------------------------------------------------------------- */
@@ -605,6 +619,8 @@ export type FiltroExistencias = z.output<typeof esquemaFiltroExistencias>;
 export type FiltroKardex = z.output<typeof esquemaFiltroKardex>;
 export type FiltroReporteVentas = z.output<typeof esquemaFiltroReporteVentas>;
 export type FiltroCorte = z.output<typeof esquemaFiltroCorte>;
+export type FiltroAnalisis = z.output<typeof esquemaFiltroAnalisis>;
+export type FiltroAnalisisExcel = z.output<typeof esquemaFiltroAnalisisExcel>;
 export type AgruparVentasPor = FiltroReporteVentas['agrupar'];
 
 export type EntradaProducto = z.input<typeof esquemaProducto>;
