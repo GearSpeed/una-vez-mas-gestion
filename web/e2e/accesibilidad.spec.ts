@@ -16,6 +16,7 @@ const PANTALLAS: readonly { ruta: string; usuario: keyof typeof USUARIOS }[] = [
   { ruta: '/inventario/ajustes', usuario: 'almacen' },
   { ruta: '/inventario/kardex?productoId=1', usuario: 'almacen' },
   { ruta: '/productos', usuario: 'admin' },
+  { ruta: '/imagenes-ia', usuario: 'admin' },
   { ruta: '/proveedores', usuario: 'admin' },
   { ruta: '/gastos', usuario: 'admin' },
   { ruta: '/capital', usuario: 'admin' },

@@ -193,6 +193,24 @@ probar lo que ve cada rol. Ese modo se niega a arrancar si `NODE_ENV=production`
   un bucket de Cloudflare R2. El sitio las sirve desde `img.unavezmasmx.com`, que va por la
   caché de Cloudflare; la base guarda solo la ruta, así que cambiar de dominio o de
   proveedor es cambiar una variable.
+- **Imágenes con IA** (`imagenes.generar`, solo el admin): se sube una **referencia** (la
+  escena: fondo, superficie, luz) con **su prompt**. Al elegir su imagen, la IA la mira
+  (`POST /v1/responses`, modelo en `OPENAI_MODELO_TEXTO`, JSON Schema estricto) y
+  **sugiere el nombre y el prompt**: en una nueva llena lo que nadie ha tocado; lo ya
+  escrito, o lo de una referencia que ya existía, no se pisa y se ofrece «Usar la
+  sugerencia»; al generar se elige una, se sube la
+  foto del producto, se le suma un complemento opcional y una calidad (baja, media o alta:
+  a más calidad, más tiempo y más créditos). OpenAI (`POST /v1/images/edits`, modelo en
+  `OPENAI_MODELO_IMAGEN`) recibe la referencia como imagen 1 y el producto como imagen 2,
+  con la instrucción fija de no cambiar el producto. Tarda hasta ~2 min, así que se trabaja
+  en segundo plano y la pantalla pregunta cada 3 s; a lo más 2 a la vez y 10 por minuto.
+  La imagen se **asigna** a un producto por el mismo camino que subir su foto a mano (hace
+  falta además `productos.gestionar`), se **descarta** o se **vuelve a generar** sin subir la
+  foto otra vez. Referencias, fotos y resultados viven en la base (no en el bucket, que es
+  público); lo que no se asigna suelta sus imágenes a los 30 días. Si OpenAI dice que **no
+  hay créditos** o que se llegó al **tope de gasto**, la pantalla lo avisa arriba, con desde
+  cuándo y a dónde ir a recargar, hasta que una imagen vuelva a salir; la moderación, el
+  límite de ritmo y una llave mala se explican cada uno con su mensaje.
 - **ID**: cada producto muestra su ID en la tabla y en su diálogo, y las búsquedas lo
   aceptan («12» encuentra el producto 12). Es el que llevará el código de barras.
 - **Precio**: sin precio no se vende (y el sitio dice «Consulta precio»). La ganancia
@@ -210,6 +228,7 @@ crea) y un usuario puede tener varios.
 | ------------------------------------------------------------------- | :---: | :-----: | :------: | :------: |
 | `catalogo.ver` (productos, precio, existencia)                      |   ✓   |    ✓    |    ✓     |    ✓     |
 | `productos.gestionar` (alta, precio, publicar)                      |   ✓   |         |          |          |
+| `imagenes.generar` (imágenes con IA; gasta créditos de OpenAI)      |   ✓   |         |          |          |
 | `costos.ver` (costo, márgenes, utilidad)                            |   ✓   |         |          |    ✓     |
 | `proveedores.gestionar`                                             |   ✓   |    ✓    |          |          |
 | `compras.ver` / `compras.registrar` (con los costos del proveedor)  | ✓ / ✓ |  ✓ / ✓  |          |  ✓ / –   |
@@ -298,6 +317,9 @@ Slugs:
   publicar hasta que el sitio las tenga.
 
 ## Desplegar
+
+**Nada llega a producción sin el VoBo del dueño del proyecto**: cada cambio se prueba antes
+en local, y fusionar a `main` y desplegar se aprueban aparte, cambio por cambio.
 
 VPS de Contabo + Docker Compose + Cloudflare Tunnel + Cloudflare Access, y las imágenes en
 Cloudflare R2 servidas por `img.unavezmasmx.com`: [docs/despliegue.md](docs/despliegue.md).

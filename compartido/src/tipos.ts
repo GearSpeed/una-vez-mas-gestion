@@ -6,9 +6,12 @@
 import type { Decimal } from './calculos.js';
 import type {
   Bolsa,
+  CalidadImagenIa,
   CanalVenta,
   Disponibilidad,
+  ErrorImagenIa,
   EstadoDocumento,
+  EstadoGeneracion,
   MetodoPago,
   MotivoAjuste,
   PosicionQr,
@@ -431,6 +434,51 @@ export interface QrTransferencia {
   readonly posicion: PosicionQr;
   /** Con qué se distingue al cobrar: «Mercado Pago», «Banco Azteca». */
   readonly titulo: string;
+}
+
+/* ---- Imágenes con IA ---- */
+
+/** La imagen se pide aparte, con sesión: `/api/imagenes-ia/referencias/:id/imagen`. */
+export interface ReferenciaImagen {
+  readonly id: number;
+  readonly nombre: string;
+  readonly prompt: string;
+  readonly actualizadoEn: string;
+}
+
+/** Lo que la IA sugiere al ver la imagen de una referencia nueva; se puede corregir. */
+export interface SugerenciaReferenciaImagen {
+  readonly nombre: string;
+  readonly prompt: string;
+}
+
+/**
+ * Una imagen pedida a OpenAI. La foto que se subió y el resultado se piden aparte, con
+ * sesión: `/api/imagenes-ia/generaciones/:id/foto` y `…/:id/imagen` (esta, solo `lista`).
+ */
+export interface ImagenGenerada {
+  readonly id: number;
+  readonly referenciaId: number;
+  readonly referencia: string;
+  readonly promptExtra: string;
+  readonly calidad: CalidadImagenIa;
+  readonly estado: EstadoGeneracion;
+  /** Por qué no salió, si `estado` es `error`. */
+  readonly error: { readonly tipo: ErrorImagenIa; readonly mensaje: string } | null;
+  /** A qué producto se asignó, si `estado` es `asignada`. */
+  readonly producto: { readonly id: number; readonly nombre: string } | null;
+  readonly creadoEn: string;
+  readonly terminadoEn: string | null;
+}
+
+export interface EstadoImagenesIa {
+  /** Sin `OPENAI_API_KEY` no se puede generar nada. */
+  readonly configurado: boolean;
+  /**
+   * Desde cuándo OpenAI dice que no hay créditos (o que se llegó al tope de gasto):
+   * la última generación terminó así. `null` si la última salió bien.
+   */
+  readonly sinCreditosDesde: string | null;
 }
 
 export interface ListaVentas extends Paginado<VentaResumen> {

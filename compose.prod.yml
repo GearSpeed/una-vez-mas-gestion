@@ -94,6 +94,10 @@ services:
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:?Falta S3_ACCESS_KEY}
       S3_SECRET_KEY: ${S3_SECRET_KEY:?Falta S3_SECRET_KEY}
       IMAGENES_URL_PUBLICA: ${IMAGENES_URL_PUBLICA:?Falta IMAGENES_URL_PUBLICA}
+      # Imágenes con IA (opcional): sin llave, la sección dice que falta configurarla.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODELO_IMAGEN: ${OPENAI_MODELO_IMAGEN:-gpt-image-2.5-sunburst}
+      OPENAI_MODELO_TEXTO: ${OPENAI_MODELO_TEXTO:-gpt-6-luna}
       LOG_NIVEL: ${LOG_NIVEL:-info}
     depends_on:
       migraciones:

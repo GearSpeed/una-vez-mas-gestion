@@ -31,8 +31,11 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import {
+  CALIDADES_IMAGEN_IA,
   CANALES_VENTA,
+  ERRORES_IMAGEN_IA,
   ESTADOS_DOCUMENTO,
+  ESTADOS_GENERACION,
   METODOS_PAGO,
   TIPOS_CAPITAL,
   MOTIVOS_AJUSTE,
@@ -49,11 +52,14 @@ export const canalVenta = gestion.enum('canal_venta', CANALES_VENTA);
 export const metodoPago = gestion.enum('metodo_pago', METODOS_PAGO);
 export const tipoCapital = gestion.enum('tipo_capital', TIPOS_CAPITAL);
 export const estadoDocumento = gestion.enum('estado_documento', ESTADOS_DOCUMENTO);
+export const calidadImagenIa = gestion.enum('calidad_imagen_ia', CALIDADES_IMAGEN_IA);
+export const estadoGeneracion = gestion.enum('estado_generacion', ESTADOS_GENERACION);
+export const errorImagenIa = gestion.enum('error_imagen_ia', ERRORES_IMAGEN_IA);
 
 /* ---- piezas comunes ---- */
 
 const id = () => integer().primaryKey().generatedAlwaysAsIdentity();
-/** Bytes crudos: el QR de transferencia, que no va al bucket público. */
+/** Bytes crudos de lo que no va al bucket público: el QR y las imágenes con IA. */
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => 'bytea' });
 
 const ahora = () => timestamp({ withTimezone: true }).notNull().defaultNow();
@@ -718,6 +724,62 @@ export const qrTransferencia = gestion.table(
     actualizadoEn: ahora(),
   },
   () => [check('qr_transferencia_posicion', sql`posicion in (1, 2)`)],
+);
+
+/* -----------------------------------------------------------------------------
+   Imágenes con IA: referencias y lo que se le pidió a OpenAI
+
+   Las imágenes van aquí y no en el bucket: el bucket es público (lo sirve el
+   dominio de imágenes) y estas son borradores y fotos de trabajo. Al sitio solo
+   llega la que se asigna a un producto, por el camino normal de su foto.
+   -------------------------------------------------------------------------- */
+
+/** Una escena o un estilo: la imagen y el prompt que lo describe. Se desactiva, no se borra. */
+export const referenciasImagen = gestion.table('referencias_imagen', {
+  id: id(),
+  nombre: text().notNull(),
+  prompt: text().notNull(),
+  /** JPEG ya preparado para mandarse a OpenAI (sin metadatos, a lo más 1536 px). */
+  imagen: bytea().notNull(),
+  activa: boolean().notNull().default(true),
+  creadoEn: ahora(),
+  actualizadoEn: ahora(),
+});
+
+export const imagenesGeneradas = gestion.table(
+  'imagenes_generadas',
+  {
+    id: id(),
+    referenciaId: integer()
+      .notNull()
+      .references(() => referenciasImagen.id),
+    /** La foto del producto, preparada como la referencia. Se borra a los 30 días. */
+    foto: bytea(),
+    promptExtra: text().notNull().default(''),
+    /** El prompt completo que se mandó, para saber después qué se pidió. */
+    prompt: text().notNull(),
+    calidad: calidadImagenIa().notNull(),
+    modelo: text().notNull(),
+    estado: estadoGeneracion().notNull().default('generando'),
+    errorTipo: errorImagenIa(),
+    errorMensaje: text(),
+    /** El PNG que devolvió OpenAI. Se borra al asignarla (ya está en el bucket) o al descartarla. */
+    resultado: bytea(),
+    productoId: integer().references(() => productos.id),
+    creadoPor: integer()
+      .notNull()
+      .references(() => usuarios.id),
+    creadoEn: ahora(),
+    terminadoEn: timestamp({ withTimezone: true }),
+  },
+  (t) => [
+    index('imagenes_generadas_creado_en').on(t.creadoEn),
+    check(
+      'imagenes_generadas_error',
+      sql`(estado = 'error') = (error_tipo is not null and error_mensaje is not null)`,
+    ),
+    check('imagenes_generadas_producto', sql`(estado = 'asignada') = (producto_id is not null)`),
+  ],
 );
 
 /* -----------------------------------------------------------------------------

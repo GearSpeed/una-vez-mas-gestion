@@ -8,6 +8,7 @@
 export const PERMISOS = [
   'catalogo.ver',
   'productos.gestionar',
+  'imagenes.generar',
   'costos.ver',
   'proveedores.gestionar',
   'compras.ver',
@@ -37,6 +38,7 @@ export type Permiso = (typeof PERMISOS)[number];
 export const DESCRIPCION_PERMISOS: Readonly<Record<Permiso, string>> = {
   'catalogo.ver': 'Ver productos, precio y existencia',
   'productos.gestionar': 'Dar de alta productos, cambiar precios y publicarlos en el sitio',
+  'imagenes.generar': 'Generar fotos de producto con IA (gasta créditos de OpenAI)',
   'costos.ver': 'Ver costo promedio, márgenes y utilidad',
   'proveedores.gestionar': 'Administrar proveedores y vehículos',
   'compras.ver': 'Ver las compras y sus costos',

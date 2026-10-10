@@ -40,3 +40,11 @@ export class LimitePeticionesGuard extends ThrottlerGuard {
     return `ip:${ip}`;
   }
 }
+
+/**
+ * Cada imagen con IA cuesta créditos de OpenAI: un tope por si alguien deja el dedo
+ * en «Generar» (o un script lo hace por él).
+ */
+export const LIMITE_IMAGENES_IA = {
+  default: { limit: process.env['NODE_ENV'] === 'test' ? 1000 : 10, ttl: 60_000 },
+};

@@ -51,6 +51,36 @@ export function bolsaDe(metodo: MetodoPago): Bolsa {
 export const POSICIONES_QR = [1, 2] as const;
 export type PosicionQr = (typeof POSICIONES_QR)[number];
 
+/**
+ * Imágenes con IA. La calidad cambia el costo y el tiempo de cada imagen: «baja» es
+ * para probar ideas, «alta» para la foto final.
+ */
+export const CALIDADES_IMAGEN_IA = ['baja', 'media', 'alta'] as const;
+export type CalidadImagenIa = (typeof CALIDADES_IMAGEN_IA)[number];
+
+/** Una generación tarda hasta un par de minutos: mientras, está «generando». */
+export const ESTADOS_GENERACION = [
+  'generando',
+  'lista',
+  'error',
+  'asignada',
+  'descartada',
+] as const;
+export type EstadoGeneracion = (typeof ESTADOS_GENERACION)[number];
+
+/**
+ * Por qué no salió una imagen. Cada uno se le explica distinto a quien la pidió: no es
+ * lo mismo «se acabaron los créditos» que «la foto no pasó el filtro de contenido».
+ */
+export const ERRORES_IMAGEN_IA = [
+  'sin_creditos',
+  'limite',
+  'llave',
+  'moderacion',
+  'servicio',
+] as const;
+export type ErrorImagenIa = (typeof ERRORES_IMAGEN_IA)[number];
+
 /** El dinero de los socios: entra al negocio o sale de él. Nunca es venta ni gasto. */
 export const TIPOS_CAPITAL = ['aportacion', 'retiro'] as const;
 export type TipoCapital = (typeof TIPOS_CAPITAL)[number];
