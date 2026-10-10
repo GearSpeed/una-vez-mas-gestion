@@ -97,6 +97,7 @@ services:
       # Imágenes con IA (opcional): sin llave, la sección dice que falta configurarla.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODELO_IMAGEN: ${OPENAI_MODELO_IMAGEN:-gpt-image-2.5-sunburst}
+      OPENAI_MODELO_TEXTO: ${OPENAI_MODELO_TEXTO:-gpt-6-luna}
       LOG_NIVEL: ${LOG_NIVEL:-info}
     depends_on:
       migraciones:

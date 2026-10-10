@@ -446,6 +446,12 @@ export interface ReferenciaImagen {
   readonly actualizadoEn: string;
 }
 
+/** Lo que la IA sugiere al ver la imagen de una referencia nueva; se puede corregir. */
+export interface SugerenciaReferenciaImagen {
+  readonly nombre: string;
+  readonly prompt: string;
+}
+
 /**
  * Una imagen pedida a OpenAI. La foto que se subió y el resultado se piden aparte, con
  * sesión: `/api/imagenes-ia/generaciones/:id/foto` y `…/:id/imagen` (esta, solo `lista`).

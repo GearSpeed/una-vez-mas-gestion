@@ -194,7 +194,11 @@ probar lo que ve cada rol. Ese modo se niega a arrancar si `NODE_ENV=production`
   caché de Cloudflare; la base guarda solo la ruta, así que cambiar de dominio o de
   proveedor es cambiar una variable.
 - **Imágenes con IA** (`imagenes.generar`, solo el admin): se sube una **referencia** (la
-  escena: fondo, superficie, luz) con **su prompt**; al generar se elige una, se sube la
+  escena: fondo, superficie, luz) con **su prompt**. Al elegir su imagen, la IA la mira
+  (`POST /v1/responses`, modelo en `OPENAI_MODELO_TEXTO`, JSON Schema estricto) y
+  **sugiere el nombre y el prompt**: en una nueva llena lo que nadie ha tocado; lo ya
+  escrito, o lo de una referencia que ya existía, no se pisa y se ofrece «Usar la
+  sugerencia»; al generar se elige una, se sube la
   foto del producto, se le suma un complemento opcional y una calidad (baja, media o alta:
   a más calidad, más tiempo y más créditos). OpenAI (`POST /v1/images/edits`, modelo en
   `OPENAI_MODELO_IMAGEN`) recibe la referencia como imagen 1 y el producto como imagen 2,

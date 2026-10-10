@@ -25,6 +25,7 @@ import {
   type ImagenGenerada,
   type Producto,
   type ReferenciaImagen,
+  type SugerenciaReferenciaImagen,
 } from '@uvm/compartido';
 import { RequierePermiso, UsuarioActual } from '../acceso/decoradores.js';
 import { UsuarioSesion } from '../acceso/usuario-sesion.js';
@@ -66,6 +67,19 @@ export class ImagenesIaController {
     @UploadedFile() archivo: Archivo,
   ): Promise<ReferenciaImagen> {
     return this.ia.crearReferencia(usuario, datos, archivo?.buffer);
+  }
+
+  /**
+   * Multipart: `archivo`. La IA mira la imagen y sugiere `nombre` y `prompt`; no guarda
+   * nada (eso es `POST referencias`). Gasta créditos: mismo tope que generar.
+   */
+  @Post('referencias/sugerencia')
+  @RequierePermiso('imagenes.generar')
+  @HttpCode(200)
+  @Throttle(LIMITE_IMAGENES_IA)
+  @UseInterceptors(unaImagen('archivo'))
+  sugerirReferencia(@UploadedFile() archivo: Archivo): Promise<SugerenciaReferenciaImagen> {
+    return this.ia.sugerirReferencia(archivo?.buffer);
   }
 
   /** Multipart: `nombre`, `prompt` y, si se cambia, `archivo`. */

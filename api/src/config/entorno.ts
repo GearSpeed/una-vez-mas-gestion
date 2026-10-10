@@ -53,6 +53,8 @@ const esquemaEntorno = z
       // Vacía cuenta como no puesta: el compose de producción la pasa así si no está.
       .transform((llave) => llave || undefined),
     OPENAI_MODELO_IMAGEN: z.string().trim().min(1).default('gpt-image-2.5-sunburst'),
+    /** El que mira la imagen de una referencia y sugiere su nombre y su prompt. */
+    OPENAI_MODELO_TEXTO: z.string().trim().min(1).default('gpt-6-luna'),
     /** Otra base solo para las pruebas, que hablan con un OpenAI falso en la misma máquina. */
     OPENAI_URL_BASE: z
       .url()

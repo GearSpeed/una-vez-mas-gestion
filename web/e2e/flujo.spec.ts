@@ -728,6 +728,10 @@ test('una foto con IA: referencia, foto del producto, generar y asignar', async 
     mimeType: 'image/jpeg',
     buffer: await foto('#8a5a2b'),
   });
+  // La IA la mira y sugiere nombre y prompt; se pueden cambiar.
+  await expect(dialogo.getByLabel('Nombre')).toHaveValue('Mesa de madera sugerida');
+  await expect(dialogo.getByLabel('Prompt de la escena')).toHaveValue(/luz cálida de mañana/);
+  await expect(dialogo.getByText('Sugerido por la IA', { exact: false }).first()).toBeVisible();
   await dialogo.getByLabel('Nombre').fill(referencia);
   await dialogo
     .getByLabel('Prompt de la escena')

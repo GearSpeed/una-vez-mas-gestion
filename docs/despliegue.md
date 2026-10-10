@@ -125,6 +125,7 @@ tumba a los demás.
 | `IMAGENES_URL_PUBLICA`    | El dominio de las imágenes: `https://img.unavezmasmx.com` (ver abajo)          |
 | `OPENAI_API_KEY`          | Opcional: llave de OpenAI para «Imágenes con IA» (ver abajo)                   |
 | `OPENAI_MODELO_IMAGEN`    | Opcional: el modelo de imágenes; por omisión `gpt-image-2.5-sunburst`          |
+| `OPENAI_MODELO_TEXTO`     | Opcional: el que sugiere nombre y prompt de una referencia; `gpt-6-luna`       |
 | `IMAGEN`                  | La imagen exacta a desplegar: `…:<sha-del-commit>`, nunca `latest`             |
 | `COMPOSE_FILE`            | `compose.prod.yml`, para que `docker compose` a secas no tome el de desarrollo |
 

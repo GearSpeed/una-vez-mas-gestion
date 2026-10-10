@@ -1,5 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ClienteOpenAi, clasificarError } from './cliente-openai.js';
+import { ClienteOpenAi, clasificarError, type OpcionesClienteOpenAi } from './cliente-openai.js';
+
+const nuevoCliente = (opciones: Partial<OpcionesClienteOpenAi>) =>
+  new ClienteOpenAi({
+    llave: 'sk',
+    base: 'https://x.test/v1',
+    modeloImagen: 'modelo-imagen',
+    modeloTexto: 'modelo-texto',
+    ...opciones,
+  });
 
 const error = (code: string | null, type = 'invalid_request_error', message = 'algo') => ({
   error: { code, type, message },
@@ -57,12 +66,11 @@ describe('ClienteOpenAi', () => {
     const pedir = vi.fn<typeof fetch>(async () =>
       Response.json({ data: [{ b64_json: Buffer.from('png').toString('base64') }] }),
     );
-    const cliente = new ClienteOpenAi(
-      'sk-prueba',
-      'https://api.example.test/v1',
-      'modelo-x',
+    const cliente = nuevoCliente({
+      llave: 'sk-prueba',
+      base: 'https://api.example.test/v1',
       pedir,
-    );
+    });
     const resultado = await cliente.editar({ imagenes, prompt: 'Una mesa', calidad: 'media' });
 
     expect(resultado).toEqual({ ok: true, png: Buffer.from('png') });
@@ -70,7 +78,7 @@ describe('ClienteOpenAi', () => {
     expect(url).toBe('https://api.example.test/v1/images/edits');
     expect(opciones?.headers).toEqual({ Authorization: 'Bearer sk-prueba' });
     const cuerpo = opciones?.body as FormData;
-    expect(cuerpo.get('model')).toBe('modelo-x');
+    expect(cuerpo.get('model')).toBe('modelo-imagen');
     expect(cuerpo.get('prompt')).toBe('Una mesa');
     expect(cuerpo.get('quality')).toBe('medium');
     const enviadas = cuerpo.getAll('image[]') as File[];
@@ -85,7 +93,7 @@ describe('ClienteOpenAi', () => {
         { status: 429 },
       ),
     );
-    const cliente = new ClienteOpenAi('sk', 'https://x.test/v1', 'm', pedir);
+    const cliente = nuevoCliente({ pedir });
     const resultado = await cliente.editar({ imagenes, prompt: 'p', calidad: 'baja' });
     expect(resultado).toMatchObject({ ok: false, tipo: 'sin_creditos' });
   });
@@ -97,18 +105,98 @@ describe('ClienteOpenAi', () => {
           opciones?.signal?.addEventListener('abort', () => rechaza(opciones.signal?.reason));
         }),
     );
-    const cliente = new ClienteOpenAi('sk', 'https://x.test/v1', 'm', pedir, 20);
+    const cliente = nuevoCliente({ pedir, tiempoMaximo: 20 });
     const resultado = await cliente.editar({ imagenes, prompt: 'p', calidad: 'alta' });
     expect(resultado).toMatchObject({ ok: false, tipo: 'servicio' });
-    if (!resultado.ok) expect(resultado.mensaje).toMatch(/5 minutos/);
+    if (!resultado.ok) expect(resultado.mensaje).toMatch(/tardó más de 1 segundo/);
   });
 
   it('la llave nunca sale en el detalle del error', async () => {
     const pedir = vi.fn<typeof fetch>(async () => {
       throw new TypeError('fetch failed');
     });
-    const cliente = new ClienteOpenAi('sk-secreta', 'https://x.test/v1', 'm', pedir);
+    const cliente = nuevoCliente({ llave: 'sk-secreta', pedir });
     const resultado = await cliente.editar({ imagenes, prompt: 'p', calidad: 'media' });
     expect(JSON.stringify(resultado)).not.toContain('sk-secreta');
+  });
+});
+
+/** Lo que contesta `POST /responses`: un razonamiento y luego el mensaje. */
+function respuesta(contenido: object[]): Response {
+  return Response.json({
+    output: [{ type: 'reasoning' }, { type: 'message', content: contenido }],
+  });
+}
+
+describe('describirReferencia', () => {
+  it('manda la imagen con salida estructurada y regresa nombre y prompt', async () => {
+    const pedir = vi.fn<typeof fetch>(async () =>
+      respuesta([
+        {
+          type: 'output_text',
+          text: JSON.stringify({ nombre: ' Mesa de madera ', prompt: 'Luz cálida de mañana.' }),
+        },
+      ]),
+    );
+    const resultado = await nuevoCliente({ pedir }).describirReferencia(Buffer.from('jpg'));
+    expect(resultado).toEqual({
+      ok: true,
+      nombre: 'Mesa de madera',
+      prompt: 'Luz cálida de mañana.',
+    });
+
+    const [url, opciones] = pedir.mock.calls[0] ?? [];
+    expect(url).toBe('https://x.test/v1/responses');
+    const cuerpo = JSON.parse(opciones?.body as string);
+    expect(cuerpo.model).toBe('modelo-texto');
+    expect(cuerpo.text.format).toMatchObject({ type: 'json_schema', strict: true });
+    expect(cuerpo.input[0].content[1]).toEqual({
+      type: 'input_image',
+      image_url: `data:image/jpeg;base64,${Buffer.from('jpg').toString('base64')}`,
+    });
+  });
+
+  it('recorta lo que no cabe en el formulario', async () => {
+    const pedir = vi.fn<typeof fetch>(async () =>
+      respuesta([
+        { type: 'output_text', text: JSON.stringify({ nombre: 'x'.repeat(90), prompt: 'Luz.' }) },
+      ]),
+    );
+    const resultado = await nuevoCliente({ pedir }).describirReferencia(Buffer.from('jpg'));
+    expect(resultado.ok && resultado.nombre.length).toBe(60);
+  });
+
+  it('un rechazo o una respuesta que no es JSON no se cuelan como sugerencia', async () => {
+    const rechazo = vi.fn<typeof fetch>(async () =>
+      respuesta([{ type: 'refusal', refusal: 'No puedo ayudar con eso.' }]),
+    );
+    expect(
+      await nuevoCliente({ pedir: rechazo }).describirReferencia(Buffer.from('x')),
+    ).toMatchObject({
+      ok: false,
+      tipo: 'moderacion',
+    });
+    const roto = vi.fn<typeof fetch>(async () =>
+      respuesta([{ type: 'output_text', text: 'hola' }]),
+    );
+    expect(await nuevoCliente({ pedir: roto }).describirReferencia(Buffer.from('x'))).toMatchObject(
+      {
+        ok: false,
+        tipo: 'servicio',
+      },
+    );
+  });
+
+  it('sin créditos se explica igual que al generar', async () => {
+    const pedir = vi.fn<typeof fetch>(async () =>
+      Response.json(
+        { error: { code: 'credit_balance_exhausted', type: 'insufficient_quota' } },
+        { status: 429 },
+      ),
+    );
+    expect(await nuevoCliente({ pedir }).describirReferencia(Buffer.from('x'))).toMatchObject({
+      ok: false,
+      tipo: 'sin_creditos',
+    });
   });
 });

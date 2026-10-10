@@ -5,7 +5,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import type { ReferenciaImagen } from '@uvm/compartido';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import type { ReferenciaImagen, SugerenciaReferenciaImagen } from '@uvm/compartido';
 import { firstValueFrom } from 'rxjs';
 import { marcarErroresDelServidor, mensajeDeError } from '../../core/errores';
 import { ImagenPrivada } from './imagen-privada';
@@ -24,6 +25,7 @@ export type DatosDialogoReferencia = ReferenciaImagen | null;
     MatDialogModule,
     MatFormFieldModule,
     MatInputModule,
+    MatProgressBarModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -66,9 +68,24 @@ export type DatosDialogoReferencia = ReferenciaImagen | null;
           </div>
         </div>
 
+        <div class="sugerencia" aria-live="polite">
+          @if (sugiriendo()) {
+            <mat-progress-bar mode="indeterminate" aria-label="Analizando la imagen" />
+            <p class="ayuda">La IA está mirando la imagen para sugerir el nombre y el prompt…</p>
+          } @else if (avisoSugerencia()) {
+            <p class="ayuda">No se pudo sugerir: {{ avisoSugerencia() }} Escríbelos a mano.</p>
+          } @else if (sugerenciaPendiente()) {
+            <p class="ayuda">La IA tiene otra sugerencia para esta imagen.</p>
+            <button mat-button type="button" (click)="usarSugerencia()">Usar la sugerencia</button>
+          }
+        </div>
+
         <mat-form-field>
           <mat-label>Nombre</mat-label>
           <input matInput formControlName="nombre" maxlength="60" placeholder="Mesa de madera" />
+          @if (sugeridos().nombre) {
+            <mat-hint>Sugerido por la IA; cámbialo como quieras.</mat-hint>
+          }
           @if (formulario.controls.nombre.hasError('servidor')) {
             <mat-error>{{ formulario.controls.nombre.getError('servidor') }}</mat-error>
           } @else if (formulario.controls.nombre.invalid) {
@@ -85,9 +102,13 @@ export type DatosDialogoReferencia = ReferenciaImagen | null;
             maxlength="2000"
             placeholder="Sobre una mesa de madera clara, luz cálida de mañana, fondo desenfocado, estilo de foto de revista."
           ></textarea>
-          <mat-hint
-            >Se carga solo al elegir esta referencia; al generar se le puede sumar algo.</mat-hint
-          >
+          <mat-hint>
+            {{
+              sugeridos().prompt
+                ? 'Sugerido por la IA a partir de la imagen; cámbialo como quieras.'
+                : 'Se carga solo al elegir esta referencia; al generar se le puede sumar algo.'
+            }}
+          </mat-hint>
           @if (formulario.controls.prompt.hasError('servidor')) {
             <mat-error>{{ formulario.controls.prompt.getError('servidor') }}</mat-error>
           } @else if (formulario.controls.prompt.invalid) {
@@ -141,6 +162,17 @@ export type DatosDialogoReferencia = ReferenciaImagen | null;
     .controles p {
       margin: 0;
     }
+    .sugerencia {
+      display: grid;
+      gap: 0.25rem;
+      justify-items: start;
+    }
+    .sugerencia:empty {
+      display: none;
+    }
+    .sugerencia mat-progress-bar {
+      inline-size: 100%;
+    }
   `,
 })
 export class DialogoReferencia {
@@ -159,6 +191,15 @@ export class DialogoReferencia {
   protected readonly archivo = signal<File | null>(null);
   protected readonly vistaPrevia = signal<string | null>(null);
   protected readonly errorArchivo = signal<string | null>(null);
+  protected readonly sugiriendo = signal(false);
+  protected readonly sugerencia = signal<SugerenciaReferenciaImagen | null>(null);
+  protected readonly avisoSugerencia = signal<string | null>(null);
+  /** Qué campos llenó la IA (para decirlo junto al campo). */
+  protected readonly sugeridos = signal({ nombre: false, prompt: false });
+  /** Hay una sugerencia que no se aplicó (porque ya se había escrito algo). */
+  protected readonly sugerenciaPendiente = signal(false);
+  /** Si se elige otra imagen antes de que llegue la sugerencia, la vieja no se aplica. */
+  private pedidas = 0;
   protected readonly guardando = signal(false);
   protected readonly error = signal<string | null>(null);
 
@@ -177,6 +218,53 @@ export class DialogoReferencia {
     this.soltarVistaPrevia();
     this.archivo.set(archivo);
     this.vistaPrevia.set(URL.createObjectURL(archivo));
+    void this.sugerir(archivo);
+  }
+
+  /**
+   * La IA mira la imagen y sugiere nombre y prompt. En una referencia nueva llena los
+   * campos que nadie ha tocado; lo que ya se escribió no se pisa, y en una que ya
+   * existía tampoco: ahí se ofrece «Usar la sugerencia».
+   */
+  private async sugerir(archivo: File): Promise<void> {
+    const pedida = ++this.pedidas;
+    this.sugiriendo.set(true);
+    this.avisoSugerencia.set(null);
+    this.sugerenciaPendiente.set(false);
+    const formulario = new FormData();
+    formulario.append('archivo', archivo);
+    try {
+      const sugerencia = await firstValueFrom(
+        this.http.post<SugerenciaReferenciaImagen>(
+          '/api/imagenes-ia/referencias/sugerencia',
+          formulario,
+        ),
+      );
+      if (pedida !== this.pedidas) return;
+      this.sugerencia.set(sugerencia);
+      const libre = (campo: 'nombre' | 'prompt') => {
+        const control = this.formulario.controls[campo];
+        return control.value.trim() === '' || (!this.actual && !control.dirty);
+      };
+      const nombre = libre('nombre');
+      const prompt = libre('prompt');
+      if (nombre) this.formulario.controls.nombre.setValue(sugerencia.nombre);
+      if (prompt) this.formulario.controls.prompt.setValue(sugerencia.prompt);
+      this.sugeridos.set({ nombre, prompt });
+      this.sugerenciaPendiente.set(!nombre || !prompt);
+    } catch (error) {
+      if (pedida === this.pedidas) this.avisoSugerencia.set(mensajeDeError(error));
+    } finally {
+      if (pedida === this.pedidas) this.sugiriendo.set(false);
+    }
+  }
+
+  protected usarSugerencia(): void {
+    const sugerencia = this.sugerencia();
+    if (!sugerencia) return;
+    this.formulario.setValue({ nombre: sugerencia.nombre, prompt: sugerencia.prompt });
+    this.sugeridos.set({ nombre: true, prompt: true });
+    this.sugerenciaPendiente.set(false);
   }
 
   protected async guardar(): Promise<void> {

@@ -1,6 +1,7 @@
 import {
   ConflictException,
   ForbiddenException,
+  HttpException,
   Inject,
   Injectable,
   Logger,
@@ -26,7 +27,12 @@ import { ENTORNO, type Entorno } from '../config/entorno.js';
 import { type BaseDatos, DB } from '../db/conexion.js';
 import { imagenesGeneradas, productos, referenciasImagen } from '../db/esquema.js';
 import { prepararParaIa } from '../imagenes/procesar-imagen.js';
-import { ClienteOpenAi, type ResultadoEdicion } from './cliente-openai.js';
+import {
+  ClienteOpenAi,
+  type FalloOpenAi,
+  type ResultadoEdicion,
+  type SugerenciaReferencia,
+} from './cliente-openai.js';
 import { armarPrompt } from './prompt.js';
 
 /** Cuántas a la vez: cada una tiene en memoria sus imágenes y espera hasta minutos. */
@@ -37,6 +43,15 @@ const DIAS_DE_BORRADORES = 30;
 const RECIENTES = 12;
 
 const SIN_LLAVE = 'Falta configurar la llave de OpenAI (OPENAI_API_KEY) en el servidor.';
+
+/** Con qué estado HTTP sale cada fallo de OpenAI cuando se responde en el momento. */
+const ESTADO_DEL_FALLO: Readonly<Record<FalloOpenAi['tipo'], number>> = {
+  sin_creditos: 402,
+  limite: 429,
+  llave: 502,
+  moderacion: 422,
+  servicio: 502,
+};
 
 /**
  * Fotos de producto con IA: se elige una referencia (escena y prompt), se sube la foto
@@ -55,11 +70,12 @@ export class ImagenesIaService implements OnModuleInit {
     private readonly catalogo: ProductosService,
   ) {
     this.cliente = entorno.OPENAI_API_KEY
-      ? new ClienteOpenAi(
-          entorno.OPENAI_API_KEY,
-          entorno.OPENAI_URL_BASE,
-          entorno.OPENAI_MODELO_IMAGEN,
-        )
+      ? new ClienteOpenAi({
+          llave: entorno.OPENAI_API_KEY,
+          base: entorno.OPENAI_URL_BASE,
+          modeloImagen: entorno.OPENAI_MODELO_IMAGEN,
+          modeloTexto: entorno.OPENAI_MODELO_TEXTO,
+        })
       : null;
   }
 
@@ -148,6 +164,30 @@ export class ImagenesIaService implements OnModuleInit {
       return creada.id;
     });
     return this.referencia(id);
+  }
+
+  /**
+   * Mira la imagen de una referencia (antes de guardarla) y sugiere su nombre y su
+   * prompt, para que quien la sube solo los corrija. No guarda nada.
+   */
+  async sugerirReferencia(archivo: Buffer | undefined): Promise<SugerenciaReferencia> {
+    const cliente = this.cliente;
+    if (!cliente) throw new ServiceUnavailableException(SIN_LLAVE);
+    if (!archivo) {
+      throw new UnprocessableEntityException({
+        mensaje: 'Elige la imagen de referencia.',
+        campos: { archivo: 'Elige una imagen' },
+      });
+    }
+    const resultado = await cliente.describirReferencia(await prepararParaIa(archivo));
+    if (!resultado.ok) {
+      this.logger.warn(`No salió la sugerencia (${resultado.tipo}): ${resultado.detalle}`);
+      throw new HttpException(
+        { mensaje: resultado.mensaje, tipo: resultado.tipo },
+        ESTADO_DEL_FALLO[resultado.tipo],
+      );
+    }
+    return { nombre: resultado.nombre, prompt: resultado.prompt };
   }
 
   /** Nombre y prompt; la imagen, si viene, también. */

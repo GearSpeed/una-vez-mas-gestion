@@ -90,7 +90,10 @@ export default async function preparar(): Promise<() => Promise<void>> {
   };
 }
 
-/** Un OpenAI de mentiras: a cada imagen pedida contesta con un cuadro de color. */
+/**
+ * Un OpenAI de mentiras: a cada imagen pedida contesta con un cuadro de color, y a cada
+ * referencia que se le pide describir, con la misma sugerencia.
+ */
 async function openAiFalso() {
   const png = await sharp({
     create: { width: 1024, height: 1024, channels: 3, background: '#b7034d' },
@@ -101,6 +104,23 @@ async function openAiFalso() {
     solicitud.resume();
     solicitud.on('end', () => {
       respuesta.writeHead(200, { 'content-type': 'application/json' });
+      if (solicitud.url === '/v1/responses') {
+        const sugerencia = {
+          nombre: 'Mesa de madera sugerida',
+          prompt: 'Mesa de madera clara con luz cálida de mañana y fondo desenfocado.',
+        };
+        respuesta.end(
+          JSON.stringify({
+            output: [
+              {
+                type: 'message',
+                content: [{ type: 'output_text', text: JSON.stringify(sugerencia) }],
+              },
+            ],
+          }),
+        );
+        return;
+      }
       respuesta.end(JSON.stringify({ data: [{ b64_json: png.toString('base64') }] }));
     });
   });

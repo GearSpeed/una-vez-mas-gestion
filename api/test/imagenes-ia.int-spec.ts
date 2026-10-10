@@ -38,7 +38,9 @@ function openAiFalso() {
         autorizacion: solicitud.headers.authorization ?? '',
         cuerpo: Buffer.concat(partes).toString('latin1'),
       });
-      if (solicitud.url !== '/v1/images/edits') return responderJson(respuesta, 404, {});
+      if (solicitud.url !== '/v1/images/edits' && solicitud.url !== '/v1/responses') {
+        return responderJson(respuesta, 404, {});
+      }
       if (estado.modo === 'sin_creditos') {
         return responderJson(respuesta, 429, {
           error: {
@@ -57,6 +59,16 @@ function openAiFalso() {
           },
         });
       }
+      if (solicitud.url === '/v1/responses') {
+        return responderJson(respuesta, 200, {
+          output: [
+            {
+              type: 'message',
+              content: [{ type: 'output_text', text: JSON.stringify(SUGERENCIA) }],
+            },
+          ],
+        });
+      }
       return responderJson(respuesta, 200, { data: [{ b64_json: png.toString('base64') }] });
     });
   });
@@ -70,6 +82,11 @@ function openAiFalso() {
     cerrar: () => new Promise<void>((listo) => servidor.close(() => listo())),
   };
 }
+
+const SUGERENCIA = {
+  nombre: 'Mesa de madera rústica',
+  prompt: 'Mesa de madera con vetas marcadas, luz cálida lateral y fondo desenfocado.',
+};
 
 const REFERENCIA = {
   nombre: 'Mesa de madera',
@@ -168,6 +185,26 @@ describe('imágenes con IA', () => {
 
     expect((await como(app, ANA).get('/imagenes-ia/referencias')).status).toBe(403);
     expect((await como(app, CONSULTA).get('/imagenes-ia/estado')).status).toBe(403);
+  });
+
+  it('al subir una referencia, la IA sugiere su nombre y su prompt (sin guardar nada)', async () => {
+    const respuesta = await http()
+      .post('/referencias/sugerencia')
+      .attach('archivo', await imagen('#c8913c'), 'mesa.png');
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body).toEqual(SUGERENCIA);
+    // Le llegó la imagen ya preparada (JPEG), como data URL.
+    expect(openAi.estado.peticiones[0]?.cuerpo).toContain('data:image/jpeg;base64,');
+    expect((await como(app, ADMIN).get('/imagenes-ia/referencias')).body).toEqual([]);
+
+    openAi.estado.modo = 'sin_creditos';
+    const sinCreditos = await http()
+      .post('/referencias/sugerencia')
+      .attach('archivo', await imagen('#c8913c'), 'mesa.png');
+    expect(sinCreditos.status).toBe(402);
+    expect(sinCreditos.body.mensaje).toMatch(/créditos de OpenAI/);
+
+    expect((await http(ANA).post('/referencias/sugerencia')).status).toBe(403);
   });
 
   it('genera con la referencia y la foto, y la asigna a un producto', async () => {
