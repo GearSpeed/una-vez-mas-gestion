@@ -714,7 +714,8 @@ test('una foto con IA: referencia, foto del producto, generar y asignar', async 
 }, info) => {
   // Escritorio y celular comparten la BD: cada uno con su referencia y su producto.
   const referencia = `Mesa de madera (${info.project.name})`;
-  const producto = info.project.name === 'celular' ? 'Galletas de Coco' : 'Galletas de Chocolate';
+  const producto =
+    info.project.name === 'celular' ? 'Galletas de Coco' : 'Galletas de Chispas de Chocolate';
   await entrarComo(page, 'admin');
   await page.goto('/imagenes-ia');
   await esperarCarga(page);
