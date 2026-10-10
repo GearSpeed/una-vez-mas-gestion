@@ -211,6 +211,13 @@ probar lo que ve cada rol. Ese modo se niega a arrancar si `NODE_ENV=production`
   hay créditos** o que se llegó al **tope de gasto**, la pantalla lo avisa arriba, con desde
   cuándo y a dónde ir a recargar, hasta que una imagen vuelva a salir; la moderación, el
   límite de ritmo y una llave mala se explican cada uno con su mensaje.
+- **Ficha con IA** (diálogo del producto, `productos.gestionar`): con la foto ya guardada y
+  nombre, categoría, variedad y presentación, «Generar con IA» redacta resumen, descripción,
+  ingredientes y los textos de portada (`POST /api/productos/:id/ficha-ia`, modelo en
+  `OPENAI_MODELO_TEXTO`). Lleva lo que está en el formulario aunque no se haya guardado y,
+  como ejemplo del tono, hasta 3 fichas publicadas. Las instrucciones piden antojo sin
+  inventar nada (ni «sin gluten», ni premios, ni gramos). Reemplaza lo que había, con
+  «Deshacer»; los textos de portada solo si sale en portada. Nada se guarda hasta «Guardar».
 - **ID**: cada producto muestra su ID en la tabla y en su diálogo, y las búsquedas lo
   aceptan («12» encuentra el producto 12). Es el que llevará el código de barras.
 - **Precio**: sin precio no se vende (y el sitio dice «Consulta precio»). La ganancia

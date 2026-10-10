@@ -772,3 +772,43 @@ test('una foto con IA: referencia, foto del producto, generar y asignar', async 
   await expect(page.getByText(`Listo: ahora es la foto de ${producto}.`)).toBeVisible();
   await expect(page.locator('.resultado')).toContainText(`Ahora es la foto de ${producto}`);
 });
+
+test('la ficha del sitio se genera con IA y se puede deshacer', async ({ page }, info) => {
+  // Escritorio y celular comparten la BD: cada uno con su producto.
+  const producto =
+    info.project.name === 'celular' ? 'Borrachitos de Baileys' : 'Borrachitos de Ron';
+  await entrarComo(page, 'admin');
+  await page.goto('/productos');
+  await esperarCarga(page);
+
+  // Sin foto guardada no se puede: la IA la necesita.
+  await page.getByRole('button', { name: `Editar ${producto}` }).click();
+  let dialogo = page.getByRole('dialog');
+  const generar = dialogo.getByRole('button', { name: 'Generar con IA' });
+  await expect(generar).toBeDisabled();
+  await expect(dialogo.getByText('la foto (súbela y guarda)', { exact: false })).toBeVisible();
+  await dialogo.locator('input[type="file"]').setInputFiles({
+    name: `borrachitos-${info.project.name}.jpg`,
+    mimeType: 'image/jpeg',
+    buffer: await foto('#7a1f3d'),
+  });
+  await dialogo.getByLabel('Texto alternativo').fill(`${producto} en una charola`);
+  await dialogo.getByRole('button', { name: 'Guardar' }).click();
+  await expect(dialogo).toHaveCount(0);
+
+  // Con la foto guardada y los datos completos, la IA redacta la ficha.
+  await page.getByRole('button', { name: `Editar ${producto}` }).click();
+  dialogo = page.getByRole('dialog');
+  await dialogo.getByLabel('Variedad').fill('Ron');
+  await dialogo.getByLabel('Presentación').fill('10 pzas');
+  const resumen = dialogo.getByLabel('Resumen');
+  const antes = await resumen.inputValue();
+  await dialogo.getByRole('button', { name: 'Generar con IA' }).click();
+  await expect(resumen).toHaveValue('Un trago dulce que se deshace en la boca.');
+  await expect(dialogo.getByLabel('Descripción')).toHaveValue(/hechos a mano/);
+  await expect(dialogo.getByText('revísala antes de guardar', { exact: false })).toBeVisible();
+  await sinViolaciones(page);
+
+  await dialogo.getByRole('button', { name: 'Deshacer' }).click();
+  await expect(resumen).toHaveValue(antes);
+});

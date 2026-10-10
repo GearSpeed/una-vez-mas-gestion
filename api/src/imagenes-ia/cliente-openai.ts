@@ -1,4 +1,4 @@
-import type { CalidadImagenIa, ErrorImagenIa } from '@uvm/compartido';
+import type { CalidadImagenIa, ErrorImagenIa, FichaSugerida } from '@uvm/compartido';
 
 /** Una imagen sale en hasta ~2 minutos; con 5 se da por perdida. */
 const TIEMPO_MAXIMO = 5 * 60_000;
@@ -60,6 +60,23 @@ export interface SugerenciaReferencia {
 export type ResultadoDescripcion =
   ({ readonly ok: true } & SugerenciaReferencia) | ({ readonly ok: false } & FalloOpenAi);
 
+export interface DatosParaFicha {
+  readonly nombre: string;
+  readonly categoria: string;
+  readonly variedad: string;
+  readonly presentacion: string;
+}
+
+/** Una ficha que ya está en el sitio, para que la IA siga el mismo tono. */
+export interface EjemploFicha {
+  readonly nombre: string;
+  readonly resumen: string;
+  readonly descripcion: string;
+}
+
+export type ResultadoFicha =
+  { readonly ok: true; readonly ficha: FichaSugerida } | ({ readonly ok: false } & FalloOpenAi);
+
 export type ResultadoEdicion =
   { readonly ok: true; readonly png: Buffer } | ({ readonly ok: false } & FalloOpenAi);
 
@@ -102,6 +119,76 @@ function duracion(ms: number): string {
   }
   const segundos = Math.max(1, Math.round(ms / 1000));
   return `${segundos} ${segundos === 1 ? 'segundo' : 'segundos'}`;
+}
+
+/** Los topes de `esquemaProducto`: lo sugerido cabe tal cual en el formulario. */
+const LIMITES_FICHA = {
+  resumen: 160,
+  descripcion: 1000,
+  ingrediente: 40,
+  ingredientes: 12,
+  etiqueta: 40,
+  quip: 60,
+  texto: 160,
+} as const;
+
+/**
+ * Lo que se le pide para la ficha. Va al sitio, que es el embudo de ventas: tiene que
+ * dar antojo, pero sin inventar nada que el negocio no pueda sostener.
+ */
+function instruccionesFicha(producto: DatosParaFicha, ejemplos: readonly EjemploFicha[]): string {
+  const partes = [
+    'Eres quien escribe los textos de «Una Vez Más», una tienda de dulces artesanales',
+    'mexicanos (galletas, borrachitos, alegrías). Escribe la ficha del producto de la foto',
+    'para su sitio de ventas: al leerla tiene que dar antojo y ganas de comprarlo.',
+    '',
+    'El producto:',
+    `- Nombre: ${producto.nombre}`,
+    `- Categoría: ${producto.categoria}`,
+    `- Variedad: ${producto.variedad}`,
+    `- Presentación: ${producto.presentacion}`,
+    '',
+    'Escribe en español de México, cálido y cercano, en segunda persona cuando ayude. Habla',
+    'de textura, sabor, aroma, la ocasión y con quién compartirlo. Nada de exageraciones',
+    'vacías ni signos de exclamación en cada frase.',
+    '- resumen: una o dos líneas para la tarjeta del catálogo que inviten a abrir la ficha.',
+    '- descripcion: uno o dos párrafos para la página del producto; menciona la presentación.',
+    '- ingredientes: los que se ven en la foto o dice el nombre, en minúsculas; no inventes.',
+    '- destacadoEtiqueta: la píldora de la tarjeta de portada, como «Clásico» o «Para el café».',
+    '- destacadoQuip: un guiño breve que va junto a una estrellita, como «El favorito de la casa».',
+    '- destacadoTexto: una o dos líneas para la tarjeta de portada, distintas del resumen.',
+    'No inventes datos que no estén aquí ni en la foto: nada de «sin gluten», «orgánico»,',
+    '«sin conservadores», premios, años de tradición, gramos ni precios.',
+  ];
+  if (ejemplos.length) {
+    partes.push('', 'Así suenan otras fichas del sitio (sigue el tono, no las copies):');
+    for (const ejemplo of ejemplos) {
+      partes.push(`- ${ejemplo.nombre}: «${ejemplo.resumen}» ${ejemplo.descripcion}`);
+    }
+  }
+  return partes.join('\n');
+}
+
+function limpio(valor: unknown, largo: number): string {
+  return texto(valor).trim().slice(0, largo).trim();
+}
+
+/** Recorta en la última palabra completa que quepa, con «…», para no dejar media palabra. */
+function recortar(valor: unknown, largo: number): string {
+  const completo = texto(valor).trim();
+  if (completo.length <= largo) return completo;
+  const corte = completo.slice(0, largo - 1);
+  const espacio = corte.lastIndexOf(' ');
+  return `${(espacio > largo / 2 ? corte.slice(0, espacio) : corte).trimEnd()}…`;
+}
+
+function sinRespuestaUtil(detalle: string): { readonly ok: false } & FalloOpenAi {
+  return {
+    ok: false,
+    tipo: 'servicio',
+    mensaje: 'La IA no devolvió algo que se pueda usar. Intenta de nuevo o escríbelo a mano.',
+    detalle: `Respuesta inválida: ${detalle}`,
+  };
 }
 
 function texto(valor: unknown): string {
@@ -186,6 +273,103 @@ export class ClienteOpenAi {
    * estructurada (JSON Schema estricto): la respuesta trae justo esos dos campos.
    */
   async describirReferencia(imagen: Buffer): Promise<ResultadoDescripcion> {
+    const respuesta = await this.responderJson({
+      instrucciones: INSTRUCCIONES_REFERENCIA,
+      imagen: { datos: imagen, tipo: 'image/jpeg' },
+      nombre: 'referencia_de_escena',
+      propiedades: {
+        nombre: { type: 'string', description: 'De 2 a 5 palabras.' },
+        prompt: { type: 'string', description: 'De 2 a 4 frases.' },
+      },
+      maxTokens: 800,
+    });
+    if (!respuesta.ok) return respuesta;
+    const sugerencia = {
+      nombre: limpio(respuesta.json['nombre'], LARGO_NOMBRE),
+      prompt: limpio(respuesta.json['prompt'], LARGO_PROMPT),
+    };
+    if (!sugerencia.nombre || !sugerencia.prompt) return sinRespuestaUtil('Campos vacíos');
+    return { ok: true, ...sugerencia };
+  }
+
+  /**
+   * Redacta la ficha del sitio a partir de la foto y los datos del producto. Los
+   * `ejemplos` son fichas que ya están en el sitio: le dan el tono de la casa.
+   */
+  async redactarFicha(
+    producto: DatosParaFicha,
+    imagen: ImagenDeEntrada,
+    ejemplos: readonly EjemploFicha[],
+  ): Promise<ResultadoFicha> {
+    const respuesta = await this.responderJson({
+      instrucciones: instruccionesFicha(producto, ejemplos),
+      imagen,
+      nombre: 'ficha_de_producto',
+      propiedades: {
+        resumen: {
+          type: 'string',
+          description: `Una o dos líneas, máximo ${LIMITES_FICHA.resumen} caracteres.`,
+        },
+        descripcion: {
+          type: 'string',
+          description: `Uno o dos párrafos, máximo ${LIMITES_FICHA.descripcion} caracteres.`,
+        },
+        ingredientes: {
+          type: 'array',
+          items: { type: 'string' },
+          description: `De 2 a 6 ingredientes, cada uno de 1 a 3 palabras en minúsculas.`,
+        },
+        destacadoEtiqueta: { type: 'string', description: 'De 1 a 3 palabras.' },
+        destacadoQuip: { type: 'string', description: 'Una frase corta y simpática.' },
+        destacadoTexto: { type: 'string', description: 'Una o dos líneas.' },
+      },
+      maxTokens: 1500,
+    });
+    if (!respuesta.ok) return respuesta;
+    const json = respuesta.json;
+    const vistos = new Set<string>();
+    const ingredientes = (Array.isArray(json['ingredientes']) ? json['ingredientes'] : [])
+      .map((ingrediente) => limpio(ingrediente, LIMITES_FICHA.ingrediente))
+      .filter((ingrediente) => {
+        const clave = ingrediente.toLowerCase();
+        if (!ingrediente || vistos.has(clave)) return false;
+        vistos.add(clave);
+        return true;
+      })
+      .slice(0, LIMITES_FICHA.ingredientes);
+    const ficha = {
+      resumen: recortar(json['resumen'], LIMITES_FICHA.resumen),
+      descripcion: recortar(json['descripcion'], LIMITES_FICHA.descripcion),
+      ingredientes,
+      destacadoEtiqueta: limpio(json['destacadoEtiqueta'], LIMITES_FICHA.etiqueta),
+      destacadoQuip: recortar(json['destacadoQuip'], LIMITES_FICHA.quip),
+      destacadoTexto: recortar(json['destacadoTexto'], LIMITES_FICHA.texto),
+    };
+    if (!ficha.resumen || !ficha.descripcion) return sinRespuestaUtil('Sin resumen o descripción');
+    return { ok: true, ficha };
+  }
+
+  /**
+   * Una imagen y unas instrucciones a `POST /responses`, con salida estructurada:
+   * todas las `propiedades` son obligatorias y no puede venir ninguna otra. Separa un
+   * rechazo del modelo o una respuesta que no es JSON de una respuesta útil.
+   */
+  private async responderJson({
+    instrucciones,
+    imagen,
+    nombre,
+    propiedades,
+    maxTokens,
+  }: {
+    instrucciones: string;
+    imagen: Pick<ImagenDeEntrada, 'datos' | 'tipo'>;
+    nombre: string;
+    propiedades: Record<string, object>;
+    maxTokens: number;
+  }): Promise<
+    | { readonly ok: true; readonly json: Record<string, unknown> }
+    | ({ readonly ok: false } & FalloOpenAi)
+  > {
     const respuesta = await this.llamar(
       '/responses',
       {
@@ -196,10 +380,10 @@ export class ClienteOpenAi {
             {
               role: 'user',
               content: [
-                { type: 'input_text', text: INSTRUCCIONES_REFERENCIA },
+                { type: 'input_text', text: instrucciones },
                 {
                   type: 'input_image',
-                  image_url: `data:image/jpeg;base64,${imagen.toString('base64')}`,
+                  image_url: `data:${imagen.tipo};base64,${imagen.datos.toString('base64')}`,
                 },
               ],
             },
@@ -207,20 +391,17 @@ export class ClienteOpenAi {
           text: {
             format: {
               type: 'json_schema',
-              name: 'referencia_de_escena',
+              name: nombre,
               strict: true,
               schema: {
                 type: 'object',
                 additionalProperties: false,
-                required: ['nombre', 'prompt'],
-                properties: {
-                  nombre: { type: 'string', description: 'De 2 a 5 palabras.' },
-                  prompt: { type: 'string', description: 'De 2 a 4 frases.' },
-                },
+                required: Object.keys(propiedades),
+                properties: propiedades,
               },
             },
           },
-          max_output_tokens: 800,
+          max_output_tokens: maxTokens,
         }),
       },
       this.tiempoMaximoTexto,
@@ -232,31 +413,23 @@ export class ClienteOpenAi {
       const mensaje = item as { type?: unknown; content?: unknown[] };
       return mensaje.type === 'message' && Array.isArray(mensaje.content) ? mensaje.content : [];
     }) as { type?: unknown; text?: unknown; refusal?: unknown }[];
-    if (partes.some((parte) => parte.type === 'refusal')) {
+    const rechazo = partes.find((parte) => parte.type === 'refusal');
+    if (rechazo) {
       return {
         ok: false,
         tipo: 'moderacion',
-        mensaje: 'La IA no quiso describir esta imagen. Escribe el nombre y el prompt a mano.',
-        detalle: `Rechazo: ${texto(partes.find((p) => p.type === 'refusal')?.refusal)}`,
+        mensaje: 'La IA no quiso hacerlo con esta imagen. Escríbelo a mano.',
+        detalle: `Rechazo: ${texto(rechazo.refusal)}`,
       };
     }
     const json = texto(partes.find((parte) => parte.type === 'output_text')?.text);
     try {
-      const { nombre, prompt } = JSON.parse(json) as { nombre?: unknown; prompt?: unknown };
-      const limpio = (valor: unknown, largo: number) => texto(valor).trim().slice(0, largo).trim();
-      const sugerencia = {
-        nombre: limpio(nombre, LARGO_NOMBRE),
-        prompt: limpio(prompt, LARGO_PROMPT),
-      };
-      if (!sugerencia.nombre || !sugerencia.prompt) throw new Error('Campos vacíos');
-      return { ok: true, ...sugerencia };
+      const valor: unknown = JSON.parse(json);
+      if (!valor || typeof valor !== 'object' || Array.isArray(valor))
+        throw new Error('No es objeto');
+      return { ok: true, json: valor as Record<string, unknown> };
     } catch (error) {
-      return {
-        ok: false,
-        tipo: 'servicio',
-        mensaje: 'La IA no devolvió una sugerencia que se pueda usar. Escríbela a mano.',
-        detalle: `Respuesta inválida (${String(error)}): ${json.slice(0, 200)}`,
-      };
+      return sinRespuestaUtil(`${String(error)}: ${json.slice(0, 200)}`);
     }
   }
 

@@ -101,7 +101,8 @@ async function openAiFalso() {
     .png()
     .toBuffer();
   const servidor = createServer((solicitud, respuesta) => {
-    solicitud.resume();
+    const partes: Buffer[] = [];
+    solicitud.on('data', (parte: Buffer) => partes.push(parte));
     solicitud.on('end', () => {
       respuesta.writeHead(200, { 'content-type': 'application/json' });
       if (solicitud.url === '/v1/responses') {
@@ -109,12 +110,25 @@ async function openAiFalso() {
           nombre: 'Mesa de madera sugerida',
           prompt: 'Mesa de madera clara con luz cálida de mañana y fondo desenfocado.',
         };
+        const ficha = {
+          resumen: 'Un trago dulce que se deshace en la boca.',
+          descripcion: 'Borrachitos hechos a mano, para brindar en la sobremesa.',
+          ingredientes: ['azúcar', 'ron'],
+          destacadoEtiqueta: 'Para brindar',
+          destacadoQuip: 'El de las fiestas',
+          destacadoTexto: 'Dulce, suave y con su toque de ron.',
+        };
+        // La ficha y la sugerencia de una referencia se distinguen por el nombre del esquema.
+        const pedido = JSON.parse(Buffer.concat(partes).toString('utf8')) as {
+          text: { format: { name: string } };
+        };
+        const contenido = pedido.text.format.name === 'ficha_de_producto' ? ficha : sugerencia;
         respuesta.end(
           JSON.stringify({
             output: [
               {
                 type: 'message',
-                content: [{ type: 'output_text', text: JSON.stringify(sugerencia) }],
+                content: [{ type: 'output_text', text: JSON.stringify(contenido) }],
               },
             ],
           }),

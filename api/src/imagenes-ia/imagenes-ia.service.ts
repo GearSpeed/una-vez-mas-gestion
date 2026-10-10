@@ -1,7 +1,6 @@
 import {
   ConflictException,
   ForbiddenException,
-  HttpException,
   Inject,
   Injectable,
   Logger,
@@ -23,16 +22,16 @@ import { and, asc, count, desc, eq, inArray, isNotNull, lt, ne, sql } from 'driz
 import type { UsuarioSesion } from '../acceso/usuario-sesion.js';
 import { registrarEnBitacora } from '../comun/bitacora.js';
 import { ProductosService } from '../catalogo/productos.service.js';
-import { ENTORNO, type Entorno } from '../config/entorno.js';
 import { type BaseDatos, DB } from '../db/conexion.js';
 import { imagenesGeneradas, productos, referenciasImagen } from '../db/esquema.js';
 import { prepararParaIa } from '../imagenes/procesar-imagen.js';
 import {
-  ClienteOpenAi,
-  type FalloOpenAi,
+  type ClienteOpenAi,
   type ResultadoEdicion,
   type SugerenciaReferencia,
 } from './cliente-openai.js';
+import { falloHttp, SIN_LLAVE } from './fallos.js';
+import { OPENAI, type OpenAi } from './openai.provider.js';
 import { armarPrompt } from './prompt.js';
 
 /** Cuántas a la vez: cada una tiene en memoria sus imágenes y espera hasta minutos. */
@@ -41,17 +40,6 @@ const MAXIMO_EN_CURSO = 2;
 const DIAS_DE_BORRADORES = 30;
 /** Las que se ven en «Generadas recientemente». */
 const RECIENTES = 12;
-
-const SIN_LLAVE = 'Falta configurar la llave de OpenAI (OPENAI_API_KEY) en el servidor.';
-
-/** Con qué estado HTTP sale cada fallo de OpenAI cuando se responde en el momento. */
-const ESTADO_DEL_FALLO: Readonly<Record<FalloOpenAi['tipo'], number>> = {
-  sin_creditos: 402,
-  limite: 429,
-  llave: 502,
-  moderacion: 422,
-  servicio: 502,
-};
 
 /**
  * Fotos de producto con IA: se elige una referencia (escena y prompt), se sube la foto
@@ -66,17 +54,10 @@ export class ImagenesIaService implements OnModuleInit {
 
   constructor(
     @Inject(DB) private readonly db: BaseDatos,
-    @Inject(ENTORNO) entorno: Entorno,
+    @Inject(OPENAI) openAi: OpenAi,
     private readonly catalogo: ProductosService,
   ) {
-    this.cliente = entorno.OPENAI_API_KEY
-      ? new ClienteOpenAi({
-          llave: entorno.OPENAI_API_KEY,
-          base: entorno.OPENAI_URL_BASE,
-          modeloImagen: entorno.OPENAI_MODELO_IMAGEN,
-          modeloTexto: entorno.OPENAI_MODELO_TEXTO,
-        })
-      : null;
+    this.cliente = openAi.cliente;
   }
 
   /** Lo que quedó «generando» cuando la app se apagó ya no va a terminar. */
@@ -182,10 +163,7 @@ export class ImagenesIaService implements OnModuleInit {
     const resultado = await cliente.describirReferencia(await prepararParaIa(archivo));
     if (!resultado.ok) {
       this.logger.warn(`No salió la sugerencia (${resultado.tipo}): ${resultado.detalle}`);
-      throw new HttpException(
-        { mensaje: resultado.mensaje, tipo: resultado.tipo },
-        ESTADO_DEL_FALLO[resultado.tipo],
-      );
+      throw falloHttp(resultado);
     }
     return { nombre: resultado.nombre, prompt: resultado.prompt };
   }
