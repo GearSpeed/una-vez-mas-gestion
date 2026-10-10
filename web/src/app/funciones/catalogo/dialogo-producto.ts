@@ -16,9 +16,16 @@ import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/materia
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { type Categoria, indicadoresPrecio, type Producto, slugDe } from '@uvm/compartido';
+import {
+  type Categoria,
+  type FichaSugerida,
+  indicadoresPrecio,
+  type Producto,
+  slugDe,
+} from '@uvm/compartido';
 import { startWith } from 'rxjs';
 import { ApiService } from '../../core/api';
 import { marcarErroresDelServidor, mensajeDeError } from '../../core/errores';
@@ -52,6 +59,7 @@ export interface DatosDialogoProducto {
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
+    MatProgressBarModule,
     MatSelectModule,
     MatSlideToggleModule,
   ],
@@ -161,6 +169,84 @@ export class DialogoProducto {
 
   protected quitarIngrediente(nombre: string): void {
     this.ingredientes.update((lista) => lista.filter((i) => i !== nombre));
+  }
+
+  /* ---- ficha con IA ---- */
+
+  protected readonly redactando = signal(false);
+  protected readonly errorFicha = signal<string | null>(null);
+  /** Lo que había antes de generar, para «Deshacer». */
+  protected readonly copiaFicha = signal<FichaSugerida | null>(null);
+
+  /** Lo que le falta al producto para que la IA escriba su ficha, o `null` si nada. */
+  protected readonly faltaParaFicha = computed(() => {
+    const valor = this.valor();
+    const faltan = [
+      !this.base()?.imagen && 'la foto (súbela y guarda)',
+      !valor.nombre?.trim() && 'el nombre',
+      !valor.categoriaId && 'la categoría',
+      !valor.variedad?.trim() && 'la variedad',
+      !valor.presentacion?.trim() && 'la presentación',
+    ].filter((falta): falta is string => Boolean(falta));
+    return faltan.length ? faltan.join(', ') : null;
+  });
+
+  /**
+   * La IA redacta la ficha y reemplaza lo que había (que se guarda para «Deshacer»). Los
+   * textos de portada solo se tocan si el producto sale en portada. Nada se guarda
+   * hasta «Guardar».
+   */
+  protected async generarFicha(): Promise<void> {
+    const base = this.base();
+    if (!base || this.faltaParaFicha() || this.redactando()) return;
+    const valor = this.formulario.getRawValue();
+    this.redactando.set(true);
+    this.errorFicha.set(null);
+    try {
+      const ficha = await this.api.post<FichaSugerida>(`/productos/${base.id}/ficha-ia`, {
+        nombre: valor.nombre,
+        categoriaId: valor.categoriaId,
+        variedad: valor.variedad,
+        presentacion: valor.presentacion,
+        destacado: this.enPortada(),
+      });
+      this.copiaFicha.set({
+        resumen: valor.resumen,
+        descripcion: valor.descripcion,
+        ingredientes: this.ingredientes(),
+        destacadoEtiqueta: valor.destacadoEtiqueta,
+        destacadoQuip: valor.destacadoQuip,
+        destacadoTexto: valor.destacadoTexto,
+      });
+      this.aplicarFicha(ficha, this.enPortada());
+    } catch (error) {
+      this.errorFicha.set(mensajeDeError(error));
+    } finally {
+      this.redactando.set(false);
+    }
+  }
+
+  protected deshacerFicha(): void {
+    const copia = this.copiaFicha();
+    if (!copia) return;
+    this.aplicarFicha(copia, true);
+    this.copiaFicha.set(null);
+  }
+
+  private aplicarFicha(ficha: FichaSugerida, conPortada: boolean): void {
+    this.formulario.patchValue({
+      resumen: ficha.resumen,
+      descripcion: ficha.descripcion,
+      ...(conPortada
+        ? {
+            destacadoEtiqueta: ficha.destacadoEtiqueta,
+            destacadoQuip: ficha.destacadoQuip,
+            destacadoTexto: ficha.destacadoTexto,
+          }
+        : {}),
+    });
+    this.formulario.markAsDirty();
+    this.ingredientes.set([...ficha.ingredientes]);
   }
 
   protected cerrar(): void {

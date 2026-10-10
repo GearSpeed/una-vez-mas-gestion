@@ -200,3 +200,82 @@ describe('describirReferencia', () => {
     });
   });
 });
+
+/** Un `fetch` que contesta `POST /responses` con ese JSON. */
+function contesta(cuerpo: object) {
+  return vi.fn<typeof fetch>(async () =>
+    respuesta([{ type: 'output_text', text: JSON.stringify(cuerpo) }]),
+  );
+}
+
+describe('redactarFicha', () => {
+  const producto = {
+    nombre: 'Galletas de Avena',
+    categoria: 'Galletas',
+    variedad: 'Avena con pasas',
+    presentacion: '6 pzas',
+  };
+  const imagen = {
+    datos: Buffer.from('webp'),
+    nombre: 'producto.webp',
+    tipo: 'image/webp' as const,
+  };
+  const ficha = {
+    resumen: 'Crujientes por fuera, suaves por dentro.',
+    descripcion: 'Galletas de avena horneadas en casa.',
+    ingredientes: ['avena', 'pasas', 'Avena', ' ', 'canela'],
+    destacadoEtiqueta: 'Clásico',
+    destacadoQuip: 'Para el café de la tarde',
+    destacadoTexto: 'La de siempre, como en casa.',
+  };
+  it('manda la foto, los datos y los ejemplos, y limpia los ingredientes repetidos', async () => {
+    const pedir = contesta(ficha);
+    const resultado = await nuevoCliente({ pedir }).redactarFicha(producto, imagen, [
+      { nombre: 'Galletas de Nuez', resumen: 'Con nuez de verdad.', descripcion: 'Doraditas.' },
+    ]);
+    expect(resultado).toEqual({
+      ok: true,
+      ficha: { ...ficha, ingredientes: ['avena', 'pasas', 'canela'] },
+    });
+
+    const cuerpo = JSON.parse(pedir.mock.calls[0]?.[1]?.body as string);
+    expect(cuerpo.model).toBe('modelo-texto');
+    expect(cuerpo.text.format).toMatchObject({ name: 'ficha_de_producto', strict: true });
+    expect(cuerpo.text.format.schema.required).toEqual([
+      'resumen',
+      'descripcion',
+      'ingredientes',
+      'destacadoEtiqueta',
+      'destacadoQuip',
+      'destacadoTexto',
+    ]);
+    const [instrucciones, foto] = cuerpo.input[0].content;
+    expect(instrucciones.text).toContain('Variedad: Avena con pasas');
+    expect(instrucciones.text).toContain('Presentación: 6 pzas');
+    expect(instrucciones.text).toContain('Galletas de Nuez');
+    expect(instrucciones.text).toContain('sin gluten');
+    expect(foto.image_url).toMatch(/^data:image\/webp;base64,/);
+  });
+
+  it('lo que no cabe se recorta en una palabra completa, y a lo más 12 ingredientes', async () => {
+    const largo = Array.from({ length: 60 }, () => 'palabra').join(' ');
+    const pedir = contesta({
+      ...ficha,
+      resumen: largo,
+      ingredientes: Array.from({ length: 20 }, (_, i) => `ingrediente ${i}`),
+    });
+    const resultado = await nuevoCliente({ pedir }).redactarFicha(producto, imagen, []);
+    if (!resultado.ok) throw new Error('Debía salir');
+    expect(resultado.ficha.resumen.length).toBeLessThanOrEqual(160);
+    expect(resultado.ficha.resumen).toMatch(/palabra…$/);
+    expect(resultado.ficha.ingredientes).toHaveLength(12);
+  });
+
+  it('sin resumen o descripción no es una ficha', async () => {
+    const pedir = contesta({ ...ficha, descripcion: '  ' });
+    expect(await nuevoCliente({ pedir }).redactarFicha(producto, imagen, [])).toMatchObject({
+      ok: false,
+      tipo: 'servicio',
+    });
+  });
+});

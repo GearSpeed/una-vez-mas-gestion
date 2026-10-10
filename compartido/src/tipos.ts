@@ -446,6 +446,19 @@ export interface ReferenciaImagen {
   readonly actualizadoEn: string;
 }
 
+/**
+ * La ficha del sitio que redacta la IA a partir de la foto y los datos del producto. Ya
+ * viene dentro de los límites de `esquemaProducto`; no se guarda hasta «Guardar».
+ */
+export interface FichaSugerida {
+  readonly resumen: string;
+  readonly descripcion: string;
+  readonly ingredientes: readonly string[];
+  readonly destacadoEtiqueta: string;
+  readonly destacadoQuip: string;
+  readonly destacadoTexto: string;
+}
+
 /** Lo que la IA sugiere al ver la imagen de una referencia nueva; se puede corregir. */
 export interface SugerenciaReferenciaImagen {
   readonly nombre: string;

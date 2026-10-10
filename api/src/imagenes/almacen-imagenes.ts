@@ -1,6 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { DeleteObjectCommand, PutObjectCommand, type S3Client } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+  type S3Client,
+} from '@aws-sdk/client-s3';
 import {
   Inject,
   Injectable,
@@ -87,6 +92,20 @@ export class AlmacenImagenes implements OnModuleInit, OnModuleDestroy {
         ),
       ),
     );
+  }
+
+  /** La variante grande (WebP de 1200 px) de una imagen guardada, para mandársela a la IA. */
+  async leer(clave: string): Promise<Buffer> {
+    const cliente = this.cliente;
+    if (!cliente) {
+      this.logger.error('Faltan las variables S3_* e IMAGENES_URL_PUBLICA.');
+      throw new ServiceUnavailableException('No se pueden leer imágenes ahora mismo.');
+    }
+    const objeto = await cliente.send(
+      new GetObjectCommand({ Bucket: this.bucket, Key: claveDeVariante(clave, 'grande') }),
+    );
+    if (!objeto.Body) throw new ServiceUnavailableException('La foto del producto no está.');
+    return Buffer.from(await objeto.Body.transformToByteArray());
   }
 
   /** Borra las dos variantes de una imagen que se reemplazó o se quitó. */

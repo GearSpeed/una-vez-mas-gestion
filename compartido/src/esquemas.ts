@@ -353,6 +353,18 @@ export const esquemaGeneracionImagen = z.object({
   fotoDe: z.coerce.number().int().positive().optional(),
 });
 
+/**
+ * Lo que la IA necesita para redactar la ficha: lo que está en el formulario, aunque no
+ * se haya guardado. La foto la toma la API del producto ya guardado.
+ */
+export const esquemaFichaIa = z.object({
+  nombre: requerido(120),
+  categoriaId: esquemaId,
+  variedad: texto(80).min(1, 'Escribe la variedad'),
+  presentacion: texto(80).min(1, 'Escribe la presentación (piezas)'),
+  destacado: z.boolean().default(false),
+});
+
 export const esquemaAsignarImagenGenerada = z.object({
   productoId: z.number().int().positive('Elige un producto'),
   alt: esquemaImagenProducto.shape.alt,
@@ -642,6 +654,7 @@ export type DatosCancelacion = z.output<typeof esquemaCancelacion>;
 export type DatosReferenciaImagen = z.output<typeof esquemaReferenciaImagen>;
 export type DatosGeneracionImagen = z.output<typeof esquemaGeneracionImagen>;
 export type DatosAsignarImagenGenerada = z.output<typeof esquemaAsignarImagenGenerada>;
+export type DatosFichaIa = z.output<typeof esquemaFichaIa>;
 export type DatosUsuario = z.output<typeof esquemaUsuario>;
 export type DatosUbicacion = z.output<typeof esquemaUbicacion>;
 export type Periodo = z.output<typeof esquemaPeriodo>;

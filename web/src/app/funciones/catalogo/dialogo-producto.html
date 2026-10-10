@@ -117,6 +117,39 @@
 
     <fieldset class="ficha">
       <legend>Ficha para el sitio</legend>
+      <div class="ficha-ia">
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="generarFicha()"
+          [disabled]="!!faltaParaFicha() || redactando()"
+          aria-describedby="ficha-ia-ayuda"
+        >
+          <mat-icon aria-hidden="true">auto_awesome</mat-icon>
+          {{ redactando() ? 'Redactando…' : 'Generar con IA' }}
+        </button>
+        <p class="ayuda" id="ficha-ia-ayuda">
+          {{
+            faltaParaFicha()
+              ? 'Para generarla falta: ' + faltaParaFicha() + '.'
+              : 'La IA escribe la ficha con la foto, el nombre, la categoría, la variedad y la presentación.'
+          }}
+        </p>
+      </div>
+      <div class="ficha-ia-estado" aria-live="polite">
+        @if (redactando()) {
+          <mat-progress-bar mode="indeterminate" aria-label="Redactando la ficha" />
+          <p class="ayuda">La IA está redactando la ficha…</p>
+        } @else if (copiaFicha()) {
+          <p class="aviso-ia">
+            Ficha generada por la IA: revísala antes de guardar, sobre todo los ingredientes.
+          </p>
+          <button mat-button type="button" (click)="deshacerFicha()">Deshacer</button>
+        }
+        @if (errorFicha()) {
+          <p class="error-texto">{{ errorFicha() }}</p>
+        }
+      </div>
       <mat-form-field>
         <mat-label>Resumen</mat-label>
         <textarea
@@ -152,13 +185,14 @@
               </button>
             </mat-chip-row>
           }
-          <input
-            placeholder="avena, amaranto…"
-            [matChipInputFor]="rejillaIngredientes"
-            [matChipInputSeparatorKeyCodes]="[13, 188]"
-            (matChipInputTokenEnd)="agregarIngrediente($event)"
-          />
         </mat-chip-grid>
+        <!-- Fuera del grid: dentro de un role="grid" solo caben filas (axe). -->
+        <input
+          placeholder="avena, amaranto…"
+          [matChipInputFor]="rejillaIngredientes"
+          [matChipInputSeparatorKeyCodes]="[13, 188]"
+          (matChipInputTokenEnd)="agregarIngrediente($event)"
+        />
         <mat-hint>Enter o coma para agregar cada uno. Hasta 12.</mat-hint>
       </mat-form-field>
     </fieldset>

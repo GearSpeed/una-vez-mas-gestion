@@ -60,11 +60,16 @@ function openAiFalso() {
         });
       }
       if (solicitud.url === '/v1/responses') {
+        // La ficha y la sugerencia de una referencia se distinguen por el nombre del esquema.
+        const pedido = JSON.parse(Buffer.concat(partes).toString('utf8')) as {
+          text: { format: { name: string } };
+        };
+        const contenido = pedido.text.format.name === 'ficha_de_producto' ? FICHA : SUGERENCIA;
         return responderJson(respuesta, 200, {
           output: [
             {
               type: 'message',
-              content: [{ type: 'output_text', text: JSON.stringify(SUGERENCIA) }],
+              content: [{ type: 'output_text', text: JSON.stringify(contenido) }],
             },
           ],
         });
@@ -86,6 +91,15 @@ function openAiFalso() {
 const SUGERENCIA = {
   nombre: 'Mesa de madera rústica',
   prompt: 'Mesa de madera con vetas marcadas, luz cálida lateral y fondo desenfocado.',
+};
+
+const FICHA = {
+  resumen: 'Doraditas, con el dulzor del tejocote en cada mordida.',
+  descripcion: 'Galletas rellenas de mermelada de tejocote, para la merienda.',
+  ingredientes: ['tejocote', 'harina de trigo'],
+  destacadoEtiqueta: 'De temporada',
+  destacadoQuip: 'Sabor a posada',
+  destacadoTexto: 'El tejocote como nunca lo habías probado.',
 };
 
 const REFERENCIA = {
@@ -294,6 +308,54 @@ describe('imágenes con IA', () => {
 
     const sinFoto = await generar(referenciaId, { foto: false });
     expect(sinFoto.status).toBe(422);
+  });
+
+  it('la ficha del sitio: la redacta la IA con la foto guardada, sin guardar nada', async () => {
+    const datos = {
+      nombre: 'Galletas de Mermelada de Tejocote',
+      categoriaId: 1,
+      variedad: 'Mermelada de tejocote',
+      presentacion: '6 pzas',
+      destacado: false,
+    };
+    const pedir = (correo = ADMIN) =>
+      como(app, correo).post(`/productos/${IDS.tejocote}/ficha-ia`, datos);
+
+    // Sin foto no hay de dónde sacar la ficha.
+    const sinFoto = await pedir();
+    expect(sinFoto.status).toBe(422);
+    expect(sinFoto.body.mensaje).toMatch(/foto del producto/);
+
+    const subida = await request(app.getHttpServer())
+      .post(`/api/productos/${IDS.tejocote}/imagen`)
+      .set('X-Dev-Correo', ADMIN)
+      .set('Sec-Fetch-Site', 'same-origin')
+      .field('alt', 'Galletas de tejocote en un plato')
+      .attach('archivo', await imagen('#d9a441', 'jpeg'), 'tejocote.jpg');
+    expect(subida.status).toBe(201);
+
+    const respuesta = await pedir();
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body).toEqual(FICHA);
+    // Le llegaron la foto guardada (WebP) y los datos del formulario.
+    const peticion = openAi.estado.peticiones.at(-1)?.cuerpo ?? '';
+    expect(peticion).toContain('data:image/webp;base64,');
+    expect(peticion).toContain('Variedad: Mermelada de tejocote');
+    // No se guardó nada.
+    const producto = await como(app, ADMIN).get(`/productos/${IDS.tejocote}`);
+    expect(producto.body.resumen).not.toBe(FICHA.resumen);
+
+    openAi.estado.modo = 'sin_creditos';
+    const sinCreditos = await pedir();
+    expect(sinCreditos.status).toBe(402);
+    expect(sinCreditos.body.mensaje).toMatch(/créditos de OpenAI/);
+
+    expect((await pedir(ANA)).status).toBe(403);
+    const incompleta = await como(app, ADMIN).post(`/productos/${IDS.tejocote}/ficha-ia`, {
+      ...datos,
+      variedad: '',
+    });
+    expect(incompleta.status).toBe(422);
   });
 
   it('asignar cambia el sitio: hace falta también poder gestionar productos', async () => {

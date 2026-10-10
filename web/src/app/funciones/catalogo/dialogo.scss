@@ -69,3 +69,35 @@ fieldset {
   padding: 0.5rem 0;
   overflow-wrap: anywhere;
 }
+
+/* «Generar con IA» y lo que dice mientras redacta o ya redactó. */
+.ficha-ia {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  margin-block-end: 0.5rem;
+}
+
+.ficha-ia-estado {
+  display: grid;
+  gap: 0.25rem;
+  justify-items: start;
+  margin-block-end: 0.5rem;
+
+  &:empty {
+    display: none;
+  }
+
+  mat-progress-bar {
+    inline-size: 100%;
+  }
+}
+
+.aviso-ia {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--mat-sys-tertiary-container);
+  color: var(--mat-sys-on-tertiary-container);
+}
