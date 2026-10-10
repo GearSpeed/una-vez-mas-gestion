@@ -140,8 +140,11 @@ test('el análisis de ventas de Inicio pasa axe en cada pestaña', async ({ page
   await esperarCarga(page);
   // Va con @defer (on viewport): hasta que se ve no carga, y el escaneo de «/» no lo cubre.
   const seccion = page.locator('uvm-analisis-ventas');
-  await page.getByRole('heading', { name: 'Análisis de ventas' }).scrollIntoViewIfNeeded();
-  await expect(seccion).toBeVisible();
+  // El encabezado del marcador se reemplaza en cuanto se ve: se reintenta hasta que llega la sección.
+  await expect(async () => {
+    await page.getByRole('heading', { name: 'Análisis de ventas' }).scrollIntoViewIfNeeded();
+    await expect(seccion).toBeVisible({ timeout: 1000 });
+  }).toPass();
   await expect(seccion.locator('mat-progress-bar')).toHaveCount(0);
   // Sin ventas en la BD de prueba se ve el aviso; con ventas (las del flujo), las pestañas.
   const pestanas = seccion.getByRole('tab');
