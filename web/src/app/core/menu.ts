@@ -51,6 +51,11 @@ export function menuPara(sesion: Sesion, puede: Puede): EntradaMenu[] {
       ruta: '/productos',
       icono: 'sell',
     },
+    puede('imagenes.generar') && {
+      etiqueta: 'Imágenes con IA',
+      ruta: '/imagenes-ia',
+      icono: 'auto_awesome',
+    },
     puede('proveedores.gestionar') && {
       etiqueta: 'Proveedores',
       ruta: '/proveedores',

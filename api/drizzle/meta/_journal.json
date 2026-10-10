@@ -190,6 +190,20 @@
       "when": 1791495585677,
       "tag": "0026_sin_qr_en_la_cuenta",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1791663813773,
+      "tag": "0027_imagenes_con_ia",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1791663816686,
+      "tag": "0028_permisos_de_imagenes_con_ia",
+      "breakpoints": true
     }
   ]
 }

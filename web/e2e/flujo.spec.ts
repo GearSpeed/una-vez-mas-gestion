@@ -708,3 +708,62 @@ test('el simulador de venta calcula el desglose sin registrar nada', async ({ pa
   // No registró ninguna venta de verdad.
   await expect(page.getByText(/^Venta V-\d{6} registrada/)).toHaveCount(0);
 });
+
+test('una foto con IA: referencia, foto del producto, generar y asignar', async ({
+  page,
+}, info) => {
+  // Escritorio y celular comparten la BD: cada uno con su referencia y su producto.
+  const referencia = `Mesa de madera (${info.project.name})`;
+  const producto = info.project.name === 'celular' ? 'Galletas de Coco' : 'Galletas de Chocolate';
+  await entrarComo(page, 'admin');
+  await page.goto('/imagenes-ia');
+  await esperarCarga(page);
+
+  // 1. La referencia: su imagen, su nombre y su prompt.
+  await page.getByRole('button', { name: 'Agregar referencia' }).click();
+  let dialogo = page.getByRole('dialog');
+  await dialogo.locator('input[type="file"]').setInputFiles({
+    name: 'mesa.jpg',
+    mimeType: 'image/jpeg',
+    buffer: await foto('#8a5a2b'),
+  });
+  await dialogo.getByLabel('Nombre').fill(referencia);
+  await dialogo
+    .getByLabel('Prompt de la escena')
+    .fill('Sobre una mesa de madera clara, luz cálida de mañana, fondo desenfocado.');
+  await sinViolaciones(page);
+  await dialogo.getByRole('button', { name: 'Guardar' }).click();
+  await expect(dialogo).toHaveCount(0);
+  await page.getByRole('radio', { name: referencia }).check();
+  await expect(page.getByText('Sobre una mesa de madera clara')).toBeVisible();
+
+  // 2. La foto del producto, y 3. un complemento.
+  const generar = page.getByRole('button', { name: 'Generar imagen' });
+  await expect(generar).toBeDisabled();
+  await page.locator('#titulo-foto ~ .foto input[type="file"]').setInputFiles({
+    name: 'galletas.jpg',
+    mimeType: 'image/jpeg',
+    buffer: await foto('#f1e4c8'),
+  });
+  await page.getByLabel('Complemento (opcional)').fill('Con hojas de menta a un lado');
+  await page.locator('mat-button-toggle', { hasText: 'Baja' }).click();
+  await generar.click();
+
+  // El OpenAI de las pruebas contesta enseguida; el front pregunta cada 3 s.
+  const resultado = page.getByRole('img', {
+    name: `Imagen generada con la referencia ${referencia}`,
+  });
+  await expect(resultado).toBeVisible({ timeout: 20_000 });
+  await sinViolaciones(page);
+
+  // Asignarla: pasa a ser la foto del producto.
+  await page.getByRole('button', { name: 'Asignar a un producto' }).click();
+  dialogo = page.getByRole('dialog');
+  await dialogo.getByLabel('Producto').click();
+  await page.getByRole('option', { name: producto, exact: true }).click();
+  await dialogo.getByLabel('Texto alternativo').fill(`${producto} sobre una mesa de madera`);
+  await sinViolaciones(page);
+  await dialogo.getByRole('button', { name: 'Asignar' }).click();
+  await expect(page.getByText(`Listo: ahora es la foto de ${producto}.`)).toBeVisible();
+  await expect(page.locator('.resultado')).toContainText(`Ahora es la foto de ${producto}`);
+});

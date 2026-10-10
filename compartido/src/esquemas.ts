@@ -4,6 +4,7 @@
  */
 import { z } from 'zod';
 import {
+  CALIDADES_IMAGEN_IA,
   CANALES_VENTA,
   ESTADOS_DOCUMENTO,
   METODOS_PAGO,
@@ -329,6 +330,34 @@ export const esquemaQrTransferencia = z.object({
   titulo: z.string().trim().min(1, 'Escribe un título').max(40, 'Máximo 40 caracteres'),
 });
 
+/* ---- Imágenes con IA ---- */
+
+/** Una referencia: la escena o el estilo que se quiere, con el prompt que lo describe. */
+export const esquemaReferenciaImagen = z.object({
+  nombre: z.string().trim().min(1, 'Escribe un nombre').max(60, 'Máximo 60 caracteres'),
+  prompt: z
+    .string()
+    .trim()
+    .min(10, 'Describe la escena en al menos 10 caracteres')
+    .max(2000, 'Máximo 2000 caracteres'),
+});
+
+/**
+ * Multipart: la foto del producto va en `foto`, o se reusa la de una generación anterior
+ * con `fotoDe` (para «Generar otra vez» sin volver a subirla).
+ */
+export const esquemaGeneracionImagen = z.object({
+  referenciaId: z.coerce.number().int().positive('Elige una referencia'),
+  promptExtra: z.string().trim().max(1000, 'Máximo 1000 caracteres').default(''),
+  calidad: z.enum(CALIDADES_IMAGEN_IA).default('media'),
+  fotoDe: z.coerce.number().int().positive().optional(),
+});
+
+export const esquemaAsignarImagenGenerada = z.object({
+  productoId: z.number().int().positive('Elige un producto'),
+  alt: esquemaImagenProducto.shape.alt,
+});
+
 export const esquemaCancelacion = z.object({
   motivo: z.string().trim().min(3, 'Escribe el motivo').max(300),
 });
@@ -610,6 +639,9 @@ export type EntradaDatosTransferencia = z.output<typeof esquemaDatosTransferenci
 export type EntradaQrTransferencia = z.output<typeof esquemaQrTransferencia>;
 export type EntradaDevolucion = z.input<typeof esquemaDevolucion>;
 export type DatosCancelacion = z.output<typeof esquemaCancelacion>;
+export type DatosReferenciaImagen = z.output<typeof esquemaReferenciaImagen>;
+export type DatosGeneracionImagen = z.output<typeof esquemaGeneracionImagen>;
+export type DatosAsignarImagenGenerada = z.output<typeof esquemaAsignarImagenGenerada>;
 export type DatosUsuario = z.output<typeof esquemaUsuario>;
 export type DatosUbicacion = z.output<typeof esquemaUbicacion>;
 export type Periodo = z.output<typeof esquemaPeriodo>;

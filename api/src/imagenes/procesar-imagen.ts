@@ -117,3 +117,29 @@ export function procesarQr(original: Buffer): Promise<Buffer> {
 export function claveDeVariante(clave: string, variante: keyof typeof ANCHOS_IMAGEN): string {
   return `${clave}-${ANCHOS_IMAGEN[variante]}.webp`;
 }
+
+/** Lo más grande que se le manda a OpenAI: más no mejora el resultado y sí el tiempo. */
+export const LADO_MAXIMO_IA = 1536;
+
+/**
+ * Prepara una imagen para mandarla a OpenAI (una referencia o la foto del producto):
+ * mismas revisiones que una foto, enderezada, sin metadatos (el GPS de las fotos de
+ * celular no sale de aquí) y en JPEG de buena calidad, que pesa poco y no pierde el
+ * detalle de la etiqueta.
+ */
+export function prepararParaIa(original: Buffer): Promise<Buffer> {
+  return enCola(async () => {
+    const entrada = await abrir(original);
+    return entrada()
+      .rotate()
+      .resize({
+        width: LADO_MAXIMO_IA,
+        height: LADO_MAXIMO_IA,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .flatten({ background: '#ffffff' })
+      .jpeg({ quality: 92, mozjpeg: true })
+      .toBuffer();
+  });
+}

@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  esquemaAsignarImagenGenerada,
   esquemaDatosTransferencia,
   esquemaFiltroAnalisisExcel,
+  esquemaGeneracionImagen,
   esquemaNuevaCompra,
   esquemaNuevaVenta,
   esquemaImagenProducto,
   esquemaProducto,
+  esquemaReferenciaImagen,
   esquemaUsuario,
 } from './esquemas.js';
 
@@ -180,5 +183,41 @@ describe('esquemaFiltroAnalisisExcel', () => {
     for (const diasALlevar of ['0', '91', 'x', '2.5']) {
       expect(esquemaFiltroAnalisisExcel.safeParse({ diasALlevar }).success).toBe(false);
     }
+  });
+});
+
+describe('imágenes con IA', () => {
+  it('la generación llega en multipart: los números como texto, y por omisión calidad media', () => {
+    expect(esquemaGeneracionImagen.parse({ referenciaId: '3', fotoDe: '9' })).toEqual({
+      referenciaId: 3,
+      promptExtra: '',
+      calidad: 'media',
+      fotoDe: 9,
+    });
+    expect(esquemaGeneracionImagen.safeParse({ referenciaId: '3', calidad: 'max' }).success).toBe(
+      false,
+    );
+    expect(esquemaGeneracionImagen.safeParse({ referenciaId: '' }).success).toBe(false);
+  });
+
+  it('una referencia necesita nombre y un prompt que diga algo', () => {
+    expect(
+      esquemaReferenciaImagen.safeParse({ nombre: 'Mesa', prompt: 'Fondo blanco' }).success,
+    ).toBe(true);
+    expect(esquemaReferenciaImagen.safeParse({ nombre: ' ', prompt: 'Fondo blanco' }).success).toBe(
+      false,
+    );
+    expect(esquemaReferenciaImagen.safeParse({ nombre: 'Mesa', prompt: 'corto' }).success).toBe(
+      false,
+    );
+  });
+
+  it('asignar pide el producto y el texto alternativo, como subir la foto a mano', () => {
+    expect(esquemaAsignarImagenGenerada.safeParse({ productoId: 4, alt: 'ab' }).success).toBe(
+      false,
+    );
+    expect(
+      esquemaAsignarImagenGenerada.safeParse({ productoId: 4, alt: 'Galletas en la mesa' }).success,
+    ).toBe(true);
   });
 });

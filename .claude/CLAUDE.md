@@ -91,3 +91,13 @@ You are an expert in TypeScript, Angular, and scalable web application developme
   Con el motor del sistema: `DOCKER_HOST=unix:///var/run/docker.sock`.
 - `npm run e2e`: Playwright + axe (WCAG 2.1 AA) en escritorio y celular. Una pantalla
   nueva se agrega a `web/e2e/accesibilidad.spec.ts`.
+
+## Producción
+
+- Todo cambio se prueba primero en local (`npm run dev`, con Docker) y lo revisa el dueño
+  del proyecto antes de abrir el PR.
+- **Nada llega a producción sin su VoBo explícito para ese cambio**: no se fusiona a
+  `main`, no se despliega, no se cambia el `.env` ni se corre nada en el VPS. El PR se
+  queda abierto hasta que lo apruebe; fusionar a `main` publica la imagen, y desplegarla
+  es otro VoBo aparte.
+- La BD de producción solo se consulta en lectura y solo cuando el dueño lo pide.

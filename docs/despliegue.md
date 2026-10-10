@@ -123,6 +123,8 @@ tumba a los demás.
 | `S3_ACCESS_KEY`           | La _access key_ del token de R2, limitado a ese bucket                         |
 | `S3_SECRET_KEY`           | La _secret key_ de ese token                                                   |
 | `IMAGENES_URL_PUBLICA`    | El dominio de las imágenes: `https://img.unavezmasmx.com` (ver abajo)          |
+| `OPENAI_API_KEY`          | Opcional: llave de OpenAI para «Imágenes con IA» (ver abajo)                   |
+| `OPENAI_MODELO_IMAGEN`    | Opcional: el modelo de imágenes; por omisión `gpt-image-2.5-sunburst`          |
 | `IMAGEN`                  | La imagen exacta a desplegar: `…:<sha-del-commit>`, nunca `latest`             |
 | `COMPOSE_FILE`            | `compose.prod.yml`, para que `docker compose` a secas no tome el de desarrollo |
 
@@ -134,6 +136,11 @@ ejemplo, `openssl rand -hex 24`). El `.env` no sale del servidor y se cierra a s
 ```bash
 chmod 600 .env && chown "$USER:$USER" .env
 ```
+
+**La llave de OpenAI** sale de platform.openai.com → API keys. Conviene una sola para el
+gestor, dentro de un _proyecto_ de OpenAI con **tope de gasto mensual** (Limits): así una
+falla o un abuso no puede gastar más que eso. Cuando se acaban los créditos o se llega al
+tope, la sección lo dice con un aviso; se recarga en Billing y se vuelve a generar.
 
 Ese archivo tiene el token del túnel: con él, cualquiera puede levantar otra copia de
 `cloudflared` desde otra máquina y recibir tráfico ya autenticado. Trátalo como la llave

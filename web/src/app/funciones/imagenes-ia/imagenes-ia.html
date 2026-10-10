@@ -1,0 +1,321 @@
+<div class="pagina">
+  <uvm-encabezado
+    titulo="Imágenes con IA"
+    subtitulo="Fotos de producto a partir de una referencia, con OpenAI."
+  />
+
+  @if (estado.value(); as e) {
+    @if (!e.configurado) {
+      <div class="aviso alerta" role="alert">
+        <mat-icon aria-hidden="true">key_off</mat-icon>
+        <div>
+          <p><strong>Falta configurar la llave de OpenAI.</strong></p>
+          <p>
+            Sin <code>OPENAI_API_KEY</code> en el servidor no se puede generar. Mientras, sí puedes
+            preparar las referencias.
+          </p>
+        </div>
+      </div>
+    } @else if (e.sinCreditosDesde; as desde) {
+      <div class="aviso alerta" role="alert">
+        <mat-icon aria-hidden="true">money_off</mat-icon>
+        <div>
+          <p><strong>Se acabaron los créditos de OpenAI.</strong></p>
+          <p>
+            Desde el {{ desde | date: "d 'de' MMMM, HH:mm" }} OpenAI no deja generar: no hay saldo o
+            se llegó al tope de gasto. Recarga en
+            <a
+              href="https://platform.openai.com/settings/organization/billing/overview"
+              target="_blank"
+              rel="noopener"
+              >Billing de OpenAI</a
+            >
+            (o sube el tope en Limits) y genera otra vez: el aviso se quita solo.
+          </p>
+        </div>
+      </div>
+    }
+  }
+
+  <section class="tarjeta paso" aria-labelledby="titulo-referencias">
+    <div class="cabecera">
+      <h2 id="titulo-referencias">1. Elige una referencia</h2>
+      <button mat-stroked-button type="button" (click)="editarReferencia(null)">
+        <mat-icon aria-hidden="true">add_photo_alternate</mat-icon>
+        Agregar referencia
+      </button>
+    </div>
+    <uvm-estado-carga
+      [cargando]="referencias.isLoading()"
+      [error]="referencias.error()"
+      (reintentar)="referencias.reload()"
+    />
+    @if (referencias.value(); as lista) {
+      @if (lista.length) {
+        <fieldset class="referencias">
+          <legend class="visualmente-oculto">Referencia</legend>
+          @for (r of lista; track r.id) {
+            <div class="referencia" [class.elegida]="r.id === referenciaId()">
+              <label>
+                <input
+                  type="radio"
+                  name="referencia"
+                  [value]="r.id"
+                  [checked]="r.id === referenciaId()"
+                  (change)="elegirReferencia(r.id)"
+                />
+                <uvm-imagen-privada
+                  class="miniatura"
+                  [ruta]="'/api/imagenes-ia/referencias/' + r.id + '/imagen'"
+                  alt=""
+                />
+                <span class="nombre">{{ r.nombre }}</span>
+              </label>
+              <div class="acciones-referencia">
+                <button
+                  mat-icon-button
+                  type="button"
+                  (click)="editarReferencia(r)"
+                  [attr.aria-label]="'Editar la referencia ' + r.nombre"
+                >
+                  <mat-icon>edit</mat-icon>
+                </button>
+                <button
+                  mat-icon-button
+                  type="button"
+                  (click)="quitarReferencia(r)"
+                  [attr.aria-label]="'Quitar la referencia ' + r.nombre"
+                >
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+            </div>
+          }
+        </fieldset>
+      } @else {
+        <p class="ayuda">
+          Todavía no hay referencias. Sube una foto de la escena que quieres (el fondo, la mesa, la
+          luz) y describe el estilo: se usa para todas las fotos que generes con ella.
+        </p>
+      }
+    }
+  </section>
+
+  <section class="tarjeta paso" aria-labelledby="titulo-foto">
+    <h2 id="titulo-foto">2. Sube la foto de tu producto</h2>
+    <div class="foto">
+      <div class="marco">
+        @if (vistaPrevia(); as url) {
+          <img [src]="url" alt="Vista previa de la foto del producto" />
+        } @else if (fotoDe(); as id) {
+          <uvm-imagen-privada
+            [ruta]="'/api/imagenes-ia/generaciones/' + id + '/foto'"
+            alt="La foto del producto que se usó en la imagen anterior"
+          />
+        } @else {
+          <mat-icon class="relleno" aria-hidden="true">photo_camera</mat-icon>
+        }
+      </div>
+      <div class="controles">
+        <input
+          #selectorFoto
+          type="file"
+          class="visualmente-oculto"
+          accept="image/jpeg,image/png,image/webp"
+          tabindex="-1"
+          aria-hidden="true"
+          (change)="alElegirFoto($event)"
+        />
+        <button mat-stroked-button type="button" (click)="selectorFoto.click()">
+          {{ foto() || fotoDe() ? 'Cambiar foto' : 'Elegir foto' }}
+        </button>
+        @if (!foto() && fotoDe()) {
+          <p class="ayuda">Se usa la misma foto de la imagen anterior.</p>
+        }
+        <p class="ayuda">
+          Una foto clara del producto, de frente y con la etiqueta legible. JPG, PNG o WebP de hasta
+          10 MB.
+        </p>
+        @if (errorFoto()) {
+          <p class="error-texto" role="alert">{{ errorFoto() }}</p>
+        }
+      </div>
+    </div>
+  </section>
+
+  <section class="tarjeta paso" aria-labelledby="titulo-prompt">
+    <h2 id="titulo-prompt">3. Ajusta el prompt</h2>
+    @if (referencia(); as r) {
+      <div class="prompt-referencia">
+        <p class="etiqueta">El de «{{ r.nombre }}»</p>
+        <p>{{ r.prompt }}</p>
+      </div>
+    }
+    <mat-form-field>
+      <mat-label>Complemento (opcional)</mat-label>
+      <textarea
+        matInput
+        [formControl]="promptExtra"
+        rows="3"
+        maxlength="1000"
+        placeholder="Agrega unas hojas de menta a un lado; el empaque, un poco más cerca."
+      ></textarea>
+      <mat-hint>Se suma al prompt de la referencia solo para esta imagen.</mat-hint>
+    </mat-form-field>
+
+    <fieldset class="grupo">
+      <legend>Calidad</legend>
+      <mat-button-toggle-group
+        [value]="calidad()"
+        (change)="calidad.set($event.value)"
+        aria-label="Calidad"
+        [hideSingleSelectionIndicator]="true"
+      >
+        @for (c of calidades; track c) {
+          <mat-button-toggle [value]="c">{{ etiquetaCalidad[c] }}</mat-button-toggle>
+        }
+      </mat-button-toggle-group>
+      <p class="ayuda">
+        Baja: rápida y barata, para probar ideas. Alta: la mejor; tarda más y gasta más créditos.
+      </p>
+    </fieldset>
+
+    <div class="generar">
+      <button
+        mat-flat-button
+        type="button"
+        class="boton-generar"
+        (click)="generar()"
+        [disabled]="!!faltaParaGenerar() || enviando() || generando()"
+        aria-describedby="falta-para-generar"
+      >
+        <mat-icon aria-hidden="true">auto_awesome</mat-icon>
+        {{ enviando() ? 'Enviando…' : 'Generar imagen' }}
+      </button>
+      <p class="ayuda" id="falta-para-generar">{{ faltaParaGenerar() ?? '' }}</p>
+    </div>
+    @if (error()) {
+      <p class="error-texto" role="alert">{{ error() }}</p>
+    }
+  </section>
+
+  @if (actual(); as g) {
+    <section class="tarjeta resultado" aria-labelledby="titulo-resultado">
+      <h2 id="titulo-resultado">Resultado</h2>
+      <div aria-live="polite">
+        @switch (g.estado) {
+          @case ('generando') {
+            <mat-progress-bar mode="indeterminate" aria-label="Generando la imagen" />
+            <p>
+              Generando con calidad {{ etiquetaCalidad[g.calidad].toLowerCase() }}… puede tardar
+              hasta 2 minutos. Si sales de la página, la encuentras abajo en «Recientes».
+            </p>
+          }
+          @case ('lista') {
+            <uvm-imagen-privada
+              class="imagen-resultado"
+              [ruta]="'/api/imagenes-ia/generaciones/' + g.id + '/imagen'"
+              [alt]="'Imagen generada con la referencia ' + g.referencia"
+            />
+            <div class="acciones">
+              <button mat-flat-button type="button" (click)="asignar()">
+                <mat-icon aria-hidden="true">sell</mat-icon>
+                Asignar a un producto
+              </button>
+              <button
+                mat-stroked-button
+                type="button"
+                (click)="generar()"
+                [disabled]="!!faltaParaGenerar() || enviando()"
+              >
+                <mat-icon aria-hidden="true">refresh</mat-icon>
+                Generar otra vez
+              </button>
+              <button mat-button type="button" (click)="descartar()">Descartar</button>
+            </div>
+          }
+          @case ('error') {
+            <div class="aviso alerta">
+              <mat-icon aria-hidden="true">error</mat-icon>
+              <p>{{ g.error?.mensaje }}</p>
+            </div>
+            <div class="acciones">
+              <button
+                mat-stroked-button
+                type="button"
+                (click)="generar()"
+                [disabled]="!!faltaParaGenerar() || enviando()"
+              >
+                Intentar de nuevo
+              </button>
+              <button mat-button type="button" (click)="descartar()">Descartar</button>
+            </div>
+          }
+          @case ('asignada') {
+            <p>
+              <span class="estado bien"
+                ><mat-icon aria-hidden="true">check</mat-icon> Asignada</span
+              >
+              Ahora es la foto de <strong>{{ g.producto?.nombre }}</strong
+              >.
+            </p>
+          }
+          @default {
+            <p class="ayuda">Esta imagen se descartó.</p>
+          }
+        }
+      </div>
+    </section>
+  }
+
+  @if (recientes.value(); as lista) {
+    @if (lista.length) {
+      <section class="tarjeta" aria-labelledby="titulo-recientes">
+        <h2 id="titulo-recientes">Recientes</h2>
+        <ul class="recientes">
+          @for (g of lista; track g.id) {
+            <li [class.vista]="g.id === actual()?.id">
+              <div class="miniatura">
+                @if (g.estado === 'lista') {
+                  <uvm-imagen-privada
+                    [ruta]="'/api/imagenes-ia/generaciones/' + g.id + '/imagen'"
+                    alt=""
+                  />
+                } @else {
+                  <mat-icon aria-hidden="true">{{
+                    g.estado === 'error'
+                      ? 'error'
+                      : g.estado === 'asignada'
+                        ? 'check_circle'
+                        : 'hourglass_top'
+                  }}</mat-icon>
+                }
+              </div>
+              <div class="datos">
+                <span>{{ g.referencia }}</span>
+                <span class="ayuda">{{ g.creadoEn | date: 'd MMM, HH:mm' }}</span>
+                <span
+                  class="estado"
+                  [class.alerta]="g.estado === 'error'"
+                  [class.bien]="g.estado === 'asignada'"
+                >
+                  {{ etiquetaEstado[g.estado] }}{{ g.producto ? ': ' + g.producto.nombre : '' }}
+                </span>
+              </div>
+              <button
+                mat-button
+                type="button"
+                (click)="ver(g)"
+                [attr.aria-label]="
+                  'Ver la imagen de ' + g.referencia + ' del ' + (g.creadoEn | date: 'd MMM, HH:mm')
+                "
+              >
+                Ver
+              </button>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+  }
+</div>

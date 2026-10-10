@@ -1,6 +1,9 @@
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { resolve } from 'node:path';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
+import sharp from 'sharp';
 import { GenericContainer, Wait } from 'testcontainers';
 
 // Playwright carga este archivo como CommonJS (web/ no es "type": "module").
@@ -38,6 +41,7 @@ export default async function preparar(): Promise<() => Promise<void>> {
     .start();
   const base = `${contenedor.getHost()}:${contenedor.getPort()}/gestion`;
   const s3 = await minio;
+  const openAi = await openAiFalso();
   const urlMinio = `http://${s3.getHost()}:${s3.getMappedPort(9000)}`;
 
   const entorno = {
@@ -57,6 +61,10 @@ export default async function preparar(): Promise<() => Promise<void>> {
     S3_ACCESS_KEY: 'pruebas',
     S3_SECRET_KEY: 'pruebas-secreto',
     IMAGENES_URL_PUBLICA: `${urlMinio}/imagenes`,
+    // Nunca el OpenAI de verdad: la API carga el `.env` de la raíz, que puede traer una
+    // llave real, pero no pisa lo que ya viene aquí.
+    OPENAI_API_KEY: 'sk-e2e-falsa',
+    OPENAI_URL_BASE: openAi.url,
   };
   const api = resolve(RAIZ, 'api/dist');
   execFileSync('node', [resolve(api, 'cli/migrar.js')], { env: entorno, stdio: 'inherit' });
@@ -77,8 +85,28 @@ export default async function preparar(): Promise<() => Promise<void>> {
 
   return async () => {
     servidor.kill();
+    openAi.servidor.close();
     await Promise.all([contenedor.stop(), s3.stop()]);
   };
+}
+
+/** Un OpenAI de mentiras: a cada imagen pedida contesta con un cuadro de color. */
+async function openAiFalso() {
+  const png = await sharp({
+    create: { width: 1024, height: 1024, channels: 3, background: '#b7034d' },
+  })
+    .png()
+    .toBuffer();
+  const servidor = createServer((solicitud, respuesta) => {
+    solicitud.resume();
+    solicitud.on('end', () => {
+      respuesta.writeHead(200, { 'content-type': 'application/json' });
+      respuesta.end(JSON.stringify({ data: [{ b64_json: png.toString('base64') }] }));
+    });
+  });
+  await new Promise<void>((listo) => servidor.listen(0, '127.0.0.1', listo));
+  const { port } = servidor.address() as AddressInfo;
+  return { servidor, url: `http://127.0.0.1:${port}/v1` };
 }
 
 async function esperar(url: string): Promise<void> {

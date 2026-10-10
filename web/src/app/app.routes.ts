@@ -95,6 +95,13 @@ export const routes: Routes = [
         loadComponent: () => import('./funciones/catalogo/productos').then((m) => m.Productos),
       },
       {
+        path: 'imagenes-ia',
+        title: 'Imágenes con IA',
+        canMatch: [requierePermiso('imagenes.generar')],
+        loadComponent: () =>
+          import('./funciones/imagenes-ia/imagenes-ia').then((m) => m.ImagenesIa),
+      },
+      {
         path: 'proveedores',
         title: 'Proveedores y vehículos',
         canMatch: [requierePermiso('proveedores.gestionar')],

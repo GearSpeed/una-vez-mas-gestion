@@ -1,0 +1,245 @@
+.paso {
+  display: grid;
+  gap: 0.75rem;
+}
+
+h2 {
+  margin: 0;
+  font: var(--mat-sys-title-medium);
+  font-family: 'Outfit', sans-serif;
+}
+
+.cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/** Avisos que no se pueden pasar por alto: sin llave o sin créditos. */
+.aviso {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.75rem 1rem;
+  border-radius: 1rem;
+  background: var(--mat-sys-surface-container-high);
+
+  p {
+    margin: 0 0 0.25rem;
+  }
+
+  &.alerta {
+    background: var(--mat-sys-error-container);
+    color: var(--mat-sys-on-error-container);
+
+    a {
+      color: inherit;
+      font-weight: 600;
+    }
+  }
+}
+
+/* ---- referencias ---- */
+
+.referencias {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 10rem), 1fr));
+}
+
+.referencia {
+  position: relative;
+  display: grid;
+  border: 2px solid var(--mat-sys-outline-variant);
+  border-radius: 1rem;
+  overflow: hidden;
+  background: var(--mat-sys-surface-container-lowest);
+
+  &.elegida {
+    border-color: var(--mat-sys-primary);
+    background: var(--mat-sys-primary-container);
+    color: var(--mat-sys-on-primary-container);
+  }
+
+  &:has(input:focus-visible) {
+    outline: 3px solid var(--mat-sys-primary);
+    outline-offset: 2px;
+  }
+
+  label {
+    display: grid;
+    cursor: pointer;
+  }
+
+  input {
+    position: absolute;
+    inset-block-start: 0.5rem;
+    inset-inline-start: 0.5rem;
+    inline-size: 1.25rem;
+    block-size: 1.25rem;
+    margin: 0;
+    accent-color: var(--mat-sys-primary);
+  }
+
+  .miniatura {
+    aspect-ratio: 1;
+  }
+
+  .nombre {
+    padding: 0.5rem 0.75rem 0;
+    font: var(--mat-sys-title-small);
+  }
+}
+
+.acciones-referencia {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ---- foto ---- */
+
+.foto {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 10rem) minmax(0, 1fr);
+  align-items: start;
+}
+
+.marco {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: 1rem;
+  overflow: hidden;
+  background: var(--mat-sys-surface-container);
+
+  img,
+  uvm-imagen-privada {
+    inline-size: 100%;
+    block-size: 100%;
+    object-fit: cover;
+  }
+
+  .relleno {
+    font-size: 2.5rem;
+    inline-size: 2.5rem;
+    block-size: 2.5rem;
+    color: var(--mat-sys-on-surface-variant);
+  }
+}
+
+.controles {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+}
+
+/* ---- prompt ---- */
+
+.prompt-referencia {
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: var(--mat-sys-surface-container);
+
+  p {
+    margin: 0;
+  }
+
+  .etiqueta {
+    font: var(--mat-sys-label-large);
+    color: var(--mat-sys-on-surface-variant);
+    margin-block-end: 0.25rem;
+  }
+}
+
+.grupo {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+
+  legend {
+    font: var(--mat-sys-label-large);
+    padding: 0 0 0.5rem;
+  }
+}
+
+.generar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+}
+
+.boton-generar {
+  min-height: 3rem;
+  padding-inline: 1.5rem;
+}
+
+/* ---- resultado ---- */
+
+.resultado {
+  display: grid;
+  gap: 0.75rem;
+
+  p {
+    margin: 0.5rem 0;
+  }
+}
+
+.imagen-resultado {
+  inline-size: min(100%, 32rem);
+  aspect-ratio: 1;
+  border-radius: 1rem;
+  margin-block-end: 0.75rem;
+}
+
+/* ---- recientes ---- */
+
+.recientes {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+
+  li {
+    display: grid;
+    grid-template-columns: 3.5rem minmax(0, 1fr) auto;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.5rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--mat-sys-outline-variant);
+
+    &.vista {
+      border-color: var(--mat-sys-primary);
+    }
+  }
+
+  .miniatura {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: var(--mat-sys-surface-container);
+
+    uvm-imagen-privada {
+      inline-size: 100%;
+      block-size: 100%;
+    }
+  }
+
+  .datos {
+    display: grid;
+    gap: 0.125rem;
+    justify-items: start;
+  }
+}

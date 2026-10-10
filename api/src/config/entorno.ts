@@ -42,6 +42,27 @@ const esquemaEntorno = z
       .url()
       .transform((url) => url.replace(/\/+$/, ''))
       .optional(),
+    /**
+     * Llave de la API de OpenAI para las imágenes con IA. Sin ella, la app funciona
+     * pero la sección dice que falta configurarla. Nunca se escribe en el log.
+     */
+    OPENAI_API_KEY: z
+      .string()
+      .trim()
+      .optional()
+      // Vacía cuenta como no puesta: el compose de producción la pasa así si no está.
+      .transform((llave) => llave || undefined),
+    OPENAI_MODELO_IMAGEN: z.string().trim().min(1).default('gpt-image-2.5-sunburst'),
+    /** Otra base solo para las pruebas, que hablan con un OpenAI falso en la misma máquina. */
+    OPENAI_URL_BASE: z
+      .url()
+      .refine(
+        (url) =>
+          url.startsWith('https://') || /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(url),
+        'Debe ser https',
+      )
+      .transform((url) => url.replace(/\/+$/, ''))
+      .default('https://api.openai.com/v1'),
     /** Peticiones por minuto y por usuario (o por IP si no hay sesión). */
     LIMITE_PETICIONES: z.coerce.number().int().positive().default(300),
     LOG_NIVEL: z
